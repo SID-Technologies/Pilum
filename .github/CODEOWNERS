@@ -1,0 +1,4 @@
+# Code owners for specific directories
+
+/cmd @danflannel
+/lib @danflannel

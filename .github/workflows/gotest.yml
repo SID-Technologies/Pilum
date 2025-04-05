@@ -1,0 +1,20 @@
+name: Go Tests
+# Run this separately from pre-commit for nice visual coverage.
+
+on:
+  workflow_call:
+
+jobs:
+  gotest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Install dependencies
+        run: go mod tidy
+      - name: Run tests
+        run: go test -timeout=5m -race -tags=verify_logs ./...

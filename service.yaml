@@ -1,0 +1,17 @@
+# Basic service configuration
+name: hello-world-service           # Name of the service (used for container naming)
+provider: homebrew                  # Cloud provider to deploy to
+
+# Build configuration
+build:
+  go_version: "1.23"     # Go version to use (useful if you need different versions)
+  cmd: "go build -o ./dist"
+  env_vars:
+    CGO_ENABLED: '0'
+    GOOS: linux
+    GOARCH: amd64
+  flags:
+    ldflags:
+      - "-s"
+      - "-w"
+      - "-extldflags '-static'"
