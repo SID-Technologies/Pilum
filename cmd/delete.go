@@ -1,40 +1,51 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/sid-technologies/centurion/lib/errors"
 	"github.com/spf13/cobra"
 )
 
 var deleteBuildsCmd = &cobra.Command{
 	Use:   "delete-builds",
 	Short: "Delete all builds",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Deleting all builds...")
-		deleteBuilds()
+	RunE: func(_ *cobra.Command, _ []string) error {
+		log.Println("Deleting all builds...")
+		err := deleteBuilds()
+		if err != nil {
+			return errors.Wrap(err, "error deleting builds")
+		}
+
+		log.Println("All builds deleted successfully.")
+
+		return nil
 	},
 }
 
-func deleteBuilds() {
-	fmt.Println("Deleting all builds...")
+func deleteBuilds() error {
+	log.Println("Deleting all builds...")
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsDir() && info.Name() == "dist" {
-			fmt.Printf("Removing: %s\n", path)
+			log.Printf("Removing: %s\n", path)
 			return os.RemoveAll(path)
 		}
+
 		return nil
 	})
 	if err != nil {
-		fmt.Printf("Error deleting builds: %v\n", err)
-		os.Exit(1)
+		return errors.Wrap(err, "error deleting builds")
 	}
+
+	return nil
 }
 
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(deleteBuildsCmd)
 }

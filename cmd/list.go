@@ -1,23 +1,23 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
-	// "your-module-name/internal/executor"
 )
 
 var listServicesCmd = &cobra.Command{
 	Use:   "list-services",
 	Short: "List all services with their configuration",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Listing all services...")
+	Run: func(_ *cobra.Command, _ []string) {
+		log.Println("Listing all services...")
 		// if err := executor.ExecutePythonScript("-m", "scripts.list_services"); err != nil {
 		// 	fmt.Printf("Error listing services: %v\n", err)
 		// }
 	},
 }
 
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(listServicesCmd)
 }

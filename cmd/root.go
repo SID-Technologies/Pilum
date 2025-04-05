@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -10,7 +10,7 @@ import (
 
 var configFile string
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "cli",
 	Short: "A brief description of your application",
@@ -23,12 +23,14 @@ to quickly create a Cobra application.`,
 }
 
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+	err := rootCmd.Execute()
+	if err != nil {
+		log.Println(err)
 		os.Exit(1)
 	}
 }
 
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	cobra.OnInitialize(initConfig)
 }
@@ -41,6 +43,6 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using configuration file: ", viper.ConfigFileUsed())
+		log.Println("Using configuration file: ", viper.ConfigFileUsed())
 	}
 }

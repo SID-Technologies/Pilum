@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 
+	"github.com/sid-technologies/centurion/lib/errors"
+	serviceinfo "github.com/sid-technologies/centurion/lib/service_info"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -12,32 +14,35 @@ func PushCmd() *cobra.Command {
 		Use:   "push [services...]",
 		Short: "Push services (pushes to registry), runs build and publish",
 		Long:  "push one or more services or all services if none specified",
-		PreRun: func(cmd *cobra.Command, args []string) {
-			viper.BindPFlag("tag", cmd.Flags().Lookup("tag"))
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			tag := viper.GetString("tag")
-
-			if len(args) > 0 {
-				// push specific services
-				fmt.Printf("pushing services: %v with tag %s\n", args, tag)
-				for _, service := range args {
-					// Logic here for each service
-					fmt.Printf("  pushing service %s\n", service)
-				}
-			} else {
-				// push all services
-				fmt.Printf("pushing all services with tag %s\n", tag)
-				// Logic here for all services
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			err := bindFlagsForDeploymentCommands(cmd)
+			if err != nil {
+				return errors.Wrap(err, "error binding flags for deployment commands: %v")
 			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tag := viper.GetString("tag")
+			services, err := serviceinfo.FindAndFilterServices(".", args)
+			if err != nil {
+				return errors.Wrap(err, "error finding services: %v", err.Error())
+			}
+			for _, service := range services {
+				// Logic here for each service
+				log.Printf("  Deploying service %s %s\n", service.Name, tag)
+			}
+
+			return nil
 		},
 	}
 
-	cmd.Flags().StringP("tag", "t", "latest", "Tag for the services")
+	cmdFlagStrings(cmd)
 
 	return cmd
 }
 
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(PushCmd())
 }

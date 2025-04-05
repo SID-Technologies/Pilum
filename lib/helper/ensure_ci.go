@@ -10,5 +10,6 @@ func EnsureCIEnvironment() bool {
 		print("❌ Error: Deployment should only be executed in a CI/CD pipeline!")
 		return false
 	}
+
 	return true
 }
