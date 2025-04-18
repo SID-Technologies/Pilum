@@ -67,8 +67,10 @@ func (s *ServiceInfo) Validate() error {
 func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	rt := mapFromAny(config["runtime"])
 	// service  := mapFromAny(config["service"])
-	runtime := RuntimeConfig{
-		Service: rt["service"].(string),
+	runtime := RuntimeConfig{}
+
+	if rt["service"] != nil {
+		runtime.Service = rt["service"].(string)
 	}
 
 	// env vars conversions
@@ -88,8 +90,8 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	}
 
 	return &ServiceInfo{
-		Name:     config["name"].(string),
-		Template: config["template"].(string),
+		Name:     getString(config, "name", ""),
+		Template: getString(config, "template", ""),
 		Path:     path,
 		Config:   config,
 		Runtime:  runtime,

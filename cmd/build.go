@@ -42,7 +42,7 @@ func BuildCmd() *cobra.Command {
 	return cmd
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(BuildCmd())
 }

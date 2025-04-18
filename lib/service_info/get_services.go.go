@@ -14,8 +14,12 @@ func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "error finding services")
 	}
+	if len(filter) == 0 {
+		return services, nil
+	}
+	log.Printf("Found %d before filtering", len(services))
 	filtered := FilterServices(filter, services)
-
+	log.Printf("Filtered services down to %d", len(services))
 	return filtered, nil
 }
 
@@ -23,8 +27,12 @@ func FindServices(root string) ([]ServiceInfo, error) {
 	var services []ServiceInfo
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || filepath.Base(path) != "service.yaml" {
+		if err != nil {
 			return errors.Wrap(err, "error walking %s", path)
+		}
+
+		if info.IsDir() || filepath.Base(path) != "service.yaml" {
+			return nil
 		}
 
 		content, err := os.ReadFile(path)
@@ -50,7 +58,11 @@ func FindServices(root string) ([]ServiceInfo, error) {
 		return nil
 	})
 
-	return services, errors.Wrap(err, "error walking %s", root)
+	if err != nil {
+		return nil, errors.Wrap(err, "error walking %s", root)
+	}
+
+	return services, nil
 }
 
 func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {

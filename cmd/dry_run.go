@@ -28,7 +28,7 @@ func DryRunCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
-
+			log.Printf("Dry Run Executing")
 			for _, service := range services {
 				// Logic here for each service
 				log.Printf("  Dry run for service %s with tag %s\n", service.Name, tag)
@@ -43,7 +43,7 @@ func DryRunCmd() *cobra.Command {
 	return cmd
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(DryRunCmd())
 }
