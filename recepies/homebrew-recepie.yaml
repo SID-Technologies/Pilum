@@ -1,0 +1,18 @@
+name: homebrew
+description: Package for Homebrew
+provider: homebrew
+platform: package
+steps:
+  - name: build
+    execution_mode: root
+    timeout: 60
+    
+  - name: archive
+    command: ["tar", "-czf", "${name}-${build.version}.tar.gz", "${name}"]
+    execution_mode: root
+    timeout: 30
+    
+  - name: shasum
+    command: ["sh", "-c", "shasum -a 256 ${name}-${build.version}.tar.gz > ${name}.sha256"]
+    execution_mode: root
+    timeout: 10

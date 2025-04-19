@@ -1,0 +1,21 @@
+# aws-lambda-recepie.yaml
+name: aws-lambda
+description: Deploy to AWS Lambda
+provider: aws
+platform: serverless
+steps:
+  - name: build
+    command: ["sam", "build"]
+    execution_mode: service_dir
+    timeout: 120
+    
+  - name: package
+    command: ["sam", "package", "--s3-bucket", "${project}-deployments", "--region", "${region}"]
+    execution_mode: service_dir
+    timeout: 180
+    
+  - name: deploy
+    command: ["sam", "deploy", "--stack-name", "${name}", "--region", "${region}", "--no-confirm-changeset"]
+    execution_mode: service_dir
+    timeout: 240
+    retries: 1

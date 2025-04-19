@@ -14,14 +14,17 @@ type Secrets struct {
 	Value string `yaml:"value"`
 }
 
+type BuildFlag struct {
+	Name   string   `yaml:"name"`   // e.g., "ldflags", "gcflags"
+	Values []string `yaml:"values"` // e.g., ["-s", "-w"]
+}
+
 type BuildConfig struct {
-	Language string    `yaml:"language"`
-	Version  string    `yaml:"version"`
-	Cmd      string    `yaml:"cmd"`
-	EnvVars  []EnvVars `yaml:"env_vars"`
-	Flags    struct {
-		Ldflags []string `yaml:"ldflags"`
-	} `yaml:"flags"`
+	Language string      `yaml:"language"`
+	Version  string      `yaml:"version"`
+	Cmd      string      `yaml:"cmd"`
+	EnvVars  []EnvVars   `yaml:"env_vars"`
+	Flags    []BuildFlag `yaml:"flags"`
 }
 
 type RuntimeConfig struct {
