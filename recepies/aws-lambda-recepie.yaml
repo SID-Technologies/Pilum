@@ -2,18 +2,35 @@
 name: aws-lambda
 description: Deploy to AWS Lambda
 provider: aws
-platform: serverless
+service: lambda
+
+required_fields:
+  - name: region
+    description: AWS region to deploy to
+    type: string
+    default: us-east-1
+
+  - name: project
+    description: Project name
+    type: string
+    default: my-project
+
+  - name: stack_name
+    description: CloudFormation stack name
+    type: string
+    default: my-stack
+
 steps:
   - name: build
     command: ["sam", "build"]
     execution_mode: service_dir
     timeout: 120
-    
+
   - name: package
     command: ["sam", "package", "--s3-bucket", "${project}-deployments", "--region", "${region}"]
     execution_mode: service_dir
     timeout: 180
-    
+
   - name: deploy
     command: ["sam", "deploy", "--stack-name", "${name}", "--region", "${region}", "--no-confirm-changeset"]
     execution_mode: service_dir

@@ -45,39 +45,13 @@ type ServiceInfo struct {
 
 ### Notes
 
-Service Type Notes:
-- should I add a service type, what if people have different kinds of services?
-- then I should exeecute commands in a different order
-- For each type I could have a command set list (aka a config for commands)
-
-
-Docker Images:
-- build executable
-- create image
-- push to location
-
-
-Brew:
-- build
-- commit in assigned repo?
-- publish merge cr?
-
-
-GCP Cloud Run:
-- build
-- create images
-- push to location (registry)
-- publish to cloudrun
-
-
-Service type logic:
-- get type of each service
-- create a command executor for that type 
-- add commands to that type ie. dry run commands
-- run each executor in order (GCP Cloud run executor, Brew executor)
-
-I think I want the above logic unsure if I need the below logic:
-
+In order to execute the commands I need some sort of wrapper it needs to do the following:
+- load all the recepies with steps in order
+- create and load the command registry
+- search for the the service.yamls
+- create a recepie for each service type we have found
+- generate the commands for each step
+-
 
 Determine what to build notes:
 - should I determine what services to build or leave that in the eye of the beholder (whoever attatches this to their repo?)

@@ -45,7 +45,7 @@ func deleteBuilds() error {
 	return nil
 }
 
-// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(deleteBuildsCmd)
 }

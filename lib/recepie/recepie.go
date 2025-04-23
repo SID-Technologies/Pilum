@@ -1,14 +1,14 @@
 package recepie
 
 import (
-	"github.com/sid-technologies/centurion/lib/executor"
+	"github.com/sid-technologies/centurion/lib/worker_queue"
 )
 
 type Recipe struct {
 	Name        string       `yaml:"name"`
 	Description string       `yaml:"description"`
 	Provider    string       `yaml:"provider"`
-	Platform    string       `yaml:"platform"`
+	Service     string       `yaml:"service"`
 	Steps       []RecipeStep `yaml:"steps"`
 }
 
@@ -20,5 +20,5 @@ type RecipeStep struct {
 	Timeout       int               `yaml:"timeout,omitempty"`
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
-	CommandQueue  executor.WorkQueue
+	CommandQueue  worker_queue.WorkQueue
 }

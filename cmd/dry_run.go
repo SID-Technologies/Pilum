@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"log"
-
+	"github.com/rs/zerolog/log"
 	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/centurion/lib/recepie"
 	serviceinfo "github.com/sid-technologies/centurion/lib/service_info"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,13 +25,16 @@ func DryRunCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			tag := viper.GetString("tag")
 			services, err := serviceinfo.FindAndFilterServices(".", args)
+			// load all recepies
+			recepie.LoadRecipesFromDirectory("./recepies")
+
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
-			log.Printf("Dry Run Executing")
+			log.Info().Msgf("Dry Run Executing")
 			for _, service := range services {
 				// Logic here for each service
-				log.Printf("  Dry run for service %s with tag %s\n", service.Name, tag)
+				log.Info().Msgf("Dry run for service %s with tag %s\n", service.Name, tag)
 			}
 
 			return nil
@@ -43,7 +46,7 @@ func DryRunCmd() *cobra.Command {
 	return cmd
 }
 
-// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(DryRunCmd())
 }

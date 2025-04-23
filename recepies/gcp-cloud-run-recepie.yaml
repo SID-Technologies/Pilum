@@ -2,20 +2,37 @@
 name: gcp-cloud-run
 description: Deploy to Google Cloud Run
 provider: gcp
-platform: serverless
+service: cloud_run
+
+required_fields:
+  - name: project
+    description: GCP project ID
+    type: string
+    default: my-gcp-project
+
+  - name: region
+    description: GCP region to deploy to
+    type: string
+    default: us-central1
+
+  - name: service_name
+    description: Cloud Run service name
+    type: string
+    default: my-cloud-run-service
+
 steps:
   - name: build binary
     execution_mode: service_dir
     timeout: 300
-  
+
   - name: build docker image
     execution_mode: service_dir
     timeout: 300
-  
+
   - name: publish to registry
     execution_mode: root
     timeout: 120
-    
+
   - name: deploy to cloud run
     execution_mode: root
     timeout: 180

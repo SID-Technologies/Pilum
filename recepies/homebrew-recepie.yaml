@@ -1,17 +1,34 @@
 name: homebrew
 description: Package for Homebrew
 provider: homebrew
-platform: package
+service: package
+
+required_fields:
+  - name: project
+    description: Project name
+    type: string
+    default: my-project
+
+  - name: version
+    description: Version of the package
+    type: string
+    default: 1.0.0
+
+  - name: build_version
+    description: Build version of the package
+    type: string
+    default: 1.0.0
+
 steps:
   - name: build
     execution_mode: root
     timeout: 60
-    
+
   - name: archive
     command: ["tar", "-czf", "${name}-${build.version}.tar.gz", "${name}"]
     execution_mode: root
     timeout: 30
-    
+
   - name: shasum
     command: ["sh", "-c", "shasum -a 256 ${name}-${build.version}.tar.gz > ${name}.sha256"]
     execution_mode: root
