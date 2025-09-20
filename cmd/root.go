@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/sid-technologies/centurion/lib/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -33,6 +35,14 @@ func Execute() {
 //nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	cobra.OnInitialize(initConfig)
+	defaultHelpFunc := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		if cmd.Parent() == nil {
+			banner := output.PrintBanner(version)
+			fmt.Print(banner)
+		}
+		defaultHelpFunc(cmd, args)
+	})
 }
 
 func initConfig() {
