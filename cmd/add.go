@@ -110,7 +110,7 @@ func handleAdd(config types.Config, outputPath string) error {
 	return writer.ReadAndWriteFiles(files)
 }
 
-// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(addCmd())
 }

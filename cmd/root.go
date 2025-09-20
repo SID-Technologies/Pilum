@@ -32,7 +32,7 @@ func Execute() {
 	}
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	cobra.OnInitialize(initConfig)
 	defaultHelpFunc := rootCmd.HelpFunc()
