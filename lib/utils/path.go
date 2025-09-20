@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -28,7 +27,6 @@ func FindProjectRoot() (string, error) {
 		// check for project config files in the current directory
 		for _, config := range ProjectConfig {
 			res, err := os.Stat(filepath.Join(dir, config))
-			log.Println("Checking for", filepath.Join(dir, config))
 			if err == nil && !res.IsDir() {
 				return dir, nil
 			}
