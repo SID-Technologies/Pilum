@@ -33,8 +33,8 @@ func colorGradient(text string) string {
 			continue
 		}
 
-		color_index := (i * len(colors)) / len(lines)
-		color := colors[color_index]
+		colorIndex := (i * len(colors)) / len(lines)
+		color := colors[colorIndex]
 		coloredLines[i] = color + line + Reset
 	}
 
@@ -61,5 +61,6 @@ func PrintBanner(version string) string {
 
 	coloredBanner := colorGradient(banner)
 	text = fmt.Sprintf("%s\nVersion: %s%s%s\n", coloredBanner, LightCyan, version, Reset)
+
 	return text
 }

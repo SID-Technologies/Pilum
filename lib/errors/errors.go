@@ -10,6 +10,8 @@ import (
 
 // New returns an error that formats as the given text and
 // contains the structured (slog) attributes.
+//
+//nolint:wrapcheck,inamedparam // This function does custom wrapping and errors.
 func New(msg string, attrs ...any) error {
 	log.Error().Msgf("%v %v", msg, attrs)
 	return structured{

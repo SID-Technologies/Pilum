@@ -22,7 +22,7 @@ func PushCmd() *cobra.Command {
 
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			tag := viper.GetString("tag")
 			services, err := serviceinfo.FindAndFilterServices(".", args)
 			if err != nil {

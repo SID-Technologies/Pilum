@@ -28,11 +28,12 @@ func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
 		log.Println(err)
+		//nolint: revive // standard practice to use os.Exit in main package
 		os.Exit(1)
 	}
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	cobra.OnInitialize(initConfig)
 	defaultHelpFunc := rootCmd.HelpFunc()

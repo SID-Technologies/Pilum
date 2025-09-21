@@ -7,7 +7,7 @@ import (
 )
 
 // ExecuteRecipe runs all steps in a recipe with the provided context.
-func ExecuteRecipe(recipe recepie.Recipe, context map[string]interface{}, registry *registry.CommandRegistry) error {
+func ExecuteRecipe(recipe recepie.Recipe, context map[string]any, registry *registry.CommandRegistry) error {
 	// for _, step := range recipe.Steps {
 	// 	handler, exists := registry.Get(recipe.Provider, recipe.Service, step.Name)
 	// 	if !exists {

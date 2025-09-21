@@ -18,7 +18,7 @@ func DisplayConfigs(configs []types.Config) {
 		category_map[config.Category][config.Type] = append(category_map[config.Category][config.Type], config)
 	}
 
-	for category, type_configs := range category_map {
+	for category, typeConfigs := range category_map {
 		stackOutput := []string{}
 		constructOutput := []string{}
 
@@ -26,8 +26,8 @@ func DisplayConfigs(configs []types.Config) {
 		constructOutput = append(constructOutput, fmt.Sprintf("     %sConstructs:%s", Bold, Reset))
 
 		output = append(output, fmt.Sprintf("   %s%s%s%s", Bold, Purple, category, Reset))
-		stacks := type_configs[types.TemplateTypeEnum.Stack]
-		construct := type_configs[types.TemplateTypeEnum.Construct]
+		stacks := typeConfigs[types.TemplateTypeEnum.Stack]
+		construct := typeConfigs[types.TemplateTypeEnum.Construct]
 
 		for _, stack := range stacks {
 			stackOutput = append(stackOutput, formatConfig(stack)...)
@@ -60,11 +60,11 @@ func formatConfig(config types.Config) []string {
 	if len(config.Options) > 0 {
 		lines = append(lines, fmt.Sprintf("       %sFlags:%s", Cyan, Reset))
 		for _, flag := range config.Options {
-			flag_line := fmt.Sprintf("         --%s%s%s", Bold, flag.Flag, Reset)
+			flagLine := fmt.Sprintf("         --%s%s%s", Bold, flag.Flag, Reset)
 			if flag.Required {
-				flag_line += fmt.Sprintf(" %s(required)%s", Purple, Reset)
+				flagLine += fmt.Sprintf(" %s(required)%s", Purple, Reset)
 			}
-			lines = append(lines, flag_line)
+			lines = append(lines, flagLine)
 		}
 	}
 

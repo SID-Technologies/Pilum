@@ -40,5 +40,6 @@ func (r *Registry) ListByType(configType types.TemplateType) []types.Config {
 			list = append(list, config)
 		}
 	}
+
 	return list
 }

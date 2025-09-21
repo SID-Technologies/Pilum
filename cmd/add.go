@@ -106,10 +106,15 @@ func handleAdd(config types.Config, outputPath string) error {
 		}
 	}
 
-	return writer.ReadAndWriteFiles(files)
+	err = writer.ReadAndWriteFiles(files)
+	if err != nil {
+		return errors.Wrap(err, "error writing files: %v")
+	}
+
+	return nil
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(addCmd())
 }

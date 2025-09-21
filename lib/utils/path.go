@@ -1,10 +1,11 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/sid-technologies/centurion/lib/errors"
 )
 
 var ProjectConfig = []string{
@@ -19,7 +20,7 @@ var ProjectConfig = []string{
 func FindProjectRoot() (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "error getting current working directory:")
 	}
 
 	dir := currentDir

@@ -3,6 +3,8 @@ package configs
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/sid-technologies/centurion/lib/errors"
 )
 
 type Discovery struct {
@@ -31,5 +33,5 @@ func (d *Discovery) FindConfigs() ([]string, error) {
 		return nil
 	})
 
-	return configs, err
+	return configs, errors.Wrap(err, "error walking config path")
 }

@@ -32,6 +32,7 @@ func (cr *CommandRegistry) Register(provider, service, step string, cmdFunc Comm
 func (cr *CommandRegistry) Get(provider, service, step string) (CommandFunc, bool) {
 	key := fmt.Sprintf("%s:%s:%s", provider, service, step)
 	cmdFunc, exists := cr.commands[key]
+
 	return cmdFunc, exists
 }
 
