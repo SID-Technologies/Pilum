@@ -19,28 +19,28 @@ func DisplayConfigs(configs []types.Config) {
 	}
 
 	for category, type_configs := range category_map {
-		stack_output := []string{}
-		construct_output := []string{}
+		stackOutput := []string{}
+		constructOutput := []string{}
 
-		stack_output = append(stack_output, fmt.Sprintf("     %sStacks:%s", Bold, Reset))
-		construct_output = append(construct_output, fmt.Sprintf("     %sConstructs:%s", Bold, Reset))
+		stackOutput = append(stackOutput, fmt.Sprintf("     %sStacks:%s", Bold, Reset))
+		constructOutput = append(constructOutput, fmt.Sprintf("     %sConstructs:%s", Bold, Reset))
 
 		output = append(output, fmt.Sprintf("   %s%s%s%s", Bold, Purple, category, Reset))
 		stacks := type_configs[types.TemplateTypeEnum.Stack]
 		construct := type_configs[types.TemplateTypeEnum.Construct]
 
 		for _, stack := range stacks {
-			stack_output = append(stack_output, formatConfig(stack)...)
+			stackOutput = append(stackOutput, formatConfig(stack)...)
 		}
 		for _, construct := range construct {
-			construct_output = append(construct_output, formatConfig(construct)...)
+			constructOutput = append(constructOutput, formatConfig(construct)...)
 		}
 		if len(stacks) > 0 {
-			output = append(output, stack_output...)
+			output = append(output, stackOutput...)
 		}
 
 		if len(construct) > 0 {
-			output = append(output, construct_output...)
+			output = append(output, constructOutput...)
 		}
 		output = append(output, "")
 	}
@@ -51,11 +51,11 @@ func DisplayConfigs(configs []types.Config) {
 func formatConfig(config types.Config) []string {
 	var lines []string
 
-	name_line := fmt.Sprintf("       %s%s%s", Bold, config.Name, Reset)
+	nameLine := fmt.Sprintf("       %s%s%s", Bold, config.Name, Reset)
 	if config.Description != "" {
-		name_line += fmt.Sprintf(": %s", config.Description)
+		nameLine += fmt.Sprintf(": %s", config.Description)
 	}
-	lines = append(lines, name_line)
+	lines = append(lines, nameLine)
 
 	if len(config.Options) > 0 {
 		lines = append(lines, fmt.Sprintf("       %sFlags:%s", Cyan, Reset))

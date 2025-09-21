@@ -7,11 +7,11 @@ import (
 )
 
 const banner = `
- __     __    __     ______   ______     ______     __     __  __     __    __
-/\ \   /\ "-./  \   /\  == \ /\  ___\   /\  == \   /\ \   /\ \/\ \   /\ "-./  \
-\ \ \  \ \ \-./\ \  \ \  _-/ \ \  __\   \ \  __<   \ \ \  \ \ \_\ \  \ \ \-./\ \
- \ \_\  \ \_\ \ \_\  \ \_\    \ \_____\  \ \_\ \_\  \ \_\  \ \_____\  \ \_\ \ \_\
-  \/_/   \/_/  \/_/   \/_/     \/_____/   \/_/ /_/   \/_/   \/_____/   \/_/  \/_/
+ ______     ______     __   __     ______   __  __     ______     __     ______     __   __
+/\  ___\   /\  ___\   /\ "-.\ \   /\__  _\ /\ \/\ \   /\  == \   /\ \   /\  __ \   /\ "-.\ \
+\ \ \____  \ \  __\   \ \ \-.  \  \/_/\ \/ \ \ \_\ \  \ \  __<   \ \ \  \ \ \/\ \  \ \ \-.  \
+ \ \_____\  \ \_____\  \ \_\\"\_\    \ \_\  \ \_____\  \ \_\ \_\  \ \_\  \ \_____\  \ \_\\"\_\
+  \/_____/   \/_____/   \/_/ \/_/     \/_/   \/_____/   \/_/ /_/   \/_/   \/_____/   \/_/ \/_/
 `
 
 func colorGradient(text string) string {
@@ -19,12 +19,12 @@ func colorGradient(text string) string {
 	coloredLines := make([]string, len(lines))
 
 	colors := []string{
-		Blue,
-		LightBlue,
-		Cyan,
-		LightCyan,
-		Purple,
-		LightPurple,
+		Maroon,    // Deepest dark red at top
+		DarkRed,   // Dark red
+		Red,       // Your existing red
+		Crimson,   // Rich crimson
+		LightRed,  // Your existing light red
+		BrightRed, // Vivid red at bottom
 	}
 
 	for i, line := range lines {

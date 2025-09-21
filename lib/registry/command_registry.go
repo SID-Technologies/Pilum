@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 
+	"github.com/sid-technologies/centurion/lib/errors"
 	r "github.com/sid-technologies/centurion/lib/recepie"
 )
 
@@ -41,7 +42,7 @@ func (cr *CommandRegistry) GetCommandsForRecipe(recipe r.Recipe) ([]string, erro
 	for _, step := range recipe.Steps {
 		cmdFunc, exists := cr.Get(recipe.Provider, recipe.Service, step.Name)
 		if !exists {
-			return nil, fmt.Errorf("no command function found for %s:%s:%s", recipe.Provider, recipe.Service, step.Name)
+			return nil, errors.New("no command function found for %s:%s:%s", recipe.Provider, recipe.Service, step.Name)
 		}
 
 		// Execute the command function to get the string array

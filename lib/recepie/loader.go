@@ -1,12 +1,12 @@
 package recepie
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/rs/zerolog/log"
+	"github.com/sid-technologies/centurion/lib/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +23,7 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 	// Get all files from the directory
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", dirPath, err)
+		return nil, errors.Wrap(err, "failed to read directory %s", dirPath)
 	}
 
 	// Filter for YAML files and sort by name
@@ -45,26 +45,26 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 		// Load YAML file
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+			return nil, errors.Wrap(err, "failed to read file %s", filePath)
 		}
 
 		// To ensure order is preserved, first unmarshal into a map
 		// YAML doesn't guarantee order but we'll enforce it in our transformation
-		var rawData map[string]interface{}
+		var rawData map[string]any
 		if err := yaml.Unmarshal(data, &rawData); err != nil {
-			return nil, fmt.Errorf("failed to parse YAML from %s: %w", filePath, err)
+			return nil, errors.Wrap(err, "failed to parse YAML from %s", filePath)
 		}
 
 		// Now marshal back to YAML with consistent ordering
 		orderedYAML, err := yaml.Marshal(rawData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to reorder YAML from %s: %w", filePath, err)
+			return nil, errors.Wrap(err, "failed to reorder YAML from %s", filePath)
 		}
 
 		// Finally unmarshal to Recipe struct
 		var recipe Recipe
 		if err := yaml.Unmarshal(orderedYAML, &recipe); err != nil {
-			return nil, fmt.Errorf("failed to parse ordered YAML from %s: %w", filePath, err)
+			return nil, errors.Wrap(err, "failed to parse ordered YAML from %s", filePath)
 		}
 
 		// Create RecipeInfo with provider and service info

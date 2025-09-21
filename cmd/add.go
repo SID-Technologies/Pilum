@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"path/filepath"
 
 	ingredients "github.com/sid-technologies/centurion/_ingredients"
@@ -25,7 +24,7 @@ func addCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				listServicesCmd.Run(cmd, args)
-				os.Exit(0)
+				return nil
 			}
 
 			templateName := args[0]
@@ -42,11 +41,11 @@ func addCmd() *cobra.Command {
 			for _, arg := range args {
 				if arg == "-h" || arg == "--help" {
 					output.PrintAddHelp(config)
-					os.Exit(0)
+					return nil
 				}
 			}
 
-			path_flag := types.FlagArg{
+			pathFlag := types.FlagArg{
 				Name:        "path",
 				Flag:        "--path",
 				Type:        "string",
@@ -55,7 +54,7 @@ func addCmd() *cobra.Command {
 				Description: "Path to add the service to",
 			}
 
-			config.Options = append(config.Options, path_flag)
+			config.Options = append(config.Options, pathFlag)
 
 			options, err := flags.ParseArgs(args[1:], config.Options)
 			if err != nil {
@@ -83,19 +82,19 @@ func addCmd() *cobra.Command {
 }
 
 func handleAdd(config types.Config, outputPath string) error {
-	base_path, err := utils.FindProjectRoot()
+	basePath, err := utils.FindProjectRoot()
 	if err != nil {
 		return errors.Wrap(err, "error finding project root: %v")
 	}
 
-	ingredients_path, err := ingredients.GetPath()
+	ingredientsPath, err := ingredients.GetPath()
 	if err != nil {
 		return errors.Wrap(err, "error getting ingredients path: %v")
 	}
 
-	outputPath = filepath.Join(base_path, outputPath)
+	outputPath = filepath.Join(basePath, outputPath)
 	writer := writer.NewFileWriter(
-		ingredients_path,
+		ingredientsPath,
 		outputPath,
 	)
 

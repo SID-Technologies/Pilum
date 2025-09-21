@@ -12,17 +12,17 @@ type Client struct {
 }
 
 func NewClient() (*Client, error) {
-	ingredients_path, err := ingredients.GetPath()
+	ingredientsPath, err := ingredients.GetPath()
 	if err != nil {
 		return nil, err
 	}
 
-	configs_path, err := configs.GetPath()
+	configsPath, err := configs.GetPath()
 	if err != nil {
 		return nil, err
 	}
 
-	discovery := NewDiscovery(configs_path, ingredients_path)
+	discovery := NewDiscovery(configsPath, ingredientsPath)
 	loader := NewLoaderClient(discovery)
 	registry, err := NewRegistry(loader)
 	if err != nil {

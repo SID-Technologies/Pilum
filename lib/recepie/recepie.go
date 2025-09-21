@@ -1,7 +1,7 @@
 package recepie
 
 import (
-	"github.com/sid-technologies/centurion/lib/worker_queue"
+	wq "github.com/sid-technologies/centurion/lib/worker_queue"
 )
 
 type Recipe struct {
@@ -20,5 +20,5 @@ type RecipeStep struct {
 	Timeout       int               `yaml:"timeout,omitempty"`
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
-	CommandQueue  worker_queue.WorkQueue
+	CommandQueue  wq.WorkQueue
 }

@@ -81,7 +81,10 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	var envVars []EnvVars
 	for k, v := range evs {
 		key := k
-		val := v.(string)
+		val, ok := v.(string)
+		if !ok {
+			return nil
+		}
 		envVars = append(envVars, EnvVars{Name: key, Value: val})
 	}
 

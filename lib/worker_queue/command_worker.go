@@ -1,4 +1,4 @@
-package worker_queue
+package workerqueue
 
 import (
 	"context"
@@ -28,16 +28,17 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		var workingDir string
 
 		// Determine working directory
-		if taskInfo.ExecutionMode == "root" {
+		switch taskInfo.ExecutionMode {
+		case "root":
 			var err error
 			workingDir, err = os.Getwd()
 			if err != nil {
 				log.Printf("Error getting current working directory: %v\n", err)
 				return false, nil
 			}
-		} else if taskInfo.ExecutionMode == "service_dir" {
+		case "service_dir":
 			workingDir = taskInfo.Cwd
-		} else {
+		default:
 			log.Printf("Invalid execution mode: %s\n", taskInfo.ExecutionMode)
 			return false, nil
 		}

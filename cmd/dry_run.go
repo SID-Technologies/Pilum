@@ -25,12 +25,15 @@ func DryRunCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			tag := viper.GetString("tag")
 			services, err := serviceinfo.FindAndFilterServices(".", args)
-			// load all recepies
-			recepie.LoadRecipesFromDirectory("./recepies")
-
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
+			// load all recepies
+			_, err = recepie.LoadRecipesFromDirectory("./recepies")
+			if err != nil {
+				return errors.Wrap(err, "error loading recipes")
+			}
+
 			log.Info().Msgf("Dry Run Executing")
 			for _, service := range services {
 				// Logic here for each service

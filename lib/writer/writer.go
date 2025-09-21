@@ -63,6 +63,7 @@ func (fw *FileWriter) WriteFiles(operations []FileOperation) error {
 			return errors.Wrap(err, "error writing file")
 		}
 	}
+
 	return nil
 }
 
@@ -88,5 +89,6 @@ func (fw *FileWriter) ReadAndWriteFiles(files []struct{ Source, Output string })
 			return errors.Wrap(err, "error reading source file")
 		}
 	}
+
 	return nil
 }

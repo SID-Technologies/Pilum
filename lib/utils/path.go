@@ -17,12 +17,12 @@ var ProjectConfig = []string{
 }
 
 func FindProjectRoot() (string, error) {
-	current_dir, err := os.Getwd()
+	currentDir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 
-	dir := current_dir
+	dir := currentDir
 	for {
 		// check for project config files in the current directory
 		for _, config := range ProjectConfig {
@@ -32,11 +32,11 @@ func FindProjectRoot() (string, error) {
 			}
 		}
 		// move up one directory
-		parent_dir := filepath.Dir(dir)
-		if parent_dir == dir {
-			err_msg := fmt.Sprintf("no project configuration found in path hierarchy %s", current_dir)
-			return "", errors.New(err_msg)
+		parentDir := filepath.Dir(dir)
+		if parentDir == dir {
+			errMsg := fmt.Sprintf("no project configuration found in path hierarchy %s", currentDir)
+			return "", errors.New(errMsg)
 		}
-		dir = parent_dir
+		dir = parentDir
 	}
 }

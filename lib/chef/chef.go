@@ -2,8 +2,8 @@ package chef
 
 import (
 	// "github.com/sid-technologies/centurion/lib/errors".
-	recepie "github.com/sid-technologies/centurion/lib/recepie"
-	registry "github.com/sid-technologies/centurion/lib/registry"
+	"github.com/sid-technologies/centurion/lib/recepie"
+	"github.com/sid-technologies/centurion/lib/registry"
 )
 
 // ExecuteRecipe runs all steps in a recipe with the provided context.

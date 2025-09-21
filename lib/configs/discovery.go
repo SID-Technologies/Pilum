@@ -27,6 +27,7 @@ func (d *Discovery) FindConfigs() ([]string, error) {
 		if !info.IsDir() && (filepath.Ext(path) == ".toml") {
 			configs = append(configs, path)
 		}
+
 		return nil
 	})
 

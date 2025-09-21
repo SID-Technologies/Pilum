@@ -15,4 +15,17 @@ const (
 	LightBlue   = "\033[94m"
 	LightCyan   = "\033[96m"
 	LightPurple = "\033[95m"
+
+	Gold     = "\033[33m"
+	LightRed = "\033[91m"
+	DarkRed  = "\033[31m"
+	Yellow   = "\033[93m"
+
+	Brown      = "\033[38;5;94m"  // Dark brown (arena sand)
+	Orange     = "\033[38;5;208m" // Burnt orange (dust clouds)
+	DarkYellow = "\033[38;5;136m" // Dusty gold (weathered bronze)
+
+	Maroon    = "\033[38;5;52m"  // Deep maroon (darkest)
+	Crimson   = "\033[38;5;124m" // Rich crimson
+	BrightRed = "\033[38;5;196m" // Vivid red
 )

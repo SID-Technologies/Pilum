@@ -5,6 +5,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
+	"github.com/sid-technologies/centurion/lib/errors"
 	"github.com/sid-technologies/centurion/lib/types"
 )
 
@@ -23,7 +24,7 @@ func (l *Loader) LoadConfigs() (map[string]types.Config, error) {
 
 	paths, err := l.discovery.FindConfigs()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error discovering config files")
 	}
 
 	for _, path := range paths {
@@ -43,12 +44,12 @@ func LoadConfigFromFile(path string) (types.Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return config, err
+		return config, errors.Wrap(err, "error reading config file %s: %v", path, err)
 	}
 
 	err = toml.Unmarshal(data, &config)
 	if err != nil {
-		return config, err
+		return config, errors.Wrap(err, "error unmarshaling config file %s: %v", path, err)
 	}
 
 	return config, nil

@@ -29,6 +29,7 @@ func (r *Registry) List() []types.Config {
 	for _, config := range r.configs {
 		list = append(list, config)
 	}
+
 	return list
 }
 

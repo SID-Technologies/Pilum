@@ -20,6 +20,7 @@ func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) 
 	log.Printf("Found %d before filtering", len(services))
 	filtered := FilterServices(filter, services)
 	log.Printf("Filtered services down to %d", len(services))
+
 	return filtered, nil
 }
 
