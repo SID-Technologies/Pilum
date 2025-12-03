@@ -39,6 +39,16 @@ jobs:
         run: |
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
+
+            # Strip 'v' prefix if provided
+            VERSION="${VERSION#v}"
+
+            # Validate semantic versioning format
+            if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+              echo "Error: Version must be semantic versioning format (e.g., 0.1.0, 1.2.3-beta.1)"
+              echo "You entered: ${{ inputs.version }}"
+              exit 1
+            fi
           elif [ "${{ inputs.bump }}" != "none" ] && [ -n "${{ inputs.bump }}" ]; then
             # Get latest tag
             LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
