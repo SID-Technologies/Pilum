@@ -1,0 +1,23 @@
+name: Go Lint
+# Run this separately from pre-commit since then we get nice inline messages in PRs.
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10  # Increase timeout to 10 minutes
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.6.2
+          args: -v --color=always --timeout=10m

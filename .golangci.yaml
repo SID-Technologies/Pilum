@@ -1,0 +1,167 @@
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.23"
+  concurrency: 4
+  modules-download-mode: readonly
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - revive
+    - gosec
+    - gocritic
+  disable:
+    - cyclop
+    - depguard
+    - err113
+    - exhaustruct
+    - funlen
+    - gochecknoglobals
+    - gocognit
+    - godox
+    - gomoddirectives
+    - interfacebloat
+    - intrange
+    - ireturn
+    - lll
+    - mnd
+    - prealloc
+    - predeclared
+    - tagliatelle
+    - varnamelen
+    - wsl
+    - paralleltest
+
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    forbidigo:
+      forbid:
+        - pattern: 'fmt\.Errorf.*(# Prefer lib/errors.Wrap)?'
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    misspell:
+      locale: US
+    nlreturn:
+      block-size: 2
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    revive:
+      severity: warning
+      enable-all-rules: true
+      rules:
+        - name: file-header
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: banned-characters
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: function-result-limit
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: argument-limit
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: imports-blocklist
+          arguments:
+            - log
+        - name: unhandled-error
+          arguments:
+            - fmt.Print
+            - fmt.Printf
+            - fmt.Println
+            - fmt.Fprintf
+        - name: max-control-nesting
+          arguments:
+            - 10
+    staticcheck:
+      checks:
+        - all
+
+  exclusions:
+    generated: strict
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - ".*\\.pb\\.go$"
+      - "^test/e2e/.*"
+    rules:
+      - path: (.*)(_test|tutil|scripts)(.*)
+        linters:
+          - gosec
+          - revive
+          - wrapcheck
+          - perfsprint
+          - contextcheck
+          - maintidx
+          - dupl
+          - forcetypeassert
+
+      - text: 'add-constant'
+        linters: [revive]
+      - text: 'fieldalignment'
+        linters: [govet]
+      - text: 'shadow: declaration of'
+        linters: [govet]
+      - text: 'shadows an import name'
+        linters: [revive]
+      - text: 'ifElseChain: rewrite if-else to switch statement'
+        linters: [gocritic]
+      - text: 'nested-structs: no nested structs are allowed'
+        linters: [revive]
+      - text: 'confusing-naming'
+        linters: [revive]
+      - text: 'flag-parameter'
+        linters: [revive]
+      - text: 'G306: Expect WriteFile permissions to be 0600 or less'
+        linters: [gosec]
+      - text: 'defer: prefer not to defer chains of function calls'
+        linters: [revive]
+
+      # Loop variable issues (fixed in Go 1.22+)
+      - text: 'G601: Implicit memory aliasing in for loop'
+        linters: [gosec]
+      - text: 'loopclosure: loop variable'
+        linters: [govet]
+      - text: 'range-val-address: suspicious assignment of'
+        linters: [govet]
+      - text: 'exporting a pointer for the loop variable snapshot'
+        linters: [revive]
+
+issues:
+  fix: true
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+  settings:
+    gci:
+      sections:
+        - standard
+        - prefix(github.com/sid-technologies)
+        - default
+        - blank
+      custom-order: true
+  exclusions:
+    generated: strict

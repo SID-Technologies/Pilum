@@ -1,0 +1,36 @@
+name: homebrew
+description: Build and release to Homebrew tap
+provider: homebrew
+service: package
+
+required_fields:
+  - name: name
+    description: Binary and formula name
+    type: string
+
+  - name: project
+    description: GitHub org/user for release URLs (e.g., sid-technologies)
+    type: string
+
+steps:
+  # Step 1: Build binaries for all platforms (darwin/linux, amd64/arm64)
+  - name: build binaries
+    execution_mode: root
+    timeout: 300
+
+  # Step 2: Create tar.gz archives for each binary
+  - name: create archives
+    execution_mode: root
+    timeout: 60
+
+  # Step 3: Generate SHA256 checksums
+  - name: generate checksums
+    execution_mode: root
+    timeout: 30
+
+  # Step 4: Update Homebrew formula with new version and checksums
+  - name: update formula
+    execution_mode: root
+    timeout: 30
+    tags:
+      - deploy

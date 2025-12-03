@@ -1,0 +1,30 @@
+name = "example"
+type = "stack"
+description = "descibe me"
+category = "cat"
+
+[metadata]
+path = "path/path"
+version = "1.0.0"
+author = "Dan Flanagan"
+tags = ["example"]
+
+[[options]]
+name = "URL"
+flag = "base-url"
+type = "string"
+default = "example.com"
+required = true
+description = "domain name"
+
+[[files]]
+path = "utils/example.ts.tmpl"
+output_path = "construct/utils/example.ts"
+
+[documentation]
+readme = """
+# {{.Name}}
+
+HELLO WORLD
+
+"""
