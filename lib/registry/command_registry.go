@@ -2,54 +2,77 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/sid-technologies/pilum/lib/errors"
-	r "github.com/sid-technologies/pilum/lib/recepie"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-// CommandFunc represents a CLI command that returns string arrays.
-type CommandFunc func() []string
+// StepContext provides all context needed to generate a command for a step.
+type StepContext struct {
+	Service      serviceinfo.ServiceInfo
+	ImageName    string
+	Tag          string
+	Registry     string
+	TemplatePath string
+}
 
-// CommandRegistry maps provider/service/step combinations to command functions.
+// StepHandler generates a command for a specific step type.
+// Returns nil if no command should be executed.
+type StepHandler func(ctx StepContext) any
+
+// CommandRegistry maps step patterns to handlers.
 type CommandRegistry struct {
-	commands map[string]CommandFunc
+	handlers map[string]StepHandler
 }
 
 // NewCommandRegistry creates a new command registry.
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{
-		commands: make(map[string]CommandFunc),
+		handlers: make(map[string]StepHandler),
 	}
 }
 
-// Register adds a command function to the registry.
-func (cr *CommandRegistry) Register(provider, service, step string, cmdFunc CommandFunc) {
-	key := fmt.Sprintf("%s:%s:%s", provider, service, step)
-	cr.commands[key] = cmdFunc
+// Register adds a step handler to the registry.
+// pattern is matched against step names (case-insensitive, supports partial match).
+// provider is optional - if empty, matches all providers.
+func (cr *CommandRegistry) Register(pattern string, provider string, handler StepHandler) {
+	key := cr.buildKey(pattern, provider)
+	cr.handlers[key] = handler
 }
 
-// Get retrieves a command function for the specified provider, service, and step.
-func (cr *CommandRegistry) Get(provider, service, step string) (CommandFunc, bool) {
-	key := fmt.Sprintf("%s:%s:%s", provider, service, step)
-	cmdFunc, exists := cr.commands[key]
+// GetHandler finds the appropriate handler for a step.
+func (cr *CommandRegistry) GetHandler(stepName string, provider string) (StepHandler, bool) {
+	stepLower := strings.ToLower(stepName)
 
-	return cmdFunc, exists
-}
-
-// GetCommandsForRecipe retrieves all command strings for a recipe.
-func (cr *CommandRegistry) GetCommandsForRecipe(recipe r.Recipe) ([]string, error) {
-	var allCommands []string
-
-	for _, step := range recipe.Steps {
-		cmdFunc, exists := cr.Get(recipe.Provider, recipe.Service, step.Name)
-		if !exists {
-			return nil, errors.New("no command function found for %s:%s:%s", recipe.Provider, recipe.Service, step.Name)
+	// Try provider-specific first
+	if provider != "" {
+		for pattern, handler := range cr.handlers {
+			patternParts := strings.Split(pattern, ":")
+			if len(patternParts) == 2 {
+				patternName := patternParts[0]
+				patternProvider := patternParts[1]
+				if patternProvider == provider && strings.Contains(stepLower, patternName) {
+					return handler, true
+				}
+			}
 		}
-
-		// Execute the command function to get the string array
-		commands := cmdFunc()
-		allCommands = append(allCommands, commands...)
 	}
 
-	return allCommands, nil
+	// Fall back to generic handlers (no provider specified)
+	for pattern, handler := range cr.handlers {
+		if !strings.Contains(pattern, ":") && strings.Contains(stepLower, pattern) {
+			return handler, true
+		}
+	}
+
+	return nil, false
+}
+
+// buildKey creates a registry key from pattern and provider.
+func (*CommandRegistry) buildKey(pattern string, provider string) string {
+	pattern = strings.ToLower(pattern)
+	if provider != "" {
+		return fmt.Sprintf("%s:%s", pattern, provider)
+	}
+	return pattern
 }

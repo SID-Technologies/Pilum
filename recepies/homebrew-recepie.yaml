@@ -3,89 +3,33 @@ description: Build and release to Homebrew tap
 provider: homebrew
 service: package
 
+required_fields:
+  - name: name
+    description: Binary and formula name
+    type: string
+
+  - name: project
+    description: GitHub org/user for release URLs (e.g., sid-technologies)
+    type: string
+
 steps:
-  # Step 1: Build binaries for all platforms
+  # Step 1: Build binaries for all platforms (darwin/linux, amd64/arm64)
   - name: build binaries
-    command: |
-      mkdir -p dist
-      for platform in "darwin/amd64" "darwin/arm64" "linux/amd64" "linux/arm64"; do
-        os="${platform%/*}"
-        arch="${platform#*/}"
-        output="dist/${name}_${tag}_${os}_${arch}"
-        echo "Building ${os}/${arch}..."
-        GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w" -o "$output" .
-      done
     execution_mode: root
     timeout: 300
 
-  # Step 2: Create archives
+  # Step 2: Create tar.gz archives for each binary
   - name: create archives
-    command: |
-      cd dist
-      for binary in ${name}_${tag}_*; do
-        if [ -f "$binary" ]; then
-          tar -czf "${binary}.tar.gz" "$binary"
-          rm "$binary"
-          echo "Created ${binary}.tar.gz"
-        fi
-      done
     execution_mode: root
     timeout: 60
 
-  # Step 3: Generate checksums
+  # Step 3: Generate SHA256 checksums
   - name: generate checksums
-    command: |
-      cd dist
-      shasum -a 256 *.tar.gz > checksums.txt
-      cat checksums.txt
     execution_mode: root
     timeout: 30
 
-  # Step 4: Update Homebrew formula
-  - name: update homebrew formula
-    command: |
-      DARWIN_ARM64_SHA=$(grep "darwin_arm64" dist/checksums.txt | awk '{print $1}')
-      DARWIN_AMD64_SHA=$(grep "darwin_amd64" dist/checksums.txt | awk '{print $1}')
-      LINUX_ARM64_SHA=$(grep "linux_arm64" dist/checksums.txt | awk '{print $1}')
-      LINUX_AMD64_SHA=$(grep "linux_amd64" dist/checksums.txt | awk '{print $1}')
-
-      cat > ../Homebrew-Pilum/Formula/pilum.rb << EOF
-      class Pilum < Formula
-        desc "Multi-service deployment orchestrator"
-        homepage "https://github.com/sid-technologies/pilum"
-        version "${tag}"
-        license "MIT"
-
-        on_macos do
-          if Hardware::CPU.arm?
-            url "https://github.com/sid-technologies/pilum/releases/download/v${tag}/pilum_${tag}_darwin_arm64.tar.gz"
-            sha256 "${DARWIN_ARM64_SHA}"
-          else
-            url "https://github.com/sid-technologies/pilum/releases/download/v${tag}/pilum_${tag}_darwin_amd64.tar.gz"
-            sha256 "${DARWIN_AMD64_SHA}"
-          end
-        end
-
-        on_linux do
-          if Hardware::CPU.arm?
-            url "https://github.com/sid-technologies/pilum/releases/download/v${tag}/pilum_${tag}_linux_arm64.tar.gz"
-            sha256 "${LINUX_ARM64_SHA}"
-          else
-            url "https://github.com/sid-technologies/pilum/releases/download/v${tag}/pilum_${tag}_linux_amd64.tar.gz"
-            sha256 "${LINUX_AMD64_SHA}"
-          end
-        end
-
-        def install
-          bin.install "pilum_${tag}_#{OS.kernel_name.downcase}_#{Hardware::CPU.arch}" => "pilum"
-        end
-
-        test do
-          system "#{bin}/pilum", "--version"
-        end
-      end
-      EOF
-      echo "Updated Homebrew formula"
+  # Step 4: Update Homebrew formula with new version and checksums
+  - name: update formula
     execution_mode: root
     timeout: 30
     tags:

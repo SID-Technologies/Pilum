@@ -6,8 +6,8 @@ import (
 	"sort"
 
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/output"
 
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,9 +75,9 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 			Recipe:   recipe,
 		}
 
-		log.Info().Msgf("Loaded recipe: %s from file: %s", recipe.Name, filePath)
+		output.Debugf("Loaded recipe: %s from file: %s", recipe.Name, filePath)
 		for _, step := range recipe.Steps {
-			log.Info().Msgf("Step: %s", step.Name)
+			output.Debugf("  Step: %s", step.Name)
 		}
 
 		recipeInfos = append(recipeInfos, recipeInfo)

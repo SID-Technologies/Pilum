@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/sid-technologies/pilum/ingredients/build"
-	"github.com/sid-technologies/pilum/ingredients/docker"
-	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
 )
@@ -33,6 +32,7 @@ type Runner struct {
 	output     *OutputManager
 	results    []TaskResult
 	resultsMu  sync.Mutex
+	registry   *registry.CommandRegistry
 }
 
 // stepTask represents a task for a specific service at a specific step.
@@ -58,12 +58,17 @@ type RunnerOptions struct {
 
 // NewRunner creates a new deployment runner.
 func NewRunner(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo, opts RunnerOptions) *Runner {
+	// Initialize command registry with default handlers
+	cmdRegistry := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(cmdRegistry)
+
 	r := &Runner{
 		services:   services,
 		recipes:    make(map[string]recepie.Recipe),
 		imageNames: make(map[string]string),
 		options:    opts,
 		output:     NewOutputManager(),
+		registry:   cmdRegistry,
 	}
 
 	// Index recipes by provider
@@ -341,33 +346,23 @@ func (r *Runner) generateCommand(svc serviceinfo.ServiceInfo, step *recepie.Reci
 		return r.substituteVars(step.Command, svc)
 	}
 
-	// Otherwise, generate based on known step patterns
-	stepName := strings.ToLower(step.Name)
-	imageName := r.imageNames[svc.Name]
-
-	switch {
-	case strings.Contains(stepName, "build") && strings.Contains(stepName, "docker"):
-		// Docker build step
-		templatePath := fmt.Sprintf("%s/%s", r.options.TemplatePath, svc.Template)
-		return docker.GenerateDockerBuildCommand(svc, imageName, templatePath)
-
-	case strings.Contains(stepName, "build"):
-		// Regular build step
-		cmd, _ := build.GenerateBuildCommand(svc, r.options.Registry, r.options.Tag)
-		return cmd
-
-	case strings.Contains(stepName, "push") || strings.Contains(stepName, "publish"):
-		// Docker push step
-		return docker.GenerateDockerPushCommand(imageName)
-
-	case strings.Contains(stepName, "deploy") && svc.Provider == "gcp":
-		// GCP deploy step
-		return gcp.GenerateGCPDeployCommand(svc, imageName)
-
-	default:
+	// Look up handler from registry
+	handler, found := r.registry.GetHandler(step.Name, svc.Provider)
+	if !found {
 		// Unknown step - let it pass (might be handled elsewhere)
 		return nil
 	}
+
+	// Build context and execute handler
+	ctx := registry.StepContext{
+		Service:      svc,
+		ImageName:    r.imageNames[svc.Name],
+		Tag:          r.options.Tag,
+		Registry:     r.options.Registry,
+		TemplatePath: r.options.TemplatePath,
+	}
+
+	return handler(ctx)
 }
 
 // substituteVars replaces ${var} patterns in commands.
