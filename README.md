@@ -9,6 +9,7 @@ pilum deploy --tag=v1.0.0
 ## Features
 
 - **Recipe-driven deployments** - Define reusable deployment workflows in YAML
+- **Recipe-driven validation** - Each recipe declares required fields, no Go code per provider
 - **Multi-cloud support** - GCP Cloud Run, AWS Lambda, Kubernetes, Homebrew, and more
 - **Parallel execution** - Deploy multiple services concurrently with step barriers
 - **Dry-run mode** - Preview commands before executing
@@ -37,18 +38,24 @@ Create a `service.yaml` in your project:
 
 ```yaml
 name: my-api
-type: gcp-cloudrun
+provider: gcp
+project: my-gcp-project
+region: us-central1
 
 build:
   language: go
   version: "1.23"
-
-deploy:
-  project: my-gcp-project
-  region: us-central1
 ```
 
-### 2. Deploy
+### 2. Validate your configuration
+
+```bash
+pilum check
+```
+
+This validates your `service.yaml` against the recipe's required fields.
+
+### 3. Deploy
 
 ```bash
 # Deploy all services
@@ -66,23 +73,35 @@ pilum publish --tag=v1.0.0
 
 ## Recipes
 
-Pilum uses recipes to define deployment workflows. Each recipe is a series of steps that run in order, with services executing in parallel within each step.
+Pilum uses recipes to define deployment workflows. Each recipe defines:
+- **Steps** - Ordered commands to execute
+- **Required fields** - What your `service.yaml` must contain
 
 ### Built-in Recipes
 
-| Recipe | Description |
-|--------|-------------|
-| `gcp-cloudrun` | Build, push to GCR, deploy to Cloud Run |
-| `aws-lambda` | Build, package, deploy to Lambda |
-| `homebrew` | Build binaries, create archives, update tap |
+| Recipe | Provider | Required Fields |
+|--------|----------|-----------------|
+| `gcp-cloud-run` | `gcp` | `project`, `region`, `name` |
+| `aws-lambda` | `aws` | `region`, `project` |
+| `homebrew` | `homebrew` | `name`, `project` |
 
 ### Custom Recipes
 
-Create your own recipes in a `recipes/` directory:
+Create your own recipes in `recepies/`:
 
 ```yaml
-name: my-custom-recipe
+name: my-recipe
 description: My deployment workflow
+provider: my-provider
+
+required_fields:
+  - name: cluster
+    description: Kubernetes cluster name
+    type: string
+  - name: namespace
+    description: Target namespace
+    type: string
+    default: default  # Optional default
 
 steps:
   - name: build
@@ -90,26 +109,23 @@ steps:
     execution_mode: root
     timeout: 300
 
-  - name: test
-    command: go test ./...
-    execution_mode: root
-    timeout: 120
-
   - name: deploy
     command: kubectl apply -f k8s/
     execution_mode: root
     timeout: 60
-    tags:
-      - deploy
 ```
+
+See [recepies/README.md](recepies/README.md) for full documentation.
 
 ## CLI Reference
 
 ```
 pilum deploy [services...] [flags]    Deploy services
 pilum publish [services...] [flags]   Build and push (skip deploy steps)
-pilum add <service>                   Add a new service
-pilum list                            List discovered services
+pilum check                           Validate services against recipes
+pilum add <template>                  Add a new service from template
+pilum list                            List available templates
+pilum dry-run                         Preview what would execute
 
 Flags:
   --tag          Version tag for the deployment
@@ -117,16 +133,15 @@ Flags:
   --debug        Enable debug logging
   --timeout      Command timeout in seconds (default: 300)
   --retries      Number of retries on failure (default: 0)
-  --recipe-path  Path to recipes directory (default: ./recipes)
 ```
 
 ## Project Structure
 
 ```
 my-project/
-├── recipes/
-│   ├── gcp-cloudrun.yaml
-│   └── aws-lambda.yaml
+├── recepies/
+│   ├── gcp-cloud-run-recepie.yaml
+│   └── aws-lambda-recepie.yaml
 ├── services/
 │   ├── api/
 │   │   ├── service.yaml
@@ -134,15 +149,14 @@ my-project/
 │   └── worker/
 │       ├── service.yaml
 │       └── main.go
-└── pilum.yaml          # Optional global config
 ```
 
 ## How It Works
 
 1. **Discovery** - Pilum finds all `service.yaml` files in your project
-2. **Matching** - Each service is matched to a recipe based on its `type`
-3. **Orchestration** - Steps execute in order, services run in parallel within steps
-4. **Barriers** - All services must complete a step before the next step begins
+2. **Validation** - Each service is validated against its recipe's required fields
+3. **Matching** - Services are matched to recipes based on `provider` field
+4. **Orchestration** - Steps execute in order, services run in parallel within steps
 
 ```
 Step 1: build
@@ -160,6 +174,16 @@ Step 3: deploy
   ├── user-service    ✓ (2.9s)
   └── payment-service ✓ (3.1s)
 ```
+
+## Architecture
+
+| Component | Purpose |
+|-----------|---------|
+| `cmd/` | CLI commands (Cobra) |
+| `lib/recepie/` | Recipe loading and validation |
+| `lib/registry/` | Step handler registration |
+| `ingredients/` | Cloud-specific command generators |
+| `recepies/` | Deployment workflow definitions |
 
 ## Contributing
 

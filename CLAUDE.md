@@ -11,8 +11,8 @@ Pilum is a **cloud-agnostic deployment CLI** - define a service once, deploy to 
 - **Declarative deployments** - Terraform defines infrastructure; Pilum defines how code gets deployed to it
 
 **The cooking metaphor:**
-- **Recipes** (`recepies/`) - Deployment workflows (ordered steps)
-- **Ingredients** (`ingredients/`) - Cloud-specific operation plugins
+- **Recipes** (`recepies/`) - Deployment workflows with required fields and ordered steps
+- **Ingredients** (`ingredients/`) - Cloud-specific command generators
 - **Services** - Discovered via `service.yaml` files
 
 ## Quick Reference
@@ -26,9 +26,9 @@ go test ./...         # Run tests
 # CLI Commands
 pilum add <template>      # Scaffold a new service
 pilum list                # List available templates
+pilum check               # Validate services against recipe requirements
 pilum build [services]    # Build services
 pilum deploy [services]   # Full deploy pipeline
-pilum check               # Validate service configurations
 pilum dry-run             # Preview what would execute
 ```
 
@@ -37,19 +37,73 @@ pilum dry-run             # Preview what would execute
 | Directory | Purpose |
 |-----------|---------|
 | `cmd/` | CLI commands (Cobra) |
-| `lib/` | Core libraries (configs, output, errors, worker_queue, etc.) |
-| `ingredients/` | Cloud provider plugins (gcp, aws, docker, build) |
+| `lib/recepie/` | Recipe loading and validation |
+| `lib/registry/` | Step handler registration |
+| `lib/output/` | CLI output formatting |
+| `ingredients/` | Cloud provider command generators (gcp, aws, docker, homebrew) |
 | `recepies/` | Deployment recipe YAML files |
-| `_configs/` | Embedded config templates (TOML) |
-| `_ingredients/` | Embedded ingredient templates |
+
+## Architecture
+
+### Recipe-Driven Validation
+
+Recipes define both workflows AND validation. No Go code per provider:
+
+```yaml
+# recepies/homebrew-recepie.yaml
+name: homebrew
+provider: homebrew
+
+required_fields:
+  - name: name
+    description: Binary and formula name
+    type: string
+  - name: project
+    description: GitHub org for release URLs
+    type: string
+
+steps:
+  - name: build binaries
+    execution_mode: root
+    timeout: 300
+```
+
+When `pilum check` runs, it validates each service against its recipe's `required_fields`.
+
+### Handler Registry
+
+Step names are matched to handlers in `lib/registry/commands.go`:
+
+```go
+// Provider-specific handler
+registry.Register("deploy", "gcp", func(ctx StepContext) any {
+    return gcp.GenerateGCPDeployCommand(ctx.Service, ctx.ImageName)
+})
+
+// Generic handler (any provider)
+registry.Register("build", "", func(ctx StepContext) any {
+    cmd, _ := build.GenerateBuildCommand(ctx.Service, ctx.Registry, ctx.Tag)
+    return cmd
+})
+```
+
+Provider-specific handlers take precedence over generic ones.
+
+### Adding a New Provider
+
+1. **Create recipe YAML** in `recepies/` with `required_fields` and `steps`
+2. **Register handlers** in `lib/registry/commands.go` (optional - can use explicit commands)
+3. **Create ingredient** in `ingredients/<provider>/` for command generation (optional)
+
+See `recepies/README.md` for full guide.
 
 ## Service Configuration (`service.yaml`)
 
-Services are discovered recursively. Define once, deploy anywhere:
-
 ```yaml
 name: my-service
-type: gcp-cloud-run     # gcp-cloud-run, aws-lambda, aws-ecs, azure-container-apps
+provider: gcp           # Matches recipe by provider field
+project: my-gcp-project
+region: us-central1
 
 build:
   language: go
@@ -59,24 +113,6 @@ build:
     CGO_ENABLED: '0'
   flags:
     ldflags: ["-s", "-w"]
-
-# Switch providers by changing `type` - build config stays identical
-```
-
-## Recipes (`recepies/*.yaml`)
-
-Ordered steps for deployment workflows:
-
-```yaml
-name: homebrew
-provider: homebrew
-
-steps:
-  - name: build
-    execution_mode: root
-    timeout: 60
-  - name: archive
-    command: ["tar", "-czf", "${name}.tar.gz", "${name}"]
 ```
 
 ## Development Guidelines
