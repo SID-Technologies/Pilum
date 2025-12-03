@@ -17,8 +17,7 @@ jobs:
         with:
           go-version: '1.23'
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.60.3
-          # Verbose with color. Just fail, don't fix issues. Use both annotations and normal output.
-          args: -v --color=always --fix=false --out-format=colored-line-number,github-actions --timeout=10m
+          version: v2.6.2
+          args: -v --color=always --timeout=10m
