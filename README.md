@@ -191,4 +191,12 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-Apache
+This project is licensed under the [Business Source License 1.1](LICENSE).
+
+**What this means:**
+- **Free to use** - Use Pilum for your own deployments, personal or commercial
+- **Free to modify** - Fork, customize, contribute back
+- **Cannot offer as a service** - You cannot offer a commercial deployment orchestration service using Pilum
+- **Becomes Apache 2.0** - On December 3, 2028, this version converts to Apache 2.0
+
+For commercial licensing inquiries, contact licensing@sid-technologies.com
