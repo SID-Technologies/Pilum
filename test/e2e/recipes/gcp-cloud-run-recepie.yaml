@@ -1,0 +1,25 @@
+name: gcp-cloud-run
+description: Deploy to Google Cloud Run (E2E Test)
+provider: gcp
+service: cloud_run
+
+steps:
+  - name: build binary
+    command: ["sh", "-c", "echo '[GCP] Compiling Go binary...' && sleep 1.2 && echo '[GCP] Binary compiled successfully'"]
+    execution_mode: service_dir
+    timeout: 30
+
+  - name: build docker image
+    command: ["sh", "-c", "echo '[GCP] Building Docker image...' && sleep 1.5 && echo '[GCP] Docker image built'"]
+    execution_mode: service_dir
+    timeout: 30
+
+  - name: publish to registry
+    command: ["sh", "-c", "echo '[GCP] Pushing to GCR...' && sleep 1 && echo '[GCP] Image pushed to registry'"]
+    execution_mode: root
+    timeout: 30
+
+  - name: deploy to cloud run
+    command: ["sh", "-c", "echo '[GCP] Deploying to Cloud Run...' && sleep 1.8 && echo '[GCP] Service deployed successfully'"]
+    execution_mode: root
+    timeout: 30
