@@ -95,13 +95,14 @@ jobs:
           cat checksums.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.VERSION }}
           files: |
             dist/*.tar.gz
             dist/checksums.txt
           generate_release_notes: true
+          fail_on_unmatched_files: true
 
       - name: Checkout Homebrew tap
         uses: actions/checkout@v4
