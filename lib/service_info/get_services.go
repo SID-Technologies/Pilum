@@ -1,11 +1,13 @@
 package serviceinfo
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/output"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -17,9 +19,9 @@ func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) 
 	if len(filter) == 0 {
 		return services, nil
 	}
-	log.Printf("Found %d before filtering", len(services))
+	output.Debugf("Found %d services before filtering", len(services))
 	filtered := FilterServices(filter, services)
-	log.Printf("Filtered services down to %d", len(services))
+	output.Debugf("Filtered services down to %d", len(filtered))
 
 	return filtered, nil
 }
@@ -76,7 +78,7 @@ func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {
 		if svc, ok := serviceMap[name]; ok {
 			services = append(services, *svc)
 		} else {
-			log.Printf("Warning: Service %s not found", name)
+			output.Warning("Service %s not found", name)
 		}
 	}
 
@@ -84,13 +86,13 @@ func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {
 }
 
 func ListServices(services []*ServiceInfo) {
-	log.Printf("Found %d services:\n", len(services))
+	output.Header("Found %d services:", len(services))
 	for _, svc := range services {
-		log.Printf("• %s\n", svc.Name)
-		log.Printf("    - Provider: %s\n", svc.Provider)
-		log.Printf("    - Project: %s\n", svc.Project)
-		log.Printf("    - Region: %s\n", svc.Region)
-		log.Printf("    - Service: %s\n", svc.Runtime.Service)
-		log.Println()
+		fmt.Printf("  %s•%s %s\n", output.Primary, output.Reset, svc.Name)
+		fmt.Printf("      %sProvider:%s %s\n", output.Muted, output.Reset, svc.Provider)
+		fmt.Printf("      %sProject:%s  %s\n", output.Muted, output.Reset, svc.Project)
+		fmt.Printf("      %sRegion:%s   %s\n", output.Muted, output.Reset, svc.Region)
+		fmt.Printf("      %sService:%s  %s\n", output.Muted, output.Reset, svc.Runtime.Service)
+		fmt.Println()
 	}
 }

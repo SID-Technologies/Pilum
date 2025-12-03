@@ -18,16 +18,13 @@ repos:
     hooks:
       - id: go-mod-tidy # Run go mod tidy when go.mod changes
         files: go.mod
-      - id: go-fmt
-        args: [ -w, -s ] # simplify code and write result to (source) file instead of stdout
 
-  - repo: https://github.com/golangci/golangci-lint # See .golangci.yml for config
-    rev: v1.61.0
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.6.2
     hooks:
       - id: golangci-lint
-        require_serial: true # Don't run this in parallel
-        # Lint all go files in the repo, since this aligns with github actions.
-        entry: golangci-lint run --fix
+        require_serial: true
+        entry: golangci-lint run --fix --timeout=2m
 
   - repo: local
     hooks:

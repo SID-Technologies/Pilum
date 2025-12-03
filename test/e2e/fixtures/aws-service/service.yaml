@@ -1,0 +1,9 @@
+name: payment-processor
+type: aws-lambda
+provider: aws
+project: test-project
+region: us-east-1
+
+build:
+  language: go
+  cmd: "echo 'Building payment-processor...' && sleep 1.5 && echo 'Build complete'"

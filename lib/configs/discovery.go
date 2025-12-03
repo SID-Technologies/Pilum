@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
 )
 
 type Discovery struct {

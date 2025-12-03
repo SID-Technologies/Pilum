@@ -1,9 +1,5 @@
 package recepie
 
-import (
-	wq "github.com/sid-technologies/centurion/lib/worker_queue"
-)
-
 type Recipe struct {
 	Name        string       `yaml:"name"`
 	Description string       `yaml:"description"`
@@ -14,11 +10,11 @@ type Recipe struct {
 
 type RecipeStep struct {
 	Name          string            `yaml:"name"`
+	Command       any               `yaml:"command,omitempty"` // string or []string
 	ExecutionMode string            `yaml:"execution_mode"`
 	EnvVars       map[string]string `yaml:"env_vars,omitempty"`
 	BuildFlags    map[string]any    `yaml:"build_flags,omitempty"`
 	Timeout       int               `yaml:"timeout,omitempty"`
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
-	CommandQueue  wq.WorkQueue
 }

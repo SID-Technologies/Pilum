@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sid-technologies/centurion/lib/types"
+	"github.com/sid-technologies/pilum/lib/types"
 )
 
 func PrintFlags(flags []types.FlagArg) {

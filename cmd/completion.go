@@ -3,7 +3,8 @@ package cmd
 import (
 	"os"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,16 +15,16 @@ func CompletionCmd() *cobra.Command {
 		Long: `To load completions:
 
 Bash:
-  source <(centurion completion bash)
+  source <(pilum completion bash)
 
 Zsh:
-  centurion completion zsh > "${fpath[1]}/_mycli"
+  pilum completion zsh > "${fpath[1]}/_mycli"
 
 Fish:
-  centurion completion fish | source
+  pilum completion fish | source
 
 PowerShell:
-  centurion completion powershell | Out-String | Invoke-Expression
+  pilum completion powershell | Out-String | Invoke-Expression
 `,
 		PreRunE: func(_ *cobra.Command, args []string) error {
 			validShells := map[string]bool{
@@ -58,7 +59,7 @@ PowerShell:
 	return cmd
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(CompletionCmd())
 }

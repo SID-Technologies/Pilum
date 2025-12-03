@@ -1,11 +1,11 @@
-package utils
+package path
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
 )
 
 var ProjectConfig = []string{
@@ -20,7 +20,7 @@ var ProjectConfig = []string{
 func FindProjectRoot() (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return "", errors.Wrap(err, "error getting current working directory:")
+		return "", errors.Wrap(err, "error getting current working directory")
 	}
 
 	dir := currentDir

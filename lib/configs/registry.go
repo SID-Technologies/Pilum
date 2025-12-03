@@ -1,7 +1,7 @@
 package configs
 
 import (
-	"github.com/sid-technologies/centurion/lib/types"
+	"github.com/sid-technologies/pilum/lib/types"
 )
 
 type Registry struct {

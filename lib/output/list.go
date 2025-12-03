@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sid-technologies/centurion/lib/types"
+	"github.com/sid-technologies/pilum/lib/types"
 )
 
 func DisplayConfigs(configs []types.Config) {
 	var output []string
-	category_map := make(map[string]map[types.TemplateType][]types.Config)
+	categoryMap := make(map[string]map[types.TemplateType][]types.Config)
 
 	for _, config := range configs {
-		if _, exists := category_map[config.Category]; !exists {
-			category_map[config.Category] = make(map[types.TemplateType][]types.Config)
+		if _, exists := categoryMap[config.Category]; !exists {
+			categoryMap[config.Category] = make(map[types.TemplateType][]types.Config)
 		}
-		category_map[config.Category][config.Type] = append(category_map[config.Category][config.Type], config)
+		categoryMap[config.Category][config.Type] = append(categoryMap[config.Category][config.Type], config)
 	}
 
-	for category, typeConfigs := range category_map {
+	for category, typeConfigs := range categoryMap {
 		stackOutput := []string{}
 		constructOutput := []string{}
 

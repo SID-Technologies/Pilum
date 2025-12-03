@@ -3,14 +3,15 @@ package cmd
 import (
 	"path/filepath"
 
-	ingredients "github.com/sid-technologies/centurion/_ingredients"
-	"github.com/sid-technologies/centurion/lib/configs"
-	"github.com/sid-technologies/centurion/lib/errors"
-	"github.com/sid-technologies/centurion/lib/flags"
-	"github.com/sid-technologies/centurion/lib/output"
-	"github.com/sid-technologies/centurion/lib/types"
-	"github.com/sid-technologies/centurion/lib/utils"
-	"github.com/sid-technologies/centurion/lib/writer"
+	ingredients "github.com/sid-technologies/pilum/_ingredients"
+	"github.com/sid-technologies/pilum/lib/configs"
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/flags"
+	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/path"
+	"github.com/sid-technologies/pilum/lib/types"
+	"github.com/sid-technologies/pilum/lib/writer"
+
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +36,7 @@ func addCmd() *cobra.Command {
 
 			config, exists := cl.Registry.Get(templateName)
 			if !exists {
-				return errors.New("service %s not found. Run 'centurion list-services' to see available services", templateName)
+				return errors.New("service %s not found. Run 'pilum list' to see available services", templateName)
 			}
 
 			for _, arg := range args {
@@ -82,7 +83,7 @@ func addCmd() *cobra.Command {
 }
 
 func handleAdd(config types.Config, outputPath string) error {
-	basePath, err := utils.FindProjectRoot()
+	basePath, err := path.FindProjectRoot()
 	if err != nil {
 		return errors.Wrap(err, "error finding project root: %v")
 	}

@@ -1,0 +1,9 @@
+name: api-gateway
+type: gcp-cloud-run
+provider: gcp
+project: test-project
+region: us-central1
+
+build:
+  language: go
+  cmd: "echo 'Building api-gateway...' && sleep 1 && echo 'Build complete'"

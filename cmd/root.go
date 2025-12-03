@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/sid-technologies/centurion/lib/output"
+	"github.com/sid-technologies/pilum/lib/output"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -14,20 +14,21 @@ var configFile string
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "cli",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Use:   "pilum",
+	Short: "Cloud-agnostic deployment CLI",
+	Long: `Pilum - Define once, deploy anywhere.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+A cloud-agnostic deployment CLI that lets you define a service once
+and deploy it to any cloud provider (AWS, GCP, Azure).
+
+Define your service in a service.yaml file, specify the target provider,
+and Pilum handles the build, containerization, and deployment.`,
 }
 
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		log.Println(err)
+		output.Error(err.Error())
 		//nolint: revive // standard practice to use os.Exit in main package
 		os.Exit(1)
 	}
@@ -47,13 +48,13 @@ func init() {
 }
 
 func initConfig() {
-	configFile = ".cobra-cli-samples.yml"
+	configFile = ".pilum.yml"
 	viper.SetConfigType("yaml")
 	viper.SetConfigFile(configFile)
 
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
-		log.Println("Using configuration file: ", viper.ConfigFileUsed())
+		output.Debugf("Using configuration file: %s", viper.ConfigFileUsed())
 	}
 }

@@ -3,7 +3,7 @@ package docker
 import (
 	"fmt"
 
-	service "github.com/sid-technologies/centurion/lib/service_info"
+	service "github.com/sid-technologies/pilum/lib/service_info"
 )
 
 func GenerateImageName(service service.ServiceInfo, registry string, tag string) string {

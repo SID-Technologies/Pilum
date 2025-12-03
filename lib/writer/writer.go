@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
 )
 
 type FileWriter struct {
@@ -27,7 +27,7 @@ func NewFileWriter(sourcePath string, outputPath string) *FileWriter {
 	}
 }
 
-func (fw *FileWriter) WriteFile(operation FileOperation) error {
+func (*FileWriter) WriteFile(operation FileOperation) error {
 	outputDir := filepath.Dir(operation.OutputPath)
 	err := os.MkdirAll(outputDir, 0775)
 	if err != nil {

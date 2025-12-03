@@ -1,4 +1,4 @@
-module github.com/sid-technologies/centurion
+module github.com/sid-technologies/pilum
 
 go 1.23.0
 

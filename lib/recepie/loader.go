@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/sid-technologies/pilum/lib/errors"
+
 	"github.com/rs/zerolog/log"
-	"github.com/sid-technologies/centurion/lib/errors"
 	"gopkg.in/yaml.v3"
 )
 

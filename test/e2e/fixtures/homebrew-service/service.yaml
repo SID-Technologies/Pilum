@@ -1,0 +1,7 @@
+name: cli-tool
+type: homebrew
+provider: homebrew
+
+build:
+  language: go
+  cmd: "echo 'Building cli-tool...' && sleep 0.8 && echo 'Build complete'"

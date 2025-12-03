@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"log"
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/output"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
-	"github.com/sid-technologies/centurion/lib/errors"
-	serviceinfo "github.com/sid-technologies/centurion/lib/service_info"
 	"github.com/spf13/cobra"
 )
 
@@ -14,21 +14,19 @@ func CheckCmd() *cobra.Command {
 		Short: "Check the configuration of the services",
 		Long:  "Check the configuration of the services",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			file := ""
-			log.Printf("Checking configuration of the services in %s\n", file)
+			output.Info("Checking configuration of the services")
 			services, err := serviceinfo.FindServices(".")
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
 			for _, service := range services {
-				// Logic here for each service
-				log.Printf("  Checking service %s\n", service.Name)
+				output.Dimmed("  Checking service %s", service.Name)
 				err := service.Validate()
 				if err != nil {
 					return errors.Wrap(err, "error checking service %s", service.Name)
 				}
 			}
-			log.Println("All services are valid")
+			output.Success("All services are valid")
 
 			return nil
 		},
@@ -37,7 +35,7 @@ func CheckCmd() *cobra.Command {
 	return cmd
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(CheckCmd())
 }

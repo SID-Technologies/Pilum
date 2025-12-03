@@ -1,9 +1,10 @@
 package workerqueue
 
 import (
-	"log"
 	"runtime"
 	"sync"
+
+	"github.com/sid-technologies/pilum/lib/output"
 )
 
 // WorkQueue manages parallel execution of tasks.
@@ -24,9 +25,7 @@ func NewWorkQueue(workerFunc func(*TaskInfo) bool, maxWorkers int) *WorkQueue {
 		}
 	}
 
-	log.Println("Created Worker Queue")
-	log.Printf("Using %d workers\n", maxWorkers)
-	log.Println()
+	output.Debugf("Created Worker Queue with %d workers", maxWorkers)
 
 	return &WorkQueue{
 		taskQueue:  make(chan *TaskInfo, 100),

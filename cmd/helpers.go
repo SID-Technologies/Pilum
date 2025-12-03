@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

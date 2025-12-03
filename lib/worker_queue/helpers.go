@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
 )
 
 // TerminateProcessTree terminates a process and all its child processes.
 func TerminateProcessTree(pid int) error {
 	var err error
 	// Find child processes
-	findCmd := exec.Command("pgrep", "-P", fmt.Sprintf("%d", pid))
+	findCmd := exec.Command("pgrep", "-P", fmt.Sprintf("%d", pid)) //nolint:gosec // pgrep with controlled PID argument
 	output, err := findCmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "error finding child processes")
@@ -75,7 +75,7 @@ func ExponentialBackoffWithJitter(attempt int, baseDelay float64, maxDelay float
 	delay := math.Min(maxDelay, baseDelay*math.Pow(2, float64(attempt)))
 
 	// Add jitter (random variation between 0.5x and 1.5x of calculated delay)
-	//nolint: gosec // It's a random number, not a secret
+	//nolint:gosec // It's a random number, not a secret
 	jitteredDelay := delay * (0.5 + rand.Float64())
 
 	return jitteredDelay

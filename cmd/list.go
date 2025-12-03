@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sid-technologies/centurion/lib/configs"
-	"github.com/sid-technologies/centurion/lib/errors"
-	"github.com/sid-technologies/centurion/lib/output"
+	"github.com/sid-technologies/pilum/lib/configs"
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/output"
+
 	"github.com/spf13/cobra"
 )
 
@@ -29,14 +30,14 @@ var listServicesCmd = &cobra.Command{
 		output.DisplayConfigs(configs)
 
 		fmt.Println("Usage:")
-		fmt.Println("  centurion add [service] [flags]    Add a service")
-		fmt.Println("  centurion add [service] --help     Add a service interactively")
+		fmt.Println("  pilum add [service] [flags]    Add a service")
+		fmt.Println("  pilum add [service] --help     Add a service interactively")
 
 		return nil
 	},
 }
 
-//nolint: gochecknoinits // Standard Cobra pattern for initializing commands
+// nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	rootCmd.AddCommand(listServicesCmd)
 }

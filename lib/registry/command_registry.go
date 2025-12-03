@@ -3,8 +3,8 @@ package registry
 import (
 	"fmt"
 
-	"github.com/sid-technologies/centurion/lib/errors"
-	r "github.com/sid-technologies/centurion/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/errors"
+	r "github.com/sid-technologies/pilum/lib/recepie"
 )
 
 // CommandFunc represents a CLI command that returns string arrays.

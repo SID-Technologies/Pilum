@@ -1,9 +1,9 @@
 package configs
 
 import (
-	configs "github.com/sid-technologies/centurion/_configs"
-	ingredients "github.com/sid-technologies/centurion/_ingredients"
-	"github.com/sid-technologies/centurion/lib/errors"
+	configs "github.com/sid-technologies/pilum/_configs"
+	ingredients "github.com/sid-technologies/pilum/_ingredients"
+	"github.com/sid-technologies/pilum/lib/errors"
 )
 
 type Client struct {

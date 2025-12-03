@@ -7,7 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sid-technologies/centurion/lib/errors"
+	"github.com/sid-technologies/pilum/lib/errors"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +21,7 @@ func TestIs(t *testing.T) {
 	t.Parallel()
 	errX := errors.New("x")
 
-	err1 := errors.New("1", "1", "1")
+	err1 := errors.New("1")
 	err11 := errors.Wrap(err1, "w1")
 	err111 := errors.Wrap(err11, "w2")
 

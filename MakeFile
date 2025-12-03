@@ -2,6 +2,15 @@
 help:  ## Display this help message.
 	@egrep -h '\s##\s' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m  %-30s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: build
+build: ## Build the binary to dist/
+	@mkdir -p dist
+	@go build -o dist/pilum .
+
+.PHONY: clean
+clean: ## Remove build artifacts
+	@rm -rf dist/
+
 .PHONY: install-tools
 install-tools: ## Installs the tools as the git pre-commit hook for this repo as well a dependency tools.
 	@which pre-commit > /dev/null || echo "pre-commit not installed, see https://pre-commit.com/#install"
@@ -10,3 +19,7 @@ install-tools: ## Installs the tools as the git pre-commit hook for this repo as
 .PHONY: lint
 lint: ## Runs linters via pre-commit.
 	@pre-commit run -v --all-files
+
+.PHONY: test
+test:
+	@./test/e2e/run_tests.sh

@@ -3,10 +3,11 @@ package configs
 import (
 	"os"
 
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/types"
+
 	"github.com/BurntSushi/toml"
 	"github.com/rs/zerolog/log"
-	"github.com/sid-technologies/centurion/lib/errors"
-	"github.com/sid-technologies/centurion/lib/types"
 )
 
 type Loader struct {

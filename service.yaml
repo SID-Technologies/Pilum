@@ -1,17 +1,23 @@
-# Basic service configuration
-name: Centurion
+# Pilum deploys itself
+name: pilum
 type: homebrew
 
 build:
   language: go
-  version: "1.23"     # Go version to use (useful if you need different versions)
-  cmd: "go build -o ./dist"
+  version: "1.23"
+  output: dist/pilum
   env_vars:
-    CGO_ENABLED: '0'
-    GOOS: linux
-    GOARCH: amd64
-  flags:
-    ldflags:
-      - "-s"
-      - "-w"
-      - "-extldflags '-static'"
+    CGO_ENABLED: "0"
+  platforms:
+    - os: darwin
+      arch: amd64
+    - os: darwin
+      arch: arm64
+    - os: linux
+      arch: amd64
+    - os: linux
+      arch: arm64
+
+release:
+  homebrew_tap: Homebrew-Pilum
+  github_repo: sid-technologies/pilum

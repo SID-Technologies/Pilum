@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sid-technologies/centurion/lib/errors"
-	"github.com/sid-technologies/centurion/lib/types"
+	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/types"
 )
 
 func ParseArgs(args []string, flags []types.FlagArg) (map[string]any, error) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	service "github.com/sid-technologies/centurion/lib/service_info"
+	service "github.com/sid-technologies/pilum/lib/service_info"
 )
 
 func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, templatePath string) []string {

@@ -4,8 +4,11 @@
 package errors
 
 import (
+	"fmt"
+
+	"github.com/sid-technologies/pilum/lib/output"
+
 	pkgerrors "github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 // New returns an error that formats as the given text and
@@ -13,9 +16,10 @@ import (
 //
 //nolint:wrapcheck,inamedparam // This function does custom wrapping and errors.
 func New(msg string, attrs ...any) error {
-	log.Error().Msgf("%v %v", msg, attrs)
+	formatted := fmt.Sprintf(msg, attrs...)
+	output.Error(formatted)
 	return structured{
-		err:   pkgerrors.New(msg),
+		err:   pkgerrors.New(formatted),
 		attrs: attrs,
 	}
 }
