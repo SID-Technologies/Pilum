@@ -35,6 +35,7 @@ type RecipeStep struct {
 	Timeout       int               `yaml:"timeout,omitempty"`
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
+	Tags          []string          `yaml:"tags,omitempty"` // Tags for filtering (e.g., "deploy", "build")
 }
 
 // ValidateService checks if a service has all required fields for this recipe.
