@@ -82,7 +82,7 @@ jobs:
         run: go build -o pilum .
 
       - name: Run Pilum build (build + archive + checksums)
-        run: ./pilum build -t "v${{ steps.version.outputs.VERSION }}"
+        run: ./pilum build -t "v${{ steps.version.outputs.VERSION }}" pilum
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -97,4 +97,4 @@ jobs:
       - name: Run Pilum deploy (update Homebrew tap)
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: ./pilum deploy -t "v${{ steps.version.outputs.VERSION }}"
+        run: ./pilum deploy -t "v${{ steps.version.outputs.VERSION }}" --only-tags=deploy pilum

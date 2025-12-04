@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/orchestrator"
@@ -34,6 +35,12 @@ func DeployCmd() *cobra.Command {
 			if err := viper.BindPFlag("max-workers", cmd.Flags().Lookup("max-workers")); err != nil {
 				return errors.Wrap(err, "error binding max-workers flag")
 			}
+			if err := viper.BindPFlag("only-tags", cmd.Flags().Lookup("only-tags")); err != nil {
+				return errors.Wrap(err, "error binding only-tags flag")
+			}
+			if err := viper.BindPFlag("exclude-tags", cmd.Flags().Lookup("exclude-tags")); err != nil {
+				return errors.Wrap(err, "error binding exclude-tags flag")
+			}
 			return nil
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -46,6 +53,8 @@ func DeployCmd() *cobra.Command {
 			templatePath := viper.GetString("template-path")
 			recipePath := viper.GetString("recipe-path")
 			maxWorkers := viper.GetInt("max-workers")
+			onlyTags := parseCommaSeparated(viper.GetString("only-tags"))
+			excludeTags := parseCommaSeparated(viper.GetString("exclude-tags"))
 
 			// Find services
 			services, err := serviceinfo.FindAndFilterServices(".", args)
@@ -79,6 +88,8 @@ func DeployCmd() *cobra.Command {
 				Retries:      retries,
 				DryRun:       dryRun,
 				MaxWorkers:   maxWorkers,
+				OnlyTags:     onlyTags,
+				ExcludeTags:  excludeTags,
 			})
 
 			return runner.Run()
@@ -90,8 +101,26 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().String("template-path", "./_templates", "Path to Dockerfile templates")
 	cmd.Flags().String("recipe-path", "./recepies", "Path to recipe definitions")
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
+	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated, e.g., 'deploy')")
+	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated, e.g., 'deploy')")
 
 	return cmd
+}
+
+// parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.
+func parseCommaSeparated(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 // nolint: gochecknoinits // Standard Cobra pattern for initializing commands

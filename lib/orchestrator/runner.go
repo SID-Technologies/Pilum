@@ -54,6 +54,8 @@ type RunnerOptions struct {
 	MaxWorkers   int
 	MaxSteps     int      // Maximum number of steps to run (0 = all)
 	ExcludeSteps []string // Step names to exclude
+	ExcludeTags  []string // Exclude steps with these tags (e.g., "deploy")
+	OnlyTags     []string // Only run steps with these tags (e.g., "deploy")
 }
 
 // NewRunner creates a new deployment runner.
@@ -152,6 +154,43 @@ func (r *Runner) isStepExcluded(stepName string) bool {
 	return false
 }
 
+// shouldSkipStep checks if a step should be skipped based on tag filters.
+func (r *Runner) shouldSkipStep(step *recepie.RecipeStep) bool {
+	// Check if step name is excluded
+	if r.isStepExcluded(step.Name) {
+		return true
+	}
+
+	// If OnlyTags is set, step must have at least one matching tag
+	if len(r.options.OnlyTags) > 0 {
+		if !r.stepHasAnyTag(step, r.options.OnlyTags) {
+			return true
+		}
+	}
+
+	// If ExcludeTags is set, skip steps that have any excluded tag
+	if len(r.options.ExcludeTags) > 0 {
+		if r.stepHasAnyTag(step, r.options.ExcludeTags) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// stepHasAnyTag checks if a step has any of the specified tags.
+func (*Runner) stepHasAnyTag(step *recepie.RecipeStep, tags []string) bool {
+	for _, stepTag := range step.Tags {
+		stepTagLower := strings.ToLower(stepTag)
+		for _, tag := range tags {
+			if stepTagLower == strings.ToLower(tag) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // executeStep runs step N for all services that have it.
 func (r *Runner) executeStep(stepIdx int) error {
 	// Collect tasks for this step
@@ -167,8 +206,8 @@ func (r *Runner) executeStep(stepIdx int) error {
 			continue
 		}
 		step := &recipe.Steps[stepIdx]
-		// Skip excluded steps
-		if r.isStepExcluded(step.Name) {
+		// Skip steps based on name/tag filters
+		if r.shouldSkipStep(step) {
 			continue
 		}
 		stepNames[step.Name] = true
