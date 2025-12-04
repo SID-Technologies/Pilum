@@ -78,31 +78,11 @@ jobs:
           git tag -a "v${{ steps.version.outputs.VERSION }}" -m "Release v${{ steps.version.outputs.VERSION }}"
           git push origin "v${{ steps.version.outputs.VERSION }}"
 
-      - name: Build Pilum
+      - name: Build Pilum CLI
         run: go build -o pilum .
 
-      - name: Run Pilum release (build + archive + checksums)
-        run: |
-          mkdir -p dist
-
-          # Build for all platforms
-          for platform in "darwin/amd64" "darwin/arm64" "linux/amd64" "linux/arm64"; do
-            os="${platform%/*}"
-            arch="${platform#*/}"
-            output="dist/pilum_${{ steps.version.outputs.VERSION }}_${os}_${arch}"
-            echo "Building ${os}/${arch}..."
-            GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w" -o "$output" .
-          done
-
-          # Create archives
-          cd dist
-          for f in pilum_*; do
-            [ -f "$f" ] && tar -czf "${f}.tar.gz" "$f" && rm "$f"
-          done
-
-          # Generate checksums
-          shasum -a 256 *.tar.gz > checksums.txt
-          cat checksums.txt
+      - name: Run Pilum build (build + archive + checksums)
+        run: ./pilum build -t "v${{ steps.version.outputs.VERSION }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -114,64 +94,7 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
 
-      - name: Checkout Homebrew tap
-        uses: actions/checkout@v4
-        with:
-          repository: SID-Technologies/Homebrew-Pilum
-          path: homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-      - name: Update Homebrew formula
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-
-          DARWIN_ARM64_SHA=$(grep "darwin_arm64" dist/checksums.txt | awk '{print $1}')
-          DARWIN_AMD64_SHA=$(grep "darwin_amd64" dist/checksums.txt | awk '{print $1}')
-          LINUX_ARM64_SHA=$(grep "linux_arm64" dist/checksums.txt | awk '{print $1}')
-          LINUX_AMD64_SHA=$(grep "linux_amd64" dist/checksums.txt | awk '{print $1}')
-
-          cat > homebrew-tap/Formula/pilum.rb << EOF
-          class Pilum < Formula
-            desc "Multi-service deployment orchestrator"
-            homepage "https://github.com/SID-Technologies/pilum"
-            version "${VERSION}"
-            license "MIT"
-
-            on_macos do
-              if Hardware::CPU.arm?
-                url "https://github.com/SID-Technologies/pilum/releases/download/v${VERSION}/pilum_${VERSION}_darwin_arm64.tar.gz"
-                sha256 "${DARWIN_ARM64_SHA}"
-              else
-                url "https://github.com/SID-Technologies/pilum/releases/download/v${VERSION}/pilum_${VERSION}_darwin_amd64.tar.gz"
-                sha256 "${DARWIN_AMD64_SHA}"
-              end
-            end
-
-            on_linux do
-              if Hardware::CPU.arm?
-                url "https://github.com/SID-Technologies/pilum/releases/download/v${VERSION}/pilum_${VERSION}_linux_arm64.tar.gz"
-                sha256 "${LINUX_ARM64_SHA}"
-              else
-                url "https://github.com/SID-Technologies/pilum/releases/download/v${VERSION}/pilum_${VERSION}_linux_amd64.tar.gz"
-                sha256 "${LINUX_AMD64_SHA}"
-              end
-            end
-
-            def install
-              bin.install Dir["pilum_*"].first => "pilum"
-            end
-
-            test do
-              system "#{bin}/pilum", "--help"
-            end
-          end
-          EOF
-
-      - name: Commit and push formula
-        working-directory: homebrew-tap
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/pilum.rb
-          git commit -m "Update pilum to v${{ steps.version.outputs.VERSION }}"
-          git push
+      - name: Run Pilum deploy (update Homebrew tap)
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: ./pilum deploy -t "v${{ steps.version.outputs.VERSION }}"

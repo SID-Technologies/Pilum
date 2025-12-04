@@ -1,6 +1,13 @@
 name: cli-tool
 type: homebrew
 provider: homebrew
+description: A test CLI tool
+license: MIT
+
+homebrew:
+  project_url: https://github.com/test-org/cli-tool
+  tap_url: https://github.com/test-org/Homebrew-cli-tool
+  token_env: GH_TOKEN
 
 build:
   language: go

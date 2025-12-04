@@ -78,9 +78,15 @@ func registerHomebrewHandlers(reg *CommandRegistry) {
 		return homebrew.GenerateChecksumCommand(outputDir)
 	})
 
-	// Homebrew formula generation
+	// Homebrew formula generation - writes to dist/ directory
 	reg.Register("formula", "homebrew", func(ctx StepContext) any {
-		formulaPath := fmt.Sprintf("../Homebrew-%s/Formula/%s.rb", ctx.Service.Name, ctx.Service.Name)
+		formulaPath := fmt.Sprintf("%s/%s.rb", outputDir, ctx.Service.Name)
 		return homebrew.GenerateFormulaCommand(ctx.Service, ctx.Tag, outputDir, formulaPath)
+	})
+
+	// Push formula to Homebrew tap repository
+	reg.Register("tap", "homebrew", func(ctx StepContext) any {
+		formulaPath := fmt.Sprintf("%s/%s.rb", outputDir, ctx.Service.Name)
+		return homebrew.GenerateTapPushCommand(ctx.Service, ctx.Tag, formulaPath)
 	})
 }

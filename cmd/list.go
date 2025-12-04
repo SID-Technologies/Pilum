@@ -1,38 +1,35 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/sid-technologies/pilum/lib/configs"
 	"github.com/sid-technologies/pilum/lib/errors"
-	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/path"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
 	"github.com/spf13/cobra"
 )
 
-const version = "v0.1.0"
-
 var listServicesCmd = &cobra.Command{
-	Use:     "list-services",
-	Aliases: []string{"ls", "list", "l"},
-	Short:   "List all services with their configuration",
+	Use:     "list",
+	Aliases: []string{"ls", "l"},
+	Short:   "List all discovered services",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		cl, err := configs.NewClient()
+		root, err := path.FindProjectRoot()
 		if err != nil {
-			return errors.Wrap(err, "error creating configs client: %v")
+			return errors.Wrap(err, "error finding project root")
 		}
 
-		banner := output.PrintBanner(version)
-		fmt.Print(banner)
-		fmt.Println("Available Services:")
+		services, err := serviceinfo.FindServices(root)
+		if err != nil {
+			return errors.Wrap(err, "error finding services")
+		}
 
-		configs := cl.Registry.List()
-		output.DisplayConfigs(configs)
+		// Convert to pointer slice for ListServices
+		svcPtrs := make([]*serviceinfo.ServiceInfo, len(services))
+		for i := range services {
+			svcPtrs[i] = &services[i]
+		}
 
-		fmt.Println("Usage:")
-		fmt.Println("  pilum add [service] [flags]    Add a service")
-		fmt.Println("  pilum add [service] --help     Add a service interactively")
-
+		serviceinfo.ListServices(svcPtrs)
 		return nil
 	},
 }
