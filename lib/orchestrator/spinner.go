@@ -2,12 +2,25 @@ package orchestrator
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 )
 
 // Spinner frames - a nice smooth animation.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
+// isCI returns true if running in a CI environment.
+func isCI() bool {
+	// Check common CI environment variables
+	ciVars := []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "JENKINS_URL", "BUILDKITE"}
+	for _, v := range ciVars {
+		if os.Getenv(v) != "" {
+			return true
+		}
+	}
+	return false
+}
 
 // SpinnerManager manages multiple spinners for concurrent tasks.
 type SpinnerManager struct {
@@ -17,6 +30,7 @@ type SpinnerManager struct {
 	stop     chan struct{}
 	stopped  bool
 	wg       sync.WaitGroup
+	ciMode   bool // true when running in CI - disables animation
 }
 
 type serviceSpinner struct {
@@ -34,11 +48,17 @@ func NewSpinnerManager() *SpinnerManager {
 	return &SpinnerManager{
 		spinners: make(map[string]*serviceSpinner),
 		stop:     make(chan struct{}),
+		ciMode:   isCI(),
 	}
 }
 
 // Start begins the spinner animation loop.
 func (sm *SpinnerManager) Start() {
+	// In CI mode, don't start the animation loop
+	if sm.ciMode {
+		return
+	}
+
 	sm.wg.Add(1)
 	go func() {
 		defer sm.wg.Done()
@@ -87,7 +107,16 @@ func (sm *SpinnerManager) AddSpinner(serviceName, stepName string, maxNameLen in
 	}
 	sm.order = append(sm.order, serviceName)
 
-	// Print initial line
+	// In CI mode, print a static "running" indicator
+	if sm.ciMode {
+		fmt.Printf("  %s%s%s %s %s%s%s\n",
+			colorWarning, symbolRunning, colorReset,
+			padded,
+			colorMuted, stepName, colorReset)
+		return
+	}
+
+	// Print initial line with spinner
 	fmt.Printf("  %s%s%s %s %s%s%s\n",
 		colorWarning, spinnerFrames[0], colorReset,
 		padded,
@@ -159,7 +188,35 @@ func (sm *SpinnerManager) RenderFinal() {
 		return
 	}
 
-	// Move up and clear
+	// In CI mode, just print completion status (no cursor manipulation)
+	if sm.ciMode {
+		for _, key := range sm.order {
+			s := sm.spinners[key]
+			if s.success {
+				fmt.Printf("  %s%s%s %s %s(%s)%s\n",
+					colorSuccess, symbolSuccess, colorReset,
+					s.name,
+					colorMuted, formatDuration(s.duration), colorReset)
+			} else if s.done {
+				errMsg := ""
+				if s.err != nil {
+					errMsg = s.err.Error()
+				}
+				fmt.Printf("  %s%s%s %s %sfailed: %s%s\n",
+					colorError, symbolFailure, colorReset,
+					s.name,
+					colorError, errMsg, colorReset)
+			} else {
+				fmt.Printf("  %s%s%s %s %s(interrupted)%s\n",
+					colorWarning, symbolRunning, colorReset,
+					s.name,
+					colorMuted, colorReset)
+			}
+		}
+		return
+	}
+
+	// Move up and clear (interactive mode)
 	fmt.Printf("\033[%dA", count)
 
 	for _, key := range sm.order {
