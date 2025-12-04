@@ -17,7 +17,13 @@ var Platforms = []string{
 
 // GenerateBuildCommand creates a multi-platform Go build script.
 func GenerateBuildCommand(svc serviceinfo.ServiceInfo, tag string, outputDir string) string {
+	// Base ldflags for smaller binaries
 	ldflags := "-s -w"
+
+	// Inject version at build time if version_var is configured
+	if svc.BuildConfig.VersionVar != "" {
+		ldflags = fmt.Sprintf("%s -X %s=%s", ldflags, svc.BuildConfig.VersionVar, tag)
+	}
 
 	var lines []string
 	lines = append(lines, fmt.Sprintf("mkdir -p %s", outputDir))
