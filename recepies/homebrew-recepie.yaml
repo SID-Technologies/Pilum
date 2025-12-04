@@ -5,11 +5,27 @@ service: package
 
 required_fields:
   - name: name
-    description: Binary and formula name
+    description: Binary name and Homebrew formula name
     type: string
 
-  - name: project
-    description: GitHub org/user for release URLs (e.g., sid-technologies)
+  - name: description
+    description: Short description for the Homebrew formula
+    type: string
+
+  - name: license
+    description: SPDX license identifier (e.g., MIT, Apache-2.0, BSL-1.1)
+    type: string
+
+  - name: homebrew.project_url
+    description: Full repository URL where releases are hosted (e.g., https://github.com/org/project)
+    type: string
+
+  - name: homebrew.tap_url
+    description: Full repository URL for the Homebrew tap (e.g., https://github.com/org/Homebrew-tap)
+    type: string
+
+  - name: homebrew.token_env
+    description: Environment variable name containing the auth token (e.g., GH_TOKEN, HOMEBREW_TAP_TOKEN)
     type: string
 
 steps:
@@ -32,5 +48,12 @@ steps:
   - name: update formula
     execution_mode: root
     timeout: 30
+    tags:
+      - deploy
+
+  # Step 5: Push updated formula to Homebrew tap repository
+  - name: push to tap
+    execution_mode: root
+    timeout: 60
     tags:
       - deploy

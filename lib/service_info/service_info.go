@@ -31,39 +31,38 @@ type RuntimeConfig struct {
 	Service string `yaml:"service"`
 }
 
+type HomebrewConfig struct {
+	TapURL     string `yaml:"tap_url"`     // Full repository URL for tap (e.g., https://github.com/org/Homebrew-tap)
+	ProjectURL string `yaml:"project_url"` // Full repository URL for releases (e.g., https://github.com/org/project)
+	TokenEnv   string `yaml:"token_env"`   // Environment variable name for auth token
+}
+
 type ServiceInfo struct {
-	Name         string         `yaml:"name"`
-	Template     string         `yaml:"template"`
-	Path         string         `yaml:"-"`
-	Config       map[string]any `yaml:"-"`
-	BuildConfig  BuildConfig    `yaml:"build"`
-	Runtime      RuntimeConfig  `yaml:"runtime"`
-	EnvVars      []EnvVars      `yaml:"env_vars"`
-	Secrets      []Secrets      `yaml:"secrets"`
-	Region       string         `yaml:"region"`
-	Project      string         `yaml:"project"`
-	Provider     string         `yaml:"provider"`
-	RegistryName string         `yaml:"registry_name"`
+	Name           string         `yaml:"name"`
+	Description    string         `yaml:"description"`
+	Template       string         `yaml:"template"`
+	Path           string         `yaml:"-"`
+	Config         map[string]any `yaml:"-"`
+	BuildConfig    BuildConfig    `yaml:"build"`
+	Runtime        RuntimeConfig  `yaml:"runtime"`
+	HomebrewConfig HomebrewConfig `yaml:"homebrew"`
+	EnvVars        []EnvVars      `yaml:"env_vars"`
+	Secrets        []Secrets      `yaml:"secrets"`
+	Region         string         `yaml:"region"`
+	Project        string         `yaml:"project"`
+	License        string         `yaml:"license"`
+	Provider       string         `yaml:"provider"`
+	RegistryName   string         `yaml:"registry_name"`
 }
 
 func (s *ServiceInfo) Validate() error {
+	// Minimal base validation - provider-specific validation is done by recipes
 	if s.Name == "" {
 		return errors.New("missing required field: name")
-	}
-	if s.Template == "" {
-		return errors.New("missing required field: template")
-	}
-	if s.Region == "" {
-		return errors.New("missing required field: region")
-	}
-	if s.Project == "" {
-		return errors.New("missing required field: project")
 	}
 	if s.Provider == "" {
 		return errors.New("missing required field: provider")
 	}
-
-	// add more rules as needed
 	return nil
 }
 
@@ -123,18 +122,37 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		}
 	}
 
+	// Parse homebrew config if present
+	homebrewConfig := parseHomebrewConfig(config)
+
 	return &ServiceInfo{
-		Name:        getString(config, "name", ""),
-		Template:    template,
-		Path:        path,
-		Config:      config,
-		BuildConfig: buildConfig,
-		Runtime:     runtime,
-		Region:      getString(config, "region", ""),
-		Project:     getString(config, "project", ""),
-		Provider:    provider,
-		EnvVars:     envVars,
-		Secrets:     secretVars,
+		Name:           getString(config, "name", ""),
+		Description:    getString(config, "description", ""),
+		Template:       template,
+		Path:           path,
+		Config:         config,
+		BuildConfig:    buildConfig,
+		Runtime:        runtime,
+		HomebrewConfig: homebrewConfig,
+		Region:         getString(config, "region", ""),
+		Project:        getString(config, "project", ""),
+		License:        getString(config, "license", ""),
+		Provider:       provider,
+		EnvVars:        envVars,
+		Secrets:        secretVars,
+	}
+}
+
+func parseHomebrewConfig(config map[string]any) HomebrewConfig {
+	brewMap := mapFromAny(config["homebrew"])
+	if len(brewMap) == 0 {
+		return HomebrewConfig{}
+	}
+
+	return HomebrewConfig{
+		TapURL:     getString(brewMap, "tap_url", ""),
+		ProjectURL: getString(brewMap, "project_url", ""),
+		TokenEnv:   getString(brewMap, "token_env", ""),
 	}
 }
 

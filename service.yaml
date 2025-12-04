@@ -1,6 +1,13 @@
 # Pilum deploys itself
 name: pilum
 type: homebrew
+description: Multi-cloud deployment CLI - define once, deploy anywhere
+license: BSL-1.1
+
+homebrew:
+  project_url: https://github.com/SID-Technologies/pilum
+  tap_url: https://github.com/SID-Technologies/Homebrew-Pilum
+  token_env: GH_TOKEN
 
 build:
   language: go
@@ -17,7 +24,3 @@ build:
       arch: amd64
     - os: linux
       arch: arm64
-
-release:
-  homebrew_tap: Homebrew-Pilum
-  github_repo: sid-technologies/pilum

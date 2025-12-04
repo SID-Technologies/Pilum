@@ -55,15 +55,21 @@ func (r *Recipe) GetRequiredFields() []RequiredField {
 }
 
 // getServiceField extracts a field value from ServiceInfo by name.
+// Supports nested field names like "homebrew.tap_url".
 func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 	// Map common field names to ServiceInfo struct fields
 	fieldMap := map[string]func(*serviceinfo.ServiceInfo) string{
-		"name":          func(s *serviceinfo.ServiceInfo) string { return s.Name },
-		"project":       func(s *serviceinfo.ServiceInfo) string { return s.Project },
-		"region":        func(s *serviceinfo.ServiceInfo) string { return s.Region },
-		"provider":      func(s *serviceinfo.ServiceInfo) string { return s.Provider },
-		"template":      func(s *serviceinfo.ServiceInfo) string { return s.Template },
-		"registry_name": func(s *serviceinfo.ServiceInfo) string { return s.RegistryName },
+		"name":                 func(s *serviceinfo.ServiceInfo) string { return s.Name },
+		"description":          func(s *serviceinfo.ServiceInfo) string { return s.Description },
+		"project":              func(s *serviceinfo.ServiceInfo) string { return s.Project },
+		"license":              func(s *serviceinfo.ServiceInfo) string { return s.License },
+		"region":               func(s *serviceinfo.ServiceInfo) string { return s.Region },
+		"provider":             func(s *serviceinfo.ServiceInfo) string { return s.Provider },
+		"template":             func(s *serviceinfo.ServiceInfo) string { return s.Template },
+		"registry_name":        func(s *serviceinfo.ServiceInfo) string { return s.RegistryName },
+		"homebrew.project_url": func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.ProjectURL },
+		"homebrew.tap_url":     func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.TapURL },
+		"homebrew.token_env":   func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.TokenEnv },
 	}
 
 	if getter, exists := fieldMap[fieldName]; exists {
