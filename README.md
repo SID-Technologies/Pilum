@@ -191,4 +191,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-Apache
+[BSL 1.1](LICENSE) - Converts to Apache 2.0 on December 3, 2028.
