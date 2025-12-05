@@ -79,7 +79,7 @@ jobs:
           git push origin "v${{ steps.version.outputs.VERSION }}"
 
       - name: Build Pilum CLI
-        run: go build -o pilum .
+        run: go build -ldflags="-X github.com/sid-technologies/pilum/cmd.version=v${{ steps.version.outputs.VERSION }}" -o pilum .
 
       - name: Run Pilum build (build + archive + checksums)
         run: ./pilum build -t "v${{ steps.version.outputs.VERSION }}" pilum

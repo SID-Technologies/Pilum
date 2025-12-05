@@ -12,7 +12,9 @@ import (
 
 var configFile string
 
-const version = "v0.1.0"
+// version is set at build time via ldflags:
+// go build -ldflags="-X github.com/sid-technologies/pilum/cmd.version=v1.0.0"
+var version = "dev"
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
@@ -39,6 +41,8 @@ func Execute() {
 // nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
 	cobra.OnInitialize(initConfig)
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("pilum {{ .Version }}\n")
 	defaultHelpFunc := rootCmd.HelpFunc()
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		if cmd.Parent() == nil {

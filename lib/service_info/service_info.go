@@ -20,11 +20,12 @@ type BuildFlag struct {
 }
 
 type BuildConfig struct {
-	Language string      `yaml:"language"`
-	Version  string      `yaml:"version"`
-	Cmd      string      `yaml:"cmd"`
-	EnvVars  []EnvVars   `yaml:"env_vars"`
-	Flags    []BuildFlag `yaml:"flags"`
+	Language   string      `yaml:"language"`
+	Version    string      `yaml:"version"`
+	Cmd        string      `yaml:"cmd"`
+	EnvVars    []EnvVars   `yaml:"env_vars"`
+	Flags      []BuildFlag `yaml:"flags"`
+	VersionVar string      `yaml:"version_var"` // Go variable path for version injection (e.g., "main.version")
 }
 
 type RuntimeConfig struct {
@@ -163,9 +164,10 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 	}
 
 	bc := BuildConfig{
-		Language: getString(buildMap, "language", ""),
-		Version:  getString(buildMap, "version", ""),
-		Cmd:      getString(buildMap, "cmd", ""),
+		Language:   getString(buildMap, "language", ""),
+		Version:    getString(buildMap, "version", ""),
+		Cmd:        getString(buildMap, "cmd", ""),
+		VersionVar: getString(buildMap, "version_var", ""),
 	}
 
 	// Parse build env vars
