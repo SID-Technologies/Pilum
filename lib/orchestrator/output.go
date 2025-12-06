@@ -62,12 +62,12 @@ func (o *OutputManager) PrintHeader(message string) {
 }
 
 // PrintStepHeader prints a step header with separator.
-func (o *OutputManager) PrintStepHeader(stepNum int, stepName string) {
+func (o *OutputManager) PrintStepHeader(stepNum, totalSteps int, stepName string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	line := strings.Repeat("━", 50)
-	fmt.Printf("\n%s%s Step %d: %s %s%s\n", colorPrimary, line[:3], stepNum, stepName, line[:40], colorReset)
+	fmt.Printf("\n%s%s Step %d/%d: %s %s%s\n", colorPrimary, line[:3], stepNum, totalSteps, stepName, line[:40], colorReset)
 }
 
 // PrintRunning prints a running status for a service.

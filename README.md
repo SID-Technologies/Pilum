@@ -119,21 +119,32 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 
 ## CLI Reference
 
-```
-pilum deploy [services...] [flags]    Deploy services
-pilum publish [services...] [flags]   Build and push (skip deploy steps)
-pilum check                           Validate services against recipes
-pilum add <template>                  Add a new service from template
-pilum list                            List available templates
-pilum dry-run                         Preview what would execute
+### Commands
 
-Flags:
-  --tag          Version tag for the deployment
-  --dry-run      Preview commands without executing
-  --debug        Enable debug logging
-  --timeout      Command timeout in seconds (default: 300)
-  --retries      Number of retries on failure (default: 0)
-```
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `pilum list` | `ls` | List discovered services |
+| `pilum check [services...]` | `validate` | Validate configs against recipes |
+| `pilum build [services...]` | `b`, `make` | Build services |
+| `pilum publish [services...]` | `p` | Build and push images |
+| `pilum push [services...]` | `ps` | Push images to registry |
+| `pilum deploy [services...]` | `up` | Full deploy pipeline |
+| `pilum dry-run [services...]` | `dr` | Preview what would execute |
+| `pilum delete-builds [services...]` | `clean` | Delete dist/ directories |
+
+### Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--tag` | `-t` | `latest` | Version tag for the deployment |
+| `--dry-run` | `-D` | `false` | Preview commands without executing |
+| `--debug` | `-d` | `false` | Enable debug logging |
+| `--timeout` | `-T` | `60` | Command timeout in seconds |
+| `--retries` | `-r` | `3` | Number of retries on failure |
+| `--recipe-path` | | `./recepies` | Path to recipe definitions |
+| `--max-workers` | | `0` (auto) | Maximum parallel workers |
+| `--only-tags` | | | Only run steps with these tags |
+| `--exclude-tags` | | | Exclude steps with these tags |
 
 ## Project Structure
 

@@ -33,16 +33,22 @@ steps:
   - name: build binaries
     execution_mode: root
     timeout: 300
+    tags:
+      - build
 
   # Step 2: Create tar.gz archives for each binary
   - name: create archives
     execution_mode: root
     timeout: 60
+    tags:
+      - build
 
   # Step 3: Generate SHA256 checksums
   - name: generate checksums
     execution_mode: root
     timeout: 30
+    tags:
+      - build
 
   # Step 4: Update Homebrew formula with new version and checksums
   - name: update formula
