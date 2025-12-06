@@ -225,12 +225,11 @@ Step 3: deploy
 | `ingredients/` | Cloud-specific command generators |
 | `recepies/` | Deployment workflow definitions |
 
-For detailed architecture documentation, see [docs/architecture.md](docs/architecture.md).
+See [Adding a New Provider](docs/adding-a-provider.md) for extension details.
 
 ## Documentation
 
-- [Adding a New Provider](docs/adding-a-provider.md) - Step-by-step guide with Lambda, Fargate, and Azure examples
-- [Architecture](docs/architecture.md) - Internal design and extension points
+- [Adding a New Provider](docs/adding-a-provider.md) - Step-by-step guide with examples
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
 - [Recipe Reference](recepies/README.md) - Full recipe configuration guide
 

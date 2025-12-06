@@ -199,10 +199,6 @@ End-to-end tests are in `test/e2e/`. Run with:
 ./test/e2e/run_tests.sh
 ```
 
-## Architecture Overview
-
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
-
 ## Getting Help
 
 - Open an issue for bugs or feature requests
