@@ -69,7 +69,7 @@ func BuildCmd() *cobra.Command {
 			}
 
 			// Create and run the orchestrator
-			// Build excludes steps tagged with "deploy"
+			// Build only runs steps tagged with "build"
 			runner := orchestrator.NewRunner(services, recipes, orchestrator.RunnerOptions{
 				Tag:          tag,
 				Registry:     registry,
@@ -79,7 +79,7 @@ func BuildCmd() *cobra.Command {
 				Retries:      retries,
 				DryRun:       dryRun,
 				MaxWorkers:   maxWorkers,
-				ExcludeTags:  []string{"deploy"},
+				OnlyTags:     []string{"build"},
 			})
 
 			return runner.Run()

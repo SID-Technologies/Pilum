@@ -3,11 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/sid-technologies/pilum/ingredients/build"
-	"github.com/sid-technologies/pilum/ingredients/docker"
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/orchestrator"
+	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -17,13 +16,23 @@ func PushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push [services...]",
 		Short: "Push Docker images to registry",
-		Long:  "Push Docker images for one or more services to the container registry. Assumes images are already built.",
+		Long:  "Push Docker images for one or more services to the container registry. Runs recipe steps tagged with 'push'.",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			err := bindFlagsForDeploymentCommands(cmd)
-			if err != nil {
+			if err := bindFlagsForDeploymentCommands(cmd); err != nil {
 				return errors.Wrap(err, "error binding flags for deployment commands: %v")
 			}
-
+			if err := viper.BindPFlag("recipe-path", cmd.Flags().Lookup("recipe-path")); err != nil {
+				return errors.Wrap(err, "error binding recipe-path flag")
+			}
+			if err := viper.BindPFlag("registry", cmd.Flags().Lookup("registry")); err != nil {
+				return errors.Wrap(err, "error binding registry flag")
+			}
+			if err := viper.BindPFlag("template-path", cmd.Flags().Lookup("template-path")); err != nil {
+				return errors.Wrap(err, "error binding template-path flag")
+			}
+			if err := viper.BindPFlag("max-workers", cmd.Flags().Lookup("max-workers")); err != nil {
+				return errors.Wrap(err, "error binding max-workers flag")
+			}
 			return nil
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -33,7 +42,11 @@ func PushCmd() *cobra.Command {
 			retries := viper.GetInt("retries")
 			dryRun := viper.GetBool("dry-run")
 			registry := viper.GetString("registry")
+			templatePath := viper.GetString("template-path")
+			recipePath := viper.GetString("recipe-path")
+			maxWorkers := viper.GetInt("max-workers")
 
+			// Find services
 			services, err := serviceinfo.FindAndFilterServices(".", args)
 			if err != nil {
 				return errors.Wrap(err, "error finding services: %v", err.Error())
@@ -44,62 +57,40 @@ func PushCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Printf("Pushing %d service(s)...\n", len(services))
-
-			pushQueue := workerqueue.NewWorkQueue(
-				func(task *workerqueue.TaskInfo) bool {
-					result, err := workerqueue.CommandWorker(task)
-					if err != nil {
-						fmt.Printf("  Error pushing %s: %v\n", task.ServiceName, err)
-						return false
-					}
-					return result
-				},
-				0,
-			)
-
-			for _, service := range services {
-				_, imageName := build.GenerateBuildCommand(service, registry, tag)
-				cmd := docker.GenerateDockerPushCommand(imageName)
-
-				if dryRun {
-					fmt.Printf("  [dry-run] %s: docker push %s\n", service.Name, imageName)
-					continue
-				}
-
-				fmt.Printf("  Pushing %s...\n", service.Name)
-
-				task := workerqueue.NewTaskInfo(cmd, "", service.Name, "root", nil, nil, timeout, debug, retries)
-				pushQueue.AddTask(task)
+			// Load recipes
+			recipes, err := recepie.LoadRecipesFromDirectory(recipePath)
+			if err != nil {
+				return errors.Wrap(err, "error loading recipes: %v", err.Error())
 			}
 
-			if dryRun {
-				fmt.Println("\nDry run complete - no commands executed")
+			if len(recipes) == 0 {
+				fmt.Println("No recipes found")
 				return nil
 			}
 
-			results := pushQueue.Execute()
+			// Create and run the orchestrator
+			// Push only runs steps tagged with "push"
+			runner := orchestrator.NewRunner(services, recipes, orchestrator.RunnerOptions{
+				Tag:          tag,
+				Registry:     registry,
+				TemplatePath: templatePath,
+				Debug:        debug,
+				Timeout:      timeout,
+				Retries:      retries,
+				DryRun:       dryRun,
+				MaxWorkers:   maxWorkers,
+				OnlyTags:     []string{"push"},
+			})
 
-			successCount := 0
-			for _, result := range results {
-				if result {
-					successCount++
-				}
-			}
-
-			if successCount != len(results) {
-				return errors.New("push failed: %d/%d succeeded", successCount, len(results))
-			}
-
-			fmt.Printf("\nPush complete: %d/%d succeeded\n", successCount, len(results))
-
-			return nil
+			return runner.Run()
 		},
 	}
 
 	cmdFlagStrings(cmd)
 	cmd.Flags().String("registry", "", "Docker registry prefix (overrides service.yaml)")
-	_ = viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
+	cmd.Flags().String("template-path", "./_templates", "Path to Dockerfile templates")
+	cmd.Flags().String("recipe-path", "./recepies", "Path to recipe definitions")
+	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 
 	return cmd
 }

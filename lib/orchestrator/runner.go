@@ -114,7 +114,7 @@ func (r *Runner) Run() error {
 
 	// Execute step by step
 	for stepIdx := 0; stepIdx < maxSteps; stepIdx++ {
-		err := r.executeStep(stepIdx)
+		err := r.executeStep(stepIdx, maxSteps)
 		if err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func (*Runner) stepHasAnyTag(step *recepie.RecipeStep, tags []string) bool {
 }
 
 // executeStep runs step N for all services that have it.
-func (r *Runner) executeStep(stepIdx int) error {
+func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 	// Collect tasks for this step
 	var tasks []stepTask
 	stepNames := make(map[string]bool)
@@ -220,7 +220,7 @@ func (r *Runner) executeStep(stepIdx int) error {
 
 	// Build step name
 	stepName := r.buildStepName(stepNames)
-	r.output.PrintStepHeader(stepIdx+1, stepName)
+	r.output.PrintStepHeader(stepIdx+1, totalSteps, stepName)
 
 	// Show skipped services
 	for _, svc := range r.services {

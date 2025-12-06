@@ -7,18 +7,27 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func CheckCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "check",
+		Use:   "check [services...]",
 		Short: "Check the configuration of the services",
-		Long:  "Check the configuration of the services against their recipe requirements",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Long:  "Check the configuration of the services against their recipe requirements. Optionally specify service names to check only those services.",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := viper.BindPFlag("recipe-path", cmd.Flags().Lookup("recipe-path")); err != nil {
+				return errors.Wrap(err, "error binding recipe-path flag")
+			}
+			return nil
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			recipePath := viper.GetString("recipe-path")
+
 			output.Info("Checking configuration of the services")
 
-			// Load services
-			services, err := serviceinfo.FindServices(".")
+			// Find services
+			services, err := serviceinfo.FindAndFilterServices(".", args)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
@@ -29,9 +38,14 @@ func CheckCmd() *cobra.Command {
 			}
 
 			// Load recipes
-			recipes, err := recepie.LoadRecipesFromDirectory("recepies")
+			recipes, err := recepie.LoadRecipesFromDirectory(recipePath)
 			if err != nil {
 				return errors.Wrap(err, "error loading recipes")
+			}
+
+			if len(recipes) == 0 {
+				output.Warning("No recipes found")
+				return nil
 			}
 
 			// Index recipes by provider
@@ -67,6 +81,8 @@ func CheckCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("recipe-path", "./recepies", "Path to recipe definitions")
 
 	return cmd
 }
