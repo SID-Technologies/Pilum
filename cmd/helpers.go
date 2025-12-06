@@ -4,10 +4,53 @@ import (
 	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/orchestrator"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// deploymentOptions holds parsed flag values for deployment commands.
+type deploymentOptions struct {
+	Tag         string
+	Debug       bool
+	Timeout     int
+	Retries     int
+	DryRun      bool
+	RecipePath  string
+	MaxWorkers  int
+	OnlyTags    []string
+	ExcludeTags []string
+}
+
+// getDeploymentOptions extracts all standard deployment flags from viper.
+func getDeploymentOptions() deploymentOptions {
+	return deploymentOptions{
+		Tag:         viper.GetString("tag"),
+		Debug:       viper.GetBool("debug"),
+		Timeout:     viper.GetInt("timeout"),
+		Retries:     viper.GetInt("retries"),
+		DryRun:      viper.GetBool("dry-run"),
+		RecipePath:  viper.GetString("recipe-path"),
+		MaxWorkers:  viper.GetInt("max-workers"),
+		OnlyTags:    parseCommaSeparated(viper.GetString("only-tags")),
+		ExcludeTags: parseCommaSeparated(viper.GetString("exclude-tags")),
+	}
+}
+
+// toRunnerOptions converts deploymentOptions to orchestrator.RunnerOptions.
+func (o deploymentOptions) toRunnerOptions() orchestrator.RunnerOptions {
+	return orchestrator.RunnerOptions{
+		Tag:         o.Tag,
+		Debug:       o.Debug,
+		Timeout:     o.Timeout,
+		Retries:     o.Retries,
+		DryRun:      o.DryRun,
+		MaxWorkers:  o.MaxWorkers,
+		OnlyTags:    o.OnlyTags,
+		ExcludeTags: o.ExcludeTags,
+	}
+}
 
 func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 	flagBindings := []string{
