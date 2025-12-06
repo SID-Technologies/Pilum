@@ -1,17 +1,20 @@
 # Pilum
 
-A multi-service deployment orchestrator. Deploy to any cloud with simple YAML recipes.
+A cloud-agnostic build and deployment CLI. Define your service once, deploy to any cloud provider.
 
-```
+```bash
 pilum deploy --tag=v1.0.0
 ```
+
+**Think "GoReleaser for multi-cloud deployments"** - Pilum handles the build → push → deploy pipeline while your infrastructure-as-code (Terraform, Pulumi) defines the actual resources.
 
 ## Features
 
 - **Recipe-driven deployments** - Define reusable deployment workflows in YAML
 - **Recipe-driven validation** - Each recipe declares required fields, no Go code per provider
-- **Multi-cloud support** - GCP Cloud Run, AWS Lambda, Kubernetes, Homebrew, and more
+- **Multi-cloud support** - GCP Cloud Run, AWS Lambda, Azure Container Apps, Homebrew, and more
 - **Parallel execution** - Deploy multiple services concurrently with step barriers
+- **Step filtering** - Run only build steps, only deploy steps, or custom tag combinations
 - **Dry-run mode** - Preview commands before executing
 - **Beautiful CLI** - Animated spinners, colored output, clear progress
 
@@ -146,6 +149,31 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 | `--only-tags` | | | Only run steps with these tags |
 | `--exclude-tags` | | | Exclude steps with these tags |
 
+### Examples
+
+```bash
+# Deploy all services
+pilum deploy --tag=v1.0.0
+
+# Deploy specific service
+pilum deploy my-api --tag=v1.0.0
+
+# Build only (skip deployment)
+pilum build --tag=v1.0.0
+
+# Build and push, but don't deploy
+pilum publish --tag=v1.0.0
+
+# Run only deploy-tagged steps (assumes images exist)
+pilum deploy --only-tags=deploy --tag=v1.0.0
+
+# Preview what would run
+pilum deploy --dry-run --tag=v1.0.0
+
+# Validate all service configurations
+pilum check
+```
+
 ## Project Structure
 
 ```
@@ -193,12 +221,26 @@ Step 3: deploy
 | `cmd/` | CLI commands (Cobra) |
 | `lib/recepie/` | Recipe loading and validation |
 | `lib/registry/` | Step handler registration |
+| `lib/orchestrator/` | Parallel execution engine |
 | `ingredients/` | Cloud-specific command generators |
 | `recepies/` | Deployment workflow definitions |
 
+See [Adding a New Provider](docs/adding-a-provider.md) for extension details.
+
+## Documentation
+
+- [Adding a New Provider](docs/adding-a-provider.md) - Step-by-step guide with examples
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Recipe Reference](recepies/README.md) - Full recipe configuration guide
+
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
+- Development setup
+- Code style guidelines
+- How to add new providers
+- Pull request process
 
 ## License
 
