@@ -12,9 +12,10 @@ import (
 
 func CheckCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "check [services...]",
-		Short: "Check the configuration of the services",
-		Long:  "Check the configuration of the services against their recipe requirements. Optionally specify service names to check only those services.",
+		Use:     "check [services...]",
+		Aliases: []string{"validate"},
+		Short:   "Check the configuration of the services",
+		Long:    "Check the configuration of the services against their recipe requirements. Optionally specify service names to check only those services.",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if err := viper.BindPFlag("recipe-path", cmd.Flags().Lookup("recipe-path")); err != nil {
 				return errors.Wrap(err, "error binding recipe-path flag")

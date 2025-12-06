@@ -8,33 +8,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listServicesCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls", "l"},
-	Short:   "List all discovered services",
-	RunE: func(_ *cobra.Command, _ []string) error {
-		root, err := path.FindProjectRoot()
-		if err != nil {
-			return errors.Wrap(err, "error finding project root")
-		}
+func ListCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all discovered services",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			root, err := path.FindProjectRoot()
+			if err != nil {
+				return errors.Wrap(err, "error finding project root")
+			}
 
-		services, err := serviceinfo.FindServices(root)
-		if err != nil {
-			return errors.Wrap(err, "error finding services")
-		}
+			services, err := serviceinfo.FindServices(root)
+			if err != nil {
+				return errors.Wrap(err, "error finding services")
+			}
 
-		// Convert to pointer slice for ListServices
-		svcPtrs := make([]*serviceinfo.ServiceInfo, len(services))
-		for i := range services {
-			svcPtrs[i] = &services[i]
-		}
+			// Convert to pointer slice for ListServices
+			svcPtrs := make([]*serviceinfo.ServiceInfo, len(services))
+			for i := range services {
+				svcPtrs[i] = &services[i]
+			}
 
-		serviceinfo.ListServices(svcPtrs)
-		return nil
-	},
+			serviceinfo.ListServices(svcPtrs)
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
-	rootCmd.AddCommand(listServicesCmd)
+	rootCmd.AddCommand(ListCmd())
 }

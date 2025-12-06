@@ -24,12 +24,12 @@ make lint             # Run golangci-lint
 go test ./...         # Run tests
 
 # CLI Commands
-pilum add <template>      # Scaffold a new service
-pilum list                # List available templates
+pilum list                # List discovered services
 pilum check               # Validate services against recipe requirements
 pilum build [services]    # Build services
 pilum deploy [services]   # Full deploy pipeline
-pilum dry-run             # Preview what would execute
+pilum dry-run [services]  # Preview what would execute
+pilum delete-builds       # Delete all dist/ directories
 ```
 
 ## Key Directories

@@ -20,6 +20,14 @@ required_fields:
     type: string
     default: my-cloud-run-service
 
+  - name: registry_name
+    description: Docker registry prefix (e.g., gcr.io/my-project, us-docker.pkg.dev/my-project/repo)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
 steps:
   - name: build binary
     execution_mode: service_dir

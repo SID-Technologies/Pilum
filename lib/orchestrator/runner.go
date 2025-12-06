@@ -45,15 +45,14 @@ type stepTask struct {
 // RunnerOptions configures the runner.
 type RunnerOptions struct {
 	Tag          string
-	Registry     string
-	TemplatePath string
+	Registry     string // Docker registry prefix (overrides service.yaml)
+	TemplatePath string // Default template path for services that don't specify one
 	Debug        bool
 	Timeout      int
 	Retries      int
 	DryRun       bool
 	MaxWorkers   int
 	MaxSteps     int      // Maximum number of steps to run (0 = all)
-	ExcludeSteps []string // Step names to exclude
 	ExcludeTags  []string // Exclude steps with these tags (e.g., "deploy")
 	OnlyTags     []string // Only run steps with these tags (e.g., "deploy")
 }
@@ -108,7 +107,7 @@ func (r *Runner) Run() error {
 
 	// Pre-calculate image names for all services
 	for _, svc := range r.services {
-		_, imageName := build.GenerateBuildCommand(svc, r.options.Registry, r.options.Tag)
+		_, imageName := build.GenerateBuildCommand(svc, svc.RegistryName, r.options.Tag)
 		r.imageNames[svc.Name] = imageName
 	}
 
@@ -143,24 +142,8 @@ func (r *Runner) findMaxSteps() int {
 	return maxSteps
 }
 
-// isStepExcluded checks if a step name should be excluded.
-func (r *Runner) isStepExcluded(stepName string) bool {
-	stepLower := strings.ToLower(stepName)
-	for _, excluded := range r.options.ExcludeSteps {
-		if strings.Contains(stepLower, strings.ToLower(excluded)) {
-			return true
-		}
-	}
-	return false
-}
-
 // shouldSkipStep checks if a step should be skipped based on tag filters.
 func (r *Runner) shouldSkipStep(step *recepie.RecipeStep) bool {
-	// Check if step name is excluded
-	if r.isStepExcluded(step.Name) {
-		return true
-	}
-
 	// If OnlyTags is set, step must have at least one matching tag
 	if len(r.options.OnlyTags) > 0 {
 		if !r.stepHasAnyTag(step, r.options.OnlyTags) {
@@ -393,12 +376,17 @@ func (r *Runner) generateCommand(svc serviceinfo.ServiceInfo, step *recepie.Reci
 	}
 
 	// Build context and execute handler
+	// Use service's registry_name, fall back to template path from options if service doesn't specify
+	templatePath := r.options.TemplatePath
+	if templatePath == "" {
+		templatePath = "./_templates"
+	}
 	ctx := registry.StepContext{
 		Service:      svc,
 		ImageName:    r.imageNames[svc.Name],
 		Tag:          r.options.Tag,
-		Registry:     r.options.Registry,
-		TemplatePath: r.options.TemplatePath,
+		Registry:     svc.RegistryName,
+		TemplatePath: templatePath,
 	}
 
 	return handler(ctx)
