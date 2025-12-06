@@ -124,28 +124,30 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `pilum deploy [services...]` | Full pipeline: build → push → deploy |
-| `pilum build [services...]` | Build only (excludes deploy-tagged steps) |
-| `pilum publish [services...]` | Build and push to registry (no deploy) |
-| `pilum push [services...]` | Push images to container registry |
-| `pilum check` | Validate services against recipe requirements |
-| `pilum list` | List discovered services |
-| `pilum dry-run` | Preview commands without executing |
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `pilum list` | `ls` | List discovered services |
+| `pilum check [services...]` | `validate` | Validate configs against recipes |
+| `pilum build [services...]` | `b`, `make` | Build services |
+| `pilum publish [services...]` | `p` | Build and push images |
+| `pilum push [services...]` | `ps` | Push images to registry |
+| `pilum deploy [services...]` | `up` | Full deploy pipeline |
+| `pilum dry-run [services...]` | `dr` | Preview what would execute |
+| `pilum delete-builds [services...]` | `clean` | Delete dist/ directories |
 
 ### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--tag` | Version tag for the deployment |
-| `--dry-run` | Preview commands without executing |
-| `--debug` | Enable debug logging |
-| `--timeout` | Command timeout in seconds (default: 300) |
-| `--retries` | Number of retries on failure (default: 0) |
-| `--max-workers` | Parallel worker count (default: 4) |
-| `--only-tags` | Only run steps with these tags (e.g., `--only-tags=deploy`) |
-| `--exclude-tags` | Skip steps with these tags (e.g., `--exclude-tags=deploy`) |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--tag` | `-t` | `latest` | Version tag for the deployment |
+| `--dry-run` | `-D` | `false` | Preview commands without executing |
+| `--debug` | `-d` | `false` | Enable debug logging |
+| `--timeout` | `-T` | `60` | Command timeout in seconds |
+| `--retries` | `-r` | `3` | Number of retries on failure |
+| `--recipe-path` | | `./recepies` | Path to recipe definitions |
+| `--max-workers` | | `0` (auto) | Maximum parallel workers |
+| `--only-tags` | | | Only run steps with these tags |
+| `--exclude-tags` | | | Exclude steps with these tags |
 
 ### Examples
 

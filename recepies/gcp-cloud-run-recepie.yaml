@@ -20,20 +20,36 @@ required_fields:
     type: string
     default: my-cloud-run-service
 
+  - name: registry_name
+    description: Docker registry prefix (e.g., gcr.io/my-project, us-docker.pkg.dev/my-project/repo)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
 steps:
   - name: build binary
     execution_mode: service_dir
     timeout: 300
+    tags:
+      - build
 
   - name: build docker image
     execution_mode: service_dir
     timeout: 300
+    tags:
+      - build
 
   - name: publish to registry
     execution_mode: root
     timeout: 120
+    tags:
+      - push
 
   - name: deploy to cloud run
     execution_mode: root
     timeout: 180
     default_retries: 2
+    tags:
+      - deploy

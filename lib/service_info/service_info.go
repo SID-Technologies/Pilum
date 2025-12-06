@@ -139,6 +139,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		Project:        getString(config, "project", ""),
 		License:        getString(config, "license", ""),
 		Provider:       provider,
+		RegistryName:   getString(config, "registry_name", ""),
 		EnvVars:        envVars,
 		Secrets:        secretVars,
 	}
