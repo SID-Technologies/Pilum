@@ -1,5 +1,7 @@
 # CLAUDE.md - Pilum
 
+> Last updated: 2025-12-06
+
 ## What is Pilum?
 
 Pilum is a **cloud-agnostic deployment CLI** - define a service once, deploy to any cloud provider. Think "GoReleaser for multi-cloud deployments" but faster and more flexible.
@@ -32,6 +34,15 @@ pilum push [services]          # Push images to registry (alias: ps)
 pilum deploy [services]        # Full deploy pipeline (alias: up)
 pilum dry-run [services]       # Preview what would execute (alias: dr)
 pilum delete-builds [services] # Clean dist/ directories (alias: clean)
+
+# Common Flags
+--tag, -t              # Image/release tag (default: latest)
+--debug, -d            # Enable debug output
+--timeout, -T          # Step timeout in seconds (default: 60)
+--max-workers          # Parallel workers (0 = auto)
+--recipe-path          # Custom recipe directory (default: ./recepies)
+--only-tags            # Run only steps with these tags (comma-separated)
+--exclude-tags         # Skip steps with these tags (comma-separated)
 ```
 
 ## Key Directories
@@ -39,10 +50,14 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 | Directory | Purpose |
 |-----------|---------|
 | `cmd/` | CLI commands (Cobra) |
+| `lib/errors/` | Custom error wrapping |
+| `lib/orchestrator/` | Step execution engine |
+| `lib/output/` | CLI output formatting |
 | `lib/recepie/` | Recipe loading and validation |
 | `lib/registry/` | Step handler registration |
-| `lib/output/` | CLI output formatting |
-| `ingredients/` | Cloud provider command generators (gcp, aws, docker, homebrew) |
+| `lib/service_info/` | Service configuration parsing |
+| `lib/worker_queue/` | Parallel execution worker pool |
+| `ingredients/` | Cloud provider command generators (gcp, docker, homebrew) |
 | `recepies/` | Deployment recipe YAML files |
 
 ## Architecture

@@ -96,30 +96,14 @@ make lint
 
 ## Project Structure
 
-```
-pilum/
-├── cmd/                  # CLI commands (Cobra)
-│   ├── root.go          # Root command and global flags
-│   ├── deploy.go        # Deploy command
-│   └── ...
-├── lib/                  # Core libraries
-│   ├── errors/          # Custom error handling
-│   ├── output/          # CLI output formatting
-│   ├── orchestrator/    # Step execution engine
-│   ├── recepie/         # Recipe loading and validation
-│   ├── registry/        # Step handler registration
-│   └── service_info/    # Service configuration parsing
-├── ingredients/          # Cloud provider implementations
-│   ├── build/           # Generic build commands
-│   ├── docker/          # Docker build/push
-│   ├── gcp/             # Google Cloud Run
-│   ├── homebrew/        # Homebrew releases
-│   └── aws/             # AWS (placeholder)
-└── recepies/            # Deployment workflow definitions
-    ├── gcp-cloud-run-recepie.yaml
-    ├── aws-lambda-recepie.yaml
-    └── homebrew-recepie.yaml
-```
+The codebase follows standard Go project conventions:
+
+- `cmd/` - CLI commands (Cobra)
+- `lib/` - Core libraries (errors, output, orchestrator, etc.)
+- `ingredients/` - Cloud provider implementations
+- `recepies/` - Deployment workflow definitions
+
+See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
 
 ## Adding a New Provider
 
@@ -218,13 +202,6 @@ End-to-end tests are in `test/e2e/`. Run with:
 ## Architecture Overview
 
 See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
-
-**Key concepts:**
-
-- **Recipes** define deployment workflows as ordered steps
-- **Handlers** generate commands for steps (registered in `lib/registry`)
-- **Ingredients** are cloud-specific command generators
-- **Orchestrator** executes steps in parallel with barriers between steps
 
 ## Getting Help
 

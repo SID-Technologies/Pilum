@@ -72,7 +72,7 @@ cat recepies/my-provider-recepie.yaml | python3 -c "import yaml,sys; yaml.safe_l
 **Symptom:**
 ```
 $ pilum check
-Error: recipe 'gcp-cloud-run' requires field 'region': GCP region to deploy to
+error checking service my-service: recipe 'gcp-cloud-run' requires field 'region': GCP region to deploy to
 ```
 
 **Solution:**
@@ -89,6 +89,11 @@ Check recipe requirements:
 ```bash
 cat recepies/gcp-cloud-run-recepie.yaml
 # Look at required_fields section
+```
+
+Use `--recipe-path` if your recipes are in a non-standard location:
+```bash
+pilum check --recipe-path=/path/to/custom/recepies
 ```
 
 ### Nested field errors
