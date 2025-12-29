@@ -16,5 +16,11 @@ jobs:
           go-version: 'stable'
       - name: Install dependencies
         run: go mod tidy
-      - name: Run tests
-        run: go test -timeout=5m -race -tags=verify_logs ./...
+      - name: Run tests with coverage
+        run: go test -timeout=5m -race -tags=verify_logs -coverprofile=coverage.out ./...
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+          verbose: true

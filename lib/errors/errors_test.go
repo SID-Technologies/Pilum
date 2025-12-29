@@ -59,3 +59,103 @@ func TestIs(t *testing.T) {
 	require.True(t, errors.Is(errIO11, errIO11))
 	require.False(t, errors.Is(err111, errX))
 }
+
+func TestNewWithFormatting(t *testing.T) {
+	t.Parallel()
+
+	err := errors.New("error with value: %d", 42)
+	require.Equal(t, "error with value: 42", err.Error())
+}
+
+func TestWrapPreservesAttributes(t *testing.T) {
+	t.Parallel()
+
+	err1 := errors.New("base error %s %s", "key", "value")
+	err2 := errors.Wrap(err1, "wrapped")
+
+	require.Contains(t, err2.Error(), "wrapped")
+	require.Contains(t, err2.Error(), "base error key value")
+}
+
+func TestWrapNilPanics(t *testing.T) {
+	t.Parallel()
+
+	require.Panics(t, func() {
+		errors.Wrap(nil, "should panic")
+	})
+}
+
+func TestUnwrap(t *testing.T) {
+	t.Parallel()
+
+	inner := errors.New("inner")
+	outer := errors.Wrap(inner, "outer")
+
+	unwrapped := errors.Unwrap(outer)
+	require.NotNil(t, unwrapped)
+	require.Contains(t, unwrapped.Error(), "inner")
+}
+
+func TestUnwrapNil(t *testing.T) {
+	t.Parallel()
+
+	result := errors.Unwrap(nil)
+	require.Nil(t, result)
+}
+
+func TestAs(t *testing.T) {
+	t.Parallel()
+
+	err := errors.New("test error")
+	wrapped := errors.Wrap(err, "wrapped")
+
+	var target error
+	require.True(t, errors.As(wrapped, &target))
+	require.NotNil(t, target)
+}
+
+func TestAsWithNil(t *testing.T) {
+	t.Parallel()
+
+	var target error
+	require.False(t, errors.As(nil, &target))
+}
+
+func TestErrorChaining(t *testing.T) {
+	t.Parallel()
+
+	err1 := errors.New("level 1")
+	err2 := errors.Wrap(err1, "level 2")
+	err3 := errors.Wrap(err2, "level 3")
+
+	require.Equal(t, "level 3: level 2: level 1", err3.Error())
+	require.True(t, errors.Is(err3, err1))
+	require.True(t, errors.Is(err3, err2))
+}
+
+func TestNewWithMultipleAttributes(t *testing.T) {
+	t.Parallel()
+
+	err := errors.New("test %s=%s %s=%s", "key1", "val1", "key2", "val2")
+	require.NotNil(t, err)
+	require.Equal(t, "test key1=val1 key2=val2", err.Error())
+}
+
+func TestWrapWithAdditionalAttributes(t *testing.T) {
+	t.Parallel()
+
+	inner := io.EOF
+	wrapped := errors.Wrap(inner, "context", "key", "value")
+
+	require.True(t, errors.Is(wrapped, io.EOF))
+	require.Contains(t, wrapped.Error(), "context")
+}
+
+func TestWrapStandardLibraryError(t *testing.T) {
+	t.Parallel()
+
+	wrapped := errors.Wrap(io.EOF, "wrapped EOF")
+
+	require.True(t, errors.Is(wrapped, io.EOF))
+	require.Equal(t, "wrapped EOF: EOF", wrapped.Error())
+}

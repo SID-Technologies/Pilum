@@ -1,0 +1,30 @@
+name: recipe-with-commands
+description: Recipe with explicit commands
+provider: custom
+service: custom_service
+
+steps:
+  - name: echo step
+    command: echo hello
+    execution_mode: root
+    timeout: 10
+    tags:
+      - build
+
+  - name: array command
+    command:
+      - /bin/sh
+      - -c
+      - echo world
+    execution_mode: service_dir
+    timeout: 10
+    tags:
+      - build
+
+  - name: with env vars
+    command: echo $MY_VAR
+    execution_mode: root
+    env_vars:
+      MY_VAR: test_value
+    tags:
+      - deploy

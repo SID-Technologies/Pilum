@@ -1,0 +1,6 @@
+name: invalid
+provider: test
+steps:
+  - name: step1
+    tags: [build
+  # Invalid YAML - unclosed bracket

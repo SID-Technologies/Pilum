@@ -40,12 +40,16 @@ print_separator() {
     echo ""
 }
 
-# Build pilum first
-print_header "Building Pilum"
+# Build pilum with coverage instrumentation
+print_header "Building Pilum (with coverage)"
 cd "$PROJECT_ROOT"
 mkdir -p dist
-go build -o dist/pilum .
-print_success "Build complete"
+mkdir -p "$PROJECT_ROOT/coverage/e2e"
+go build -cover -o dist/pilum .
+print_success "Build complete (coverage-instrumented)"
+
+# Set coverage directory for all test runs
+export GOCOVERDIR="$PROJECT_ROOT/coverage/e2e"
 
 # Test 1: GCP Cloud Run Recipe (4 steps)
 print_header "Test 1: GCP Cloud Run Recipe (4 steps)"
@@ -125,4 +129,18 @@ echo -e "${GREEN}✓${RESET} Test 3: Homebrew (3 steps)"
 echo -e "${GREEN}✓${RESET} Test 4: Multi-service mixed recipes"
 echo -e "${GREEN}✓${RESET} Test 5: Dry-run mode"
 echo -e "${GREEN}✓${RESET} Test 6: Publish mode"
+echo ""
+
+# Generate coverage report from E2E tests
+print_header "Generating E2E Coverage Report"
+cd "$PROJECT_ROOT"
+go tool covdata textfmt -i=coverage/e2e -o=coverage-e2e.out 2>/dev/null || true
+if [ -f coverage-e2e.out ]; then
+    echo -e "${GREEN}✓${RESET} E2E coverage saved to coverage-e2e.out"
+    echo ""
+    echo "To merge with unit test coverage:"
+    echo "  go test ./... -coverprofile=coverage-unit.out"
+    echo "  go tool covdata merge -i=coverage/e2e -o=coverage/merged"
+    echo "  go tool covdata textfmt -i=coverage/merged -o=coverage-merged.out"
+fi
 echo ""
