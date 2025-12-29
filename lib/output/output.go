@@ -59,3 +59,19 @@ func Dimmed(msg string, args ...any) {
 	formatted := fmt.Sprintf(msg, args...)
 	fmt.Printf("%s%s%s\n", Muted, formatted, Reset)
 }
+
+// VerboseStdout prints a line of stdout with service name prefix.
+func VerboseStdout(serviceName, line string) {
+	if !IsVerbose() {
+		return
+	}
+	fmt.Printf("%s[%s]%s %s\n", Muted, serviceName, Reset, line)
+}
+
+// VerboseStderr prints a line of stderr with service name prefix in warning color.
+func VerboseStderr(serviceName, line string) {
+	if !IsVerbose() {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "%s[%s]%s %s%s%s\n", Muted, serviceName, Reset, WarningColor, line, Reset)
+}

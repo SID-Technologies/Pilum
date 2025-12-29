@@ -1,0 +1,12 @@
+name: global-api
+provider: gcp
+project: test-project
+
+regions:
+  - us-central1
+  - europe-west1
+  - asia-east1
+
+build:
+  language: go
+  version: "1.23"

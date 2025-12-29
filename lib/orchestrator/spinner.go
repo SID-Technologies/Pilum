@@ -5,6 +5,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/sid-technologies/pilum/lib/output"
 )
 
 // Spinner frames - a nice smooth animation.
@@ -45,10 +47,12 @@ type serviceSpinner struct {
 
 // NewSpinnerManager creates a new spinner manager.
 func NewSpinnerManager() *SpinnerManager {
+	// Disable spinners in CI, verbose, quiet, or JSON mode
+	disableSpinners := isCI() || output.IsVerbose() || output.IsQuiet() || output.IsJSON()
 	return &SpinnerManager{
 		spinners: make(map[string]*serviceSpinner),
 		stop:     make(chan struct{}),
-		ciMode:   isCI(),
+		ciMode:   disableSpinners,
 	}
 }
 

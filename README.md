@@ -1,5 +1,8 @@
 # Pilum
 
+[![Go Tests](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml/badge.svg)](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml)
+[![codecov](https://codecov.io/gh/sid-technologies/pilum/branch/main/graph/badge.svg)](https://codecov.io/gh/sid-technologies/pilum)
+
 A cloud-agnostic build and deployment CLI. Define your service once, deploy to any cloud provider.
 
 ```bash

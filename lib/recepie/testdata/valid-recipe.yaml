@@ -1,0 +1,33 @@
+name: test-recipe
+description: A test recipe for unit testing
+provider: test
+service: test_service
+
+required_fields:
+  - name: project
+    description: Project ID
+    type: string
+    default: my-project
+
+  - name: region
+    description: Deployment region
+    type: string
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  - name: run tests
+    execution_mode: root
+    timeout: 120
+    tags:
+      - build
+
+  - name: deploy
+    execution_mode: root
+    timeout: 180
+    tags:
+      - deploy

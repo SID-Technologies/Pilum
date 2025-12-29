@@ -1,0 +1,6 @@
+name: minimal
+provider: minimal
+steps:
+  - name: step1
+    tags:
+      - build

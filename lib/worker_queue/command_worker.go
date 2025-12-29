@@ -1,8 +1,10 @@
 package workerqueue
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -78,7 +80,7 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		}
 
 		// Set up output pipes
-		_, err := cmd.StdoutPipe()
+		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			return false, errors.Wrap(err, "error creating stdout pipe for %s", taskInfo.ServiceName)
 		}
@@ -98,6 +100,12 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			}
 
 			return false, errors.Wrap(err, "error starting command for %s", taskInfo.ServiceName)
+		}
+
+		// Stream output in verbose mode
+		if output.IsVerbose() {
+			go streamOutput(stdout, taskInfo.ServiceName, false)
+			go streamOutput(stderr, taskInfo.ServiceName, true)
 		}
 
 		// Set up timeout context
@@ -143,4 +151,17 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// streamOutput reads from a pipe and prints lines with service name prefix.
+func streamOutput(r io.Reader, serviceName string, isStderr bool) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if isStderr {
+			output.VerboseStderr(serviceName, line)
+		} else {
+			output.VerboseStdout(serviceName, line)
+		}
+	}
 }

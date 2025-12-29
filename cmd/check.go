@@ -5,6 +5,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/suggest"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -67,7 +68,16 @@ func CheckCmd() *cobra.Command {
 				// Recipe-specific validation
 				recipe, exists := recipeMap[service.Provider]
 				if !exists {
-					output.Warning("    No recipe found for provider '%s'", service.Provider)
+					var providerNames []string
+					for name := range recipeMap {
+						providerNames = append(providerNames, name)
+					}
+					suggestion := suggest.FormatSuggestion(service.Provider, providerNames)
+					if suggestion != "" {
+						output.Warning("    No recipe found for provider '%s' - %s", service.Provider, suggestion)
+					} else {
+						output.Warning("    No recipe found for provider '%s'", service.Provider)
+					}
 					continue
 				}
 

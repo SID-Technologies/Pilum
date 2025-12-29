@@ -77,11 +77,12 @@ func NewRunner(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo,
 		r.recipes[rec.Provider] = rec.Recipe
 	}
 
-	// Calculate max name length for output alignment
+	// Calculate max name length for output alignment (use DisplayName for multi-region)
 	maxLen := 0
 	for _, svc := range services {
-		if len(svc.Name) > maxLen {
-			maxLen = len(svc.Name)
+		displayName := svc.DisplayName()
+		if len(displayName) > maxLen {
+			maxLen = len(displayName)
 		}
 	}
 	r.output.SetMaxNameLength(maxLen + 2)
@@ -209,16 +210,16 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 	for _, svc := range r.services {
 		recipe, exists := r.recipes[svc.Provider]
 		if !exists {
-			r.output.PrintSkipped(svc.Name, "no recipe")
+			r.output.PrintSkipped(svc.DisplayName(), "no recipe")
 		} else if stepIdx >= len(recipe.Steps) {
-			r.output.PrintSkipped(svc.Name, "no step")
+			r.output.PrintSkipped(svc.DisplayName(), "no step")
 		}
 	}
 
 	if r.options.DryRun {
 		for _, t := range tasks {
 			cmd := r.generateCommand(t.service, t.step)
-			r.output.PrintDryRun(t.service.Name, t.step.Name, cmd)
+			r.output.PrintDryRun(t.service.DisplayName(), t.step.Name, cmd)
 		}
 		return nil
 	}
@@ -252,7 +253,7 @@ func (r *Runner) executeTasksParallel(tasks []stepTask) error {
 
 	// Add all spinners first (so they're all visible)
 	for _, t := range tasks {
-		spinner.AddSpinner(t.service.Name, t.step.Name, r.output.maxNameLen)
+		spinner.AddSpinner(t.service.DisplayName(), t.step.Name, r.output.maxNameLen)
 	}
 
 	spinner.Start()
@@ -271,7 +272,7 @@ func (r *Runner) executeTasksParallel(tasks []stepTask) error {
 			result := r.executeTask(task.service, task.step)
 			result.Duration = time.Since(startTime)
 
-			spinner.Complete(task.service.Name, result.Success, result.Duration, result.Error)
+			spinner.Complete(task.service.DisplayName(), result.Success, result.Duration, result.Error)
 
 			resultChan <- result
 		}()
@@ -304,7 +305,7 @@ func (r *Runner) executeTasksParallel(tasks []stepTask) error {
 // executeTask runs a single task.
 func (r *Runner) executeTask(svc serviceinfo.ServiceInfo, step *recepie.RecipeStep) TaskResult {
 	result := TaskResult{
-		ServiceName: svc.Name,
+		ServiceName: svc.DisplayName(),
 		StepName:    step.Name,
 	}
 

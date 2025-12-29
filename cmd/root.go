@@ -12,6 +12,13 @@ import (
 
 var configFile string
 
+// Output mode flags
+var (
+	verboseFlag bool
+	quietFlag   bool
+	jsonFlag    bool
+)
+
 // version is set at build time via ldflags:
 // go build -ldflags="-X github.com/sid-technologies/pilum/cmd.version=v1.0.0"
 var version = "dev"
@@ -40,7 +47,7 @@ func Execute() {
 
 // nolint: gochecknoinits // Standard Cobra pattern for initializing commands
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initConfig, initOutputMode)
 	rootCmd.Version = version
 	rootCmd.SetVersionTemplate("pilum {{ .Version }}\n")
 	defaultHelpFunc := rootCmd.HelpFunc()
@@ -51,6 +58,28 @@ func init() {
 		}
 		defaultHelpFunc(cmd, args)
 	})
+
+	// Add persistent flags for output mode
+	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Stream command output in real-time")
+	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "Minimal output (CI-friendly)")
+	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON for scripting")
+
+	// Mark flags as mutually exclusive
+	rootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet", "json")
+}
+
+// initOutputMode sets the global output mode based on flags.
+func initOutputMode() {
+	switch {
+	case verboseFlag:
+		output.SetMode(output.ModeVerbose)
+	case quietFlag:
+		output.SetMode(output.ModeQuiet)
+	case jsonFlag:
+		output.SetMode(output.ModeJSON)
+	default:
+		output.SetMode(output.ModeNormal)
+	}
 }
 
 func initConfig() {
