@@ -1,0 +1,9 @@
+name: java-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: java
+  version: "21"
+  cmd: ./mvnw package -DskipTests

@@ -19,7 +19,7 @@
 
 ---
 
-## Phase 1: Foundation (Pre-Launch)
+## Phase 1: Foundation (Pre-Launch) ✅
 
 ### CLI Polish
 - [x] `pilum init` - Interactive scaffolding for new services
@@ -30,43 +30,73 @@
 - [x] `--json` - JSON output for scripting/automation
 - [x] Environment variable substitution in recipes (`${VAR}`)
 - [x] Better error messages with suggestions ("did you mean X?")
-- [ ] Config inheritance (base recipe + overrides)
 
 ---
 
-## Phase 2: More Recipes & Languages
+## Phase 2: Visibility & Safety
 
-### Cloud Platforms
+### Status & Observability
+- [ ] `pilum status` - Show deployed service versions, health, and last deploy time
+- [ ] `pilum logs [service]` - Tail logs from deployed services (wraps `gcloud logs`)
+- [ ] `pilum history` - View deployment history (local cache)
+
+### Monorepo Support
+- [ ] `--only-changed` flag - Detect git changes, deploy only affected services
+- [ ] Dependency graph between services (optional)
+
+### Deployment Safety
+- [ ] `pilum rollback [service]` - Rollback to previous revision
+- [ ] Deployment locks (prevent concurrent deploys to same service)
+
+### Environment Management
+- [ ] Environment configs (`--env prod` / `--env staging`)
+- [ ] Per-environment overrides in service.yaml
+
+---
+
+## Phase 3: Expanded Providers
+
+### Cloud Platforms (Priority Order)
+- [ ] AWS ECS (Fargate)
 - [ ] Kubernetes (generic manifests)
-- [ ] Kubernetes + Helm
-- [ ] Kubernetes + Kustomize
 - [ ] Azure Container Apps
-- [ ] Azure Functions
 - [ ] Fly.io
-- [ ] Railway
-- [ ] Render
-- [ ] DigitalOcean App Platform
-- [ ] Cloudflare Workers
-
-### Build Systems
-- [x] Go (current)
-- [ ] Node.js / npm / pnpm
-- [ ] Python / pip / poetry
-- [ ] Rust / Cargo
-- [ ] Java / Maven / Gradle
-- [ ] .NET / dotnet
 
 ### Release Targets
 - [ ] GitHub Releases (with assets)
-- [ ] GitLab Releases
 - [ ] Docker Hub
 - [ ] AWS ECR
-- [ ] GCP Artifact Registry
+- [ ] GCP Artifact Registry (current: gcr.io)
 - [ ] Azure Container Registry
+
+### Notifications
+- [ ] Generic webhook (POST JSON on deploy start/complete/fail)
+
+---
+
+## Phase 4: CI/CD & Automation
+
+### CI/CD Integration
+- [ ] GitHub Actions (official action: `uses: pilum/deploy@v1`)
+- [ ] `pilum ci detect` - Auto-detect CI environment and set defaults
+- [ ] GitHub commit status updates
+- [ ] GitHub deployment environments
+
+### Advanced Monorepo
+- [ ] Parallel builds with dependency ordering
+- [ ] Build caching (hash-based skip)
+
+---
+
+## Phase 5: Package Managers & Registries
+
+### Language-Specific Registries
 - [ ] npm registry
 - [ ] PyPI
 - [ ] crates.io
-- [ ] Homebrew (current)
+- [ ] NuGet
+
+### System Packages
 - [ ] APT/DEB packages
 - [ ] RPM packages
 - [ ] Scoop (Windows)
@@ -74,96 +104,38 @@
 
 ---
 
-## Phase 3: Professional Features
+## Phase 6: Pilum Cloud (Future)
 
-### Deployment Safety
-- [ ] `pilum diff` - Show what would change before deploying
-- [ ] Deployment locks (prevent concurrent deploys)
-- [ ] Required approvals for production
-- [ ] Canary deployments (% traffic routing)
-- [ ] Blue/green deployments
-- [ ] Automatic rollback on health check failure
-- [ ] `pilum rollback [service]` - Manual rollback to previous version
+> Dedicated build runners and deployment orchestration - competing with CircleCI/Jenkins for deploy-focused workflows.
 
-### Status & Observability
-- [ ] `pilum status` - Check deployed service health
-- [ ] `pilum logs [service]` - Tail logs from deployed services
-- [ ] `pilum history` - View deployment history (local cache)
-- [ ] Deployment duration tracking and trends
-
-### Notifications
-- [ ] Slack webhook on deploy start/complete/fail
-- [ ] Discord webhook
-- [ ] Microsoft Teams webhook
-- [ ] Generic webhook (POST JSON)
-- [ ] GitHub commit status updates
-- [ ] GitHub deployment environments
-
-### Secrets Management
-- [ ] `pilum secrets list`
-- [ ] `pilum secrets set KEY=value`
-- [ ] HashiCorp Vault integration
-- [ ] AWS Secrets Manager integration
-- [ ] GCP Secret Manager integration
-- [ ] Azure Key Vault integration
-- [ ] 1Password CLI integration
-- [ ] SOPS encrypted files
-
----
-
-## Phase 4: Team & Enterprise
-
-### Collaboration
+### Core Platform
 - [ ] `pilum login` - Authenticate to Pilum Cloud
+- [ ] Hosted build runners (no local Docker required)
+- [ ] Deployment queue and scheduling
+- [ ] Deployment history visualization
+
+### Team Features
 - [ ] Team workspaces
 - [ ] Deployment audit log (who deployed what, when)
 - [ ] Role-based access control
 - [ ] Deploy approvals workflow
 
-### Pilum Cloud (Hosted Dashboard)
-- [ ] Deployment history visualization
-- [ ] Service dependency graph
-- [ ] One-click rollbacks
-- [ ] Environment management (dev/staging/prod)
-- [ ] Secrets management UI
-- [ ] Team member management
-- [ ] SSO (SAML, OIDC)
-- [ ] Compliance reports
-
-### Enterprise
-- [ ] Self-hosted Pilum Cloud
-- [ ] LDAP/Active Directory integration
-- [ ] Audit log export
-- [ ] Custom recipe repository (private)
-- [ ] Priority support SLA
+### Integrations
+- [ ] Slack notifications
+- [ ] Discord notifications
+- [ ] Microsoft Teams notifications
+- [ ] Service dependency graph visualization
 
 ---
 
-## Phase 5: Advanced Automation
+## Removed / Deferred
 
-### CI/CD Integration
-- [ ] GitHub Actions (official action)
-- [ ] GitLab CI templates
-- [ ] CircleCI orb
-- [ ] Bitbucket Pipelines
-- [ ] Jenkins plugin
-- [ ] `pilum ci detect` - Auto-detect CI environment
+These were considered but intentionally not prioritized:
 
-### Monorepo Support
-- [ ] Detect changed services (git diff)
-- [ ] `--only-changed` flag
-- [ ] Dependency graph between services
-- [ ] Parallel builds with dependency ordering
-- [ ] Nx/Turborepo-style caching
-
-### Infrastructure as Code
-- [ ] Terraform integration (run terraform before deploy)
-- [ ] Pulumi integration
-- [ ] CloudFormation integration
-- [ ] Generate IaC from service.yaml
-
-### Testing Integration
-- [ ] Pre-deploy test hooks
-- [ ] Post-deploy smoke tests
-- [ ] Integration test orchestration
-- [ ] Test environment provisioning
+| Feature | Reason |
+|---------|--------|
+| Config inheritance | Internal DRY improvement, not user-facing value |
+| Secrets management | Cloud providers handle this (Secret Manager, SSM) |
+| Canary / Blue-green deploys | Cloud Run has traffic splitting built-in |
+| Terraform/Pulumi integration | Out of scope - Pilum deploys code, not infra |
+| Self-hosted Pilum Cloud | Too early to consider |
