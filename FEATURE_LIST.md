@@ -13,30 +13,22 @@
 - [x] Retry with exponential backoff
 - [x] Animated spinners and colored output
 - [x] Semantic color theming
+- [x] 83% test coverage with unit + E2E tests
+- [x] Codecov integration for CI coverage tracking
 
 ---
 
 ## Phase 1: Foundation (Pre-Launch)
 
 ### CLI Polish
-- [ ] `pilum init` - Interactive scaffolding for new services
-- [ ] `pilum validate` - Validate service.yaml and recipe syntax
-- [ ] `pilum list` - List all discovered services and their recipes
-- [ ] `--verbose / -v` - Stream command stdout/stderr in real-time
-- [ ] `--quiet / -q` - Minimal output (CI-friendly)
-- [ ] `--json` - JSON output for scripting/automation
+- [x] `pilum init` - Interactive scaffolding for new services
+- [x] `pilum validate` - Validate service.yaml and recipe syntax (alias: `check`)
+- [x] `pilum list` - List all discovered services and their recipes
+- [x] `--verbose / -v` - Stream command stdout/stderr in real-time
+- [x] `--quiet / -q` - Minimal output (CI-friendly)
+- [x] `--json` - JSON output for scripting/automation
+- [x] Environment variable substitution in recipes (`${VAR}`)
 - [ ] Better error messages with suggestions ("did you mean X?")
-
-### Service Filtering
-- [ ] `--filter=name:api-*` - Glob patterns for service names
-- [ ] `--filter=tag:backend` - Filter by tags defined in service.yaml
-- [ ] `--filter=recipe:gcp-cloudrun` - Filter by recipe type
-- [ ] `--exclude=name:legacy-*` - Exclude patterns
-
-### Configuration
-- [ ] Global config file (`~/.pilum/config.yaml`)
-- [ ] Project-level defaults (`.pilum.yaml`)
-- [ ] Environment variable substitution in recipes (`${VAR}`)
 - [ ] Config inheritance (base recipe + overrides)
 
 ---
@@ -56,7 +48,7 @@
 - [ ] Cloudflare Workers
 
 ### Build Systems
-- [ ] Go (current)
+- [x] Go (current)
 - [ ] Node.js / npm / pnpm
 - [ ] Python / pip / poetry
 - [ ] Rust / Cargo

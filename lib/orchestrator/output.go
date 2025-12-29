@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -53,6 +54,9 @@ func (o *OutputManager) SetMaxNameLength(length int) {
 
 // PrintHeader prints the main deployment header.
 func (o *OutputManager) PrintHeader(message string) {
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -63,6 +67,9 @@ func (o *OutputManager) PrintHeader(message string) {
 
 // PrintStepHeader prints a step header with separator.
 func (o *OutputManager) PrintStepHeader(stepNum, totalSteps int, stepName string) {
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -76,6 +83,9 @@ func (o *OutputManager) PrintRunning(serviceName, stepName string) {
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "running"
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	padded := o.padName(serviceName)
 	fmt.Printf("  %s%s%s %s %s%s%s\n",
 		colorWarning, symbolRunning, colorReset,
@@ -89,6 +99,9 @@ func (o *OutputManager) PrintSuccess(serviceName string, duration time.Duration)
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "success"
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	padded := o.padName(serviceName)
 	fmt.Printf("  %s%s%s %s %s(%s)%s\n",
 		colorSuccess, symbolSuccess, colorReset,
@@ -102,6 +115,9 @@ func (o *OutputManager) PrintFailure(serviceName string, err error) {
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "failed"
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	padded := o.padName(serviceName)
 	errMsg := ""
 	if err != nil {
@@ -119,6 +135,9 @@ func (o *OutputManager) PrintSkipped(serviceName, reason string) {
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "skipped"
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	padded := o.padName(serviceName)
 	fmt.Printf("  %s%s%s %s %s(%s)%s\n",
 		colorMuted, symbolSkipped, colorReset,
@@ -128,6 +147,9 @@ func (o *OutputManager) PrintSkipped(serviceName, reason string) {
 
 // PrintDryRun prints a dry-run preview for a service.
 func (o *OutputManager) PrintDryRun(serviceName, stepName string, command any) {
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -144,10 +166,31 @@ func (o *OutputManager) PrintDryRun(serviceName, stepName string, command any) {
 
 // PrintInfo prints an info message.
 func (o *OutputManager) PrintInfo(message string) {
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	fmt.Printf("  %s%s%s\n", colorMuted, message, colorReset)
+}
+
+// JSONResult represents the JSON output format.
+type JSONResult struct {
+	Success      bool           `json:"success"`
+	TotalTime    string         `json:"total_time"`
+	SuccessCount int            `json:"success_count"`
+	FailedCount  int            `json:"failed_count"`
+	Results      []JSONTaskInfo `json:"results"`
+}
+
+// JSONTaskInfo represents a single task result in JSON format.
+type JSONTaskInfo struct {
+	Service  string `json:"service"`
+	Step     string `json:"step"`
+	Success  bool   `json:"success"`
+	Duration string `json:"duration"`
+	Error    string `json:"error,omitempty"`
 }
 
 // PrintComplete prints the completion summary.
@@ -170,6 +213,47 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 		totalDuration += r.Duration
 	}
 
+	// JSON mode: output structured JSON
+	if output.IsJSON() {
+		jsonResults := make([]JSONTaskInfo, len(results))
+		for i, r := range results {
+			errStr := ""
+			if r.Error != nil {
+				errStr = r.Error.Error()
+			}
+			jsonResults[i] = JSONTaskInfo{
+				Service:  r.ServiceName,
+				Step:     r.StepName,
+				Success:  r.Success,
+				Duration: formatDuration(r.Duration),
+				Error:    errStr,
+			}
+		}
+		jsonOutput := JSONResult{
+			Success:      failedCount == 0,
+			TotalTime:    formatDuration(totalDuration),
+			SuccessCount: successCount,
+			FailedCount:  failedCount,
+			Results:      jsonResults,
+		}
+		data, _ := json.MarshalIndent(jsonOutput, "", "  ")
+		fmt.Println(string(data))
+		return
+	}
+
+	// Quiet mode: just print a summary line
+	if output.IsQuiet() {
+		if failedCount == 0 {
+			fmt.Printf("OK: %d/%d services completed in %s\n",
+				successCount, successCount+failedCount, formatDuration(totalDuration))
+		} else {
+			fmt.Printf("FAILED: %d/%d services failed (%s)\n",
+				failedCount, successCount+failedCount, strings.Join(failedServices, ", "))
+		}
+		return
+	}
+
+	// Normal/verbose mode: print full summary
 	fmt.Println()
 	line := strings.Repeat("━", 50)
 	fmt.Printf("%s%s Complete %s%s\n", colorPrimary, line[:3], line[:40], colorReset)
