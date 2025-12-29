@@ -1,11 +1,11 @@
 package output
 
-// OutputMode defines the output verbosity level.
-type OutputMode int
+// Mode defines the output verbosity level.
+type Mode int
 
 const (
 	// ModeNormal is the default output with spinners and formatted text.
-	ModeNormal OutputMode = iota
+	ModeNormal Mode = iota
 	// ModeVerbose streams command stdout/stderr in real-time.
 	ModeVerbose
 	// ModeQuiet shows minimal output (CI-friendly).
@@ -15,15 +15,15 @@ const (
 )
 
 // currentMode holds the global output mode.
-var currentMode OutputMode = ModeNormal
+var currentMode = ModeNormal
 
 // SetMode sets the global output mode.
-func SetMode(mode OutputMode) {
+func SetMode(mode Mode) {
 	currentMode = mode
 }
 
 // GetMode returns the current output mode.
-func GetMode() OutputMode {
+func GetMode() Mode {
 	return currentMode
 }
 

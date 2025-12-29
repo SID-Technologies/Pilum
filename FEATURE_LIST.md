@@ -15,6 +15,7 @@
 - [x] Semantic color theming
 - [x] 83% test coverage with unit + E2E tests
 - [x] Codecov integration for CI coverage tracking
+- [x] Multi-region deployments (`regions: [us-central1, europe-west1]`)
 
 ---
 
@@ -28,7 +29,7 @@
 - [x] `--quiet / -q` - Minimal output (CI-friendly)
 - [x] `--json` - JSON output for scripting/automation
 - [x] Environment variable substitution in recipes (`${VAR}`)
-- [ ] Better error messages with suggestions ("did you mean X?")
+- [x] Better error messages with suggestions ("did you mean X?")
 - [ ] Config inheritance (base recipe + overrides)
 
 ---

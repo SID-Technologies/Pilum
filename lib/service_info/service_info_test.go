@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -470,4 +471,130 @@ func TestHomebrewConfigStruct(t *testing.T) {
 	require.Equal(t, "https://github.com/org/tap", hc.TapURL)
 	require.Equal(t, "https://github.com/org/project", hc.ProjectURL)
 	require.Equal(t, "GITHUB_TOKEN", hc.TokenEnv)
+}
+
+func TestDisplayName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		service  serviceinfo.ServiceInfo
+		expected string
+	}{
+		{
+			name: "single region service",
+			service: serviceinfo.ServiceInfo{
+				Name:          "api-gateway",
+				Region:        "us-central1",
+				IsMultiRegion: false,
+			},
+			expected: "api-gateway",
+		},
+		{
+			name: "multi-region service",
+			service: serviceinfo.ServiceInfo{
+				Name:          "api-gateway",
+				Region:        "us-central1",
+				IsMultiRegion: true,
+			},
+			expected: "api-gateway (us-central1)",
+		},
+		{
+			name: "multi-region without region set",
+			service: serviceinfo.ServiceInfo{
+				Name:          "api-gateway",
+				Region:        "",
+				IsMultiRegion: true,
+			},
+			expected: "api-gateway",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.expected, tt.service.DisplayName())
+		})
+	}
+}
+
+func TestExpandMultiRegion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		service         serviceinfo.ServiceInfo
+		expectedCount   int
+		expectedRegions []string
+	}{
+		{
+			name: "single region - no expansion",
+			service: serviceinfo.ServiceInfo{
+				Name:    "api",
+				Region:  "us-central1",
+				Regions: nil,
+			},
+			expectedCount:   1,
+			expectedRegions: []string{"us-central1"},
+		},
+		{
+			name: "multi-region - expands to 3",
+			service: serviceinfo.ServiceInfo{
+				Name:    "api",
+				Regions: []string{"us-central1", "europe-west1", "asia-east1"},
+			},
+			expectedCount:   3,
+			expectedRegions: []string{"us-central1", "europe-west1", "asia-east1"},
+		},
+		{
+			name: "empty regions array - no expansion",
+			service: serviceinfo.ServiceInfo{
+				Name:    "api",
+				Region:  "us-east1",
+				Regions: []string{},
+			},
+			expectedCount:   1,
+			expectedRegions: []string{"us-east1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := serviceinfo.ExpandMultiRegion(tt.service)
+
+			require.Len(t, result, tt.expectedCount)
+
+			for i, svc := range result {
+				require.Equal(t, tt.service.Name, svc.Name)
+				require.Equal(t, tt.expectedRegions[i], svc.Region)
+
+				if tt.expectedCount > 1 {
+					require.True(t, svc.IsMultiRegion)
+					require.Nil(t, svc.Regions)
+				}
+			}
+		})
+	}
+}
+
+func TestNewServiceInfoWithRegions(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]any{
+		"name":     "global-api",
+		"provider": "gcp",
+		"project":  "my-project",
+		"regions":  []any{"us-central1", "europe-west1", "asia-east1"},
+	}
+
+	svc := serviceinfo.NewServiceInfo(config, "/path")
+
+	require.NotNil(t, svc)
+	require.Equal(t, "global-api", svc.Name)
+	require.Len(t, svc.Regions, 3)
+	require.Contains(t, svc.Regions, "us-central1")
+	require.Contains(t, svc.Regions, "europe-west1")
+	require.Contains(t, svc.Regions, "asia-east1")
 }

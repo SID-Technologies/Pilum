@@ -50,10 +50,20 @@ type ServiceInfo struct {
 	EnvVars        []EnvVars      `yaml:"env_vars"`
 	Secrets        []Secrets      `yaml:"secrets"`
 	Region         string         `yaml:"region"`
+	Regions        []string       `yaml:"regions"` // For multi-region deployments
+	IsMultiRegion  bool           `yaml:"-"`       // True if this was expanded from a multi-region config
 	Project        string         `yaml:"project"`
 	License        string         `yaml:"license"`
 	Provider       string         `yaml:"provider"`
 	RegistryName   string         `yaml:"registry_name"`
+}
+
+// DisplayName returns the service name with region suffix for multi-region deployments.
+func (s *ServiceInfo) DisplayName() string {
+	if s.IsMultiRegion && s.Region != "" {
+		return s.Name + " (" + s.Region + ")"
+	}
+	return s.Name
 }
 
 func (s *ServiceInfo) Validate() error {
@@ -136,6 +146,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		Runtime:        runtime,
 		HomebrewConfig: homebrewConfig,
 		Region:         getString(config, "region", ""),
+		Regions:        getStringSlice(config, "regions"),
 		Project:        getString(config, "project", ""),
 		License:        getString(config, "license", ""),
 		Provider:       provider,
@@ -143,6 +154,28 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		EnvVars:        envVars,
 		Secrets:        secretVars,
 	}
+}
+
+// ExpandMultiRegion expands a service with multiple regions into separate ServiceInfo instances.
+// If the service has a Regions array, it creates one instance per region.
+// If the service only has a single Region, it returns the original service unchanged.
+func ExpandMultiRegion(svc ServiceInfo) []ServiceInfo {
+	// If no regions array, return as-is
+	if len(svc.Regions) == 0 {
+		return []ServiceInfo{svc}
+	}
+
+	// Expand into multiple services, one per region
+	expanded := make([]ServiceInfo, 0, len(svc.Regions))
+	for _, region := range svc.Regions {
+		instance := svc          // copy
+		instance.Region = region // set specific region
+		instance.Regions = nil   // clear regions array
+		instance.IsMultiRegion = true
+		expanded = append(expanded, instance)
+	}
+
+	return expanded
 }
 
 func parseHomebrewConfig(config map[string]any) HomebrewConfig {

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/writer"
+
 	"github.com/stretchr/testify/require"
 )
 

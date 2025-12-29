@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+
 	"github.com/stretchr/testify/require"
 )
 

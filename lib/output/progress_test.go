@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/output"
+
 	"github.com/stretchr/testify/require"
 )
 

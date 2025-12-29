@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recepie"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,7 +81,7 @@ func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
 	t.Parallel()
 
 	values := map[string]string{
-		"name":                "my-cli",
+		"name":                 "my-cli",
 		"homebrew.project_url": "https://github.com/org/project",
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,13 +13,13 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		service        serviceinfo.ServiceInfo
-		imageName      string
-		expectedLen    int
-		expectedFirst  string
-		containsFlag   string
-		containsValue  string
+		name          string
+		service       serviceinfo.ServiceInfo
+		imageName     string
+		expectedLen   int
+		expectedFirst string
+		containsFlag  string
+		containsValue string
 	}{
 		{
 			name: "basic deploy command",

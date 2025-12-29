@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/ingredients/docker"
+
 	"github.com/stretchr/testify/require"
 )
 

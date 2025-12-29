@@ -5,6 +5,7 @@ import (
 
 	"github.com/sid-technologies/pilum/ingredients/homebrew"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,11 +23,11 @@ func TestGenerateBuildCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		service    serviceinfo.ServiceInfo
-		tag        string
-		outputDir  string
-		expectMkdir bool
+		name            string
+		service         serviceinfo.ServiceInfo
+		tag             string
+		outputDir       string
+		expectMkdir     bool
 		expectPlatforms int
 	}{
 		{

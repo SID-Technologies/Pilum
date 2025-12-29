@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/path"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,8 +70,8 @@ func TestFindProjectRootWithPackageJson(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create package.json in root
-	packageJsonPath := filepath.Join(tmpDir, "package.json")
-	err := os.WriteFile(packageJsonPath, []byte("{}"), 0644)
+	packageJSONPath := filepath.Join(tmpDir, "package.json")
+	err := os.WriteFile(packageJSONPath, []byte("{}"), 0644)
 	require.NoError(t, err)
 
 	// Create subdirectory

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,24 +24,24 @@ func TestExponentialBackoffWithJitter(t *testing.T) {
 			attempt:   0,
 			baseDelay: 1.0,
 			maxDelay:  60.0,
-			minResult: 0.5,  // 1 * 2^0 * 0.5 = 0.5
-			maxResult: 1.5,  // 1 * 2^0 * 1.5 = 1.5
+			minResult: 0.5, // 1 * 2^0 * 0.5 = 0.5
+			maxResult: 1.5, // 1 * 2^0 * 1.5 = 1.5
 		},
 		{
 			name:      "second attempt (1)",
 			attempt:   1,
 			baseDelay: 1.0,
 			maxDelay:  60.0,
-			minResult: 1.0,  // 1 * 2^1 * 0.5 = 1.0
-			maxResult: 3.0,  // 1 * 2^1 * 1.5 = 3.0
+			minResult: 1.0, // 1 * 2^1 * 0.5 = 1.0
+			maxResult: 3.0, // 1 * 2^1 * 1.5 = 3.0
 		},
 		{
 			name:      "third attempt (2)",
 			attempt:   2,
 			baseDelay: 1.0,
 			maxDelay:  60.0,
-			minResult: 2.0,  // 1 * 2^2 * 0.5 = 2.0
-			maxResult: 6.0,  // 1 * 2^2 * 1.5 = 6.0
+			minResult: 2.0, // 1 * 2^2 * 0.5 = 2.0
+			maxResult: 6.0, // 1 * 2^2 * 1.5 = 6.0
 		},
 		{
 			name:      "capped by maxDelay",

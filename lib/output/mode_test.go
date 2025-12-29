@@ -47,8 +47,8 @@ func TestSetModeJSON(t *testing.T) {
 }
 
 func TestModeConstants(t *testing.T) {
-	require.Equal(t, OutputMode(0), ModeNormal)
-	require.Equal(t, OutputMode(1), ModeVerbose)
-	require.Equal(t, OutputMode(2), ModeQuiet)
-	require.Equal(t, OutputMode(3), ModeJSON)
+	require.Equal(t, Mode(0), ModeNormal)
+	require.Equal(t, Mode(1), ModeVerbose)
+	require.Equal(t, Mode(2), ModeQuiet)
+	require.Equal(t, Mode(3), ModeJSON)
 }

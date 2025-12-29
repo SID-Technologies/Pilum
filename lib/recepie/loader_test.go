@@ -6,16 +6,9 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recepie"
+
 	"github.com/stretchr/testify/require"
 )
-
-func getTestDataPath(t *testing.T) string {
-	t.Helper()
-	// Get path relative to this test file
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	return filepath.Join(wd, "testdata")
-}
 
 func TestLoadRecipesFromDirectory(t *testing.T) {
 	t.Parallel()

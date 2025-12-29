@@ -5,6 +5,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -61,11 +62,11 @@ func TestRunnerFindMaxSteps(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		services   []serviceinfo.ServiceInfo
-		recipes    []recepie.RecipeInfo
-		maxSteps   int
-		expected   int
+		name     string
+		services []serviceinfo.ServiceInfo
+		recipes  []recepie.RecipeInfo
+		maxSteps int
+		expected int
 	}{
 		{
 			name: "single recipe with 3 steps",
@@ -555,7 +556,6 @@ func TestTaskResult(t *testing.T) {
 		ServiceName: "myservice",
 		StepName:    "build",
 		Success:     true,
-		Duration:    0,
 		Error:       nil,
 	}
 

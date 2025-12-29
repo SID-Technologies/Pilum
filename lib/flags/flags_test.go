@@ -5,6 +5,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/flags"
 	"github.com/sid-technologies/pilum/lib/types"
+
 	"github.com/stretchr/testify/require"
 )
 

@@ -81,7 +81,7 @@ func TestWrapNilPanics(t *testing.T) {
 	t.Parallel()
 
 	require.Panics(t, func() {
-		errors.Wrap(nil, "should panic")
+		_ = errors.Wrap(nil, "should panic")
 	})
 }
 

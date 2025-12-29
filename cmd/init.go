@@ -10,6 +10,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/suggest"
 
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,7 @@ func runInit(provider, recipePath string) error {
 			return err
 		}
 		if strings.ToLower(overwrite) != "y" && strings.ToLower(overwrite) != "yes" {
-			output.Info("Init cancelled")
+			output.Info("Init canceled")
 			return nil
 		}
 	}
@@ -77,7 +78,12 @@ func runInit(provider, recipePath string) error {
 	// Find the recipe for the provider
 	recipe := findRecipeByProvider(recipes, provider)
 	if recipe == nil {
-		return errors.New("no recipe found for provider: %s", provider)
+		providers := getAvailableProviders(recipes)
+		suggestion := suggest.FormatSuggestion(provider, providers)
+		if suggestion != "" {
+			return errors.New("no recipe found for provider '%s' - %s", provider, suggestion)
+		}
+		return errors.New("no recipe found for provider '%s'", provider)
 	}
 
 	output.Header("Creating service.yaml for %s", recipe.Name)

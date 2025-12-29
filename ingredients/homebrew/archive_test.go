@@ -5,6 +5,7 @@ import (
 
 	"github.com/sid-technologies/pilum/ingredients/homebrew"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+
 	"github.com/stretchr/testify/require"
 )
 
