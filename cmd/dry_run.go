@@ -23,7 +23,12 @@ func DryRunCmd() *cobra.Command {
 			opts := getDeploymentOptions()
 			opts.DryRun = true // Always dry-run for this command
 
-			services, err := serviceinfo.FindAndFilterServices(".", args)
+			filterOpts := serviceinfo.FilterOptions{
+				Names:       args,
+				OnlyChanged: opts.OnlyChanged,
+				Since:       opts.Since,
+			}
+			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}

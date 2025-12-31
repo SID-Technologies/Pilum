@@ -22,7 +22,12 @@ func DeployCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			opts := getDeploymentOptions()
 
-			services, err := serviceinfo.FindAndFilterServices(".", args)
+			filterOpts := serviceinfo.FilterOptions{
+				Names:       args,
+				OnlyChanged: opts.OnlyChanged,
+				Since:       opts.Since,
+			}
+			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}

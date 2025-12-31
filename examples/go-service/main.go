@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
@@ -13,10 +13,17 @@ func main() {
 		port = "8080"
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello from Go!")
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, "Hello from Go!")
 	})
 
-	log.Printf("Server starting on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	fmt.Printf("Server starting on port %s\n", port)
+	server := &http.Server{
+		Addr:              ":" + port,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Printf("Server error: %v\n", err)
+		os.Exit(1)
+	}
 }

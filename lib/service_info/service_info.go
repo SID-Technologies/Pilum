@@ -56,6 +56,7 @@ type ServiceInfo struct {
 	License        string         `yaml:"license"`
 	Provider       string         `yaml:"provider"`
 	RegistryName   string         `yaml:"registry_name"`
+	DependsOn      []string       `yaml:"depends_on"` // Services this service depends on
 }
 
 // DisplayName returns the service name with region suffix for multi-region deployments.
@@ -151,6 +152,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		License:        getString(config, "license", ""),
 		Provider:       provider,
 		RegistryName:   getString(config, "registry_name", ""),
+		DependsOn:      getStringSlice(config, "depends_on"),
 		EnvVars:        envVars,
 		Secrets:        secretVars,
 	}
