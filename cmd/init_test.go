@@ -68,13 +68,16 @@ func TestGenerateServiceYAML(t *testing.T) {
 		"region":  "us-central1",
 	}
 
-	yaml := generateServiceYAML("gcp", values)
+	yaml := generateServiceYAML("gcp", "cloud-run", values)
 
 	require.Contains(t, yaml, "name: my-service")
 	require.Contains(t, yaml, "provider: gcp")
+	require.Contains(t, yaml, "service: cloud-run")
 	require.Contains(t, yaml, "project: my-project")
 	require.Contains(t, yaml, "region: us-central1")
 	require.Contains(t, yaml, "build:")
+	require.Contains(t, yaml, "cloud_run:")
+	require.Contains(t, yaml, "min_instances: 0")
 }
 
 func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
@@ -85,12 +88,72 @@ func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
 		"homebrew.project_url": "https://github.com/org/project",
 	}
 
-	yaml := generateServiceYAML("homebrew", values)
+	yaml := generateServiceYAML("homebrew", "", values)
 
 	require.Contains(t, yaml, "name: my-cli")
 	require.Contains(t, yaml, "provider: homebrew")
 	require.Contains(t, yaml, "homebrew:")
 	require.Contains(t, yaml, "project_url: https://github.com/org/project")
+}
+
+func TestGenerateServiceYAMLNoService(t *testing.T) {
+	t.Parallel()
+
+	values := map[string]string{
+		"name": "my-service",
+	}
+
+	yaml := generateServiceYAML("gcp", "", values)
+
+	require.Contains(t, yaml, "name: my-service")
+	require.Contains(t, yaml, "provider: gcp")
+	require.NotContains(t, yaml, "service:")
+}
+
+func TestFindRecipeByKey(t *testing.T) {
+	t.Parallel()
+
+	recipes := []recepie.RecipeInfo{
+		{Provider: "gcp", Service: "cloud-run", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
+		{Provider: "gcp", Service: "gke", Recipe: recepie.Recipe{Name: "gcp-gke"}},
+		{Provider: "aws", Service: "lambda", Recipe: recepie.Recipe{Name: "aws-lambda"}},
+	}
+
+	// Exact match
+	recipe := findRecipeByKey(recipes, "gcp", "cloud-run")
+	require.NotNil(t, recipe)
+	require.Equal(t, "gcp-cloud-run", recipe.Name)
+
+	// Different service
+	recipe = findRecipeByKey(recipes, "gcp", "gke")
+	require.NotNil(t, recipe)
+	require.Equal(t, "gcp-gke", recipe.Name)
+
+	// No match for unknown service
+	recipe = findRecipeByKey(recipes, "gcp", "unknown")
+	require.NotNil(t, recipe) // Falls back to provider-only match
+}
+
+func TestGenerateProviderConfig(t *testing.T) {
+	t.Parallel()
+
+	// GCP Cloud Run
+	config := generateProviderConfig("gcp", "cloud-run")
+	require.Contains(t, config, "cloud_run:")
+	require.Contains(t, config, "min_instances:")
+	require.Contains(t, config, "cpu_throttling:")
+
+	// GCP without service
+	config = generateProviderConfig("gcp", "")
+	require.Empty(t, config)
+
+	// Homebrew
+	config = generateProviderConfig("homebrew", "")
+	require.Contains(t, config, "Homebrew-specific")
+
+	// AWS Lambda
+	config = generateProviderConfig("aws", "lambda")
+	require.Contains(t, config, "Lambda configuration")
 }
 
 func TestMustGetwd(t *testing.T) {

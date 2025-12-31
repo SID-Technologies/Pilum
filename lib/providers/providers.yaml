@@ -1,0 +1,26 @@
+# Supported providers and their deployment services
+providers:
+  gcp:
+    name: Google Cloud Platform
+    services:
+      - cloud-run
+      - gke
+      - cloud-functions
+  aws:
+    name: Amazon Web Services
+    services:
+      - lambda
+      - ecs
+      - fargate
+  azure:
+    name: Microsoft Azure
+    services:
+      - container-apps
+      - functions
+  homebrew:
+    name: Homebrew
+    services: []
+  # Test provider for unit tests
+  test:
+    name: Test Provider
+    services: []

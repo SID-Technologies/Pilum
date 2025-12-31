@@ -2,6 +2,8 @@ package serviceinfo
 
 import (
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/providers"
+	"github.com/sid-technologies/pilum/lib/suggest"
 )
 
 type EnvVars struct {
@@ -38,6 +40,16 @@ type HomebrewConfig struct {
 	TokenEnv   string `yaml:"token_env"`   // Environment variable name for auth token
 }
 
+type CloudRunConfig struct {
+	MinInstances  *int   `yaml:"min_instances"`  // nil = don't set, 0 = scale to zero
+	MaxInstances  *int   `yaml:"max_instances"`  // nil = don't set
+	CPUThrottling *bool  `yaml:"cpu_throttling"` // nil = don't set (uses GCP default)
+	Memory        string `yaml:"memory"`         // e.g., "2048Mi", "512Mi"
+	CPU           string `yaml:"cpu"`            // e.g., "1", "2"
+	Concurrency   int    `yaml:"concurrency"`    // max concurrent requests per instance
+	Timeout       int    `yaml:"timeout"`        // request timeout in seconds
+}
+
 type ServiceInfo struct {
 	Name           string         `yaml:"name"`
 	Description    string         `yaml:"description"`
@@ -47,6 +59,7 @@ type ServiceInfo struct {
 	BuildConfig    BuildConfig    `yaml:"build"`
 	Runtime        RuntimeConfig  `yaml:"runtime"`
 	HomebrewConfig HomebrewConfig `yaml:"homebrew"`
+	CloudRunConfig CloudRunConfig `yaml:"cloud_run"`
 	EnvVars        []EnvVars      `yaml:"env_vars"`
 	Secrets        []Secrets      `yaml:"secrets"`
 	Region         string         `yaml:"region"`
@@ -55,6 +68,7 @@ type ServiceInfo struct {
 	Project        string         `yaml:"project"`
 	License        string         `yaml:"license"`
 	Provider       string         `yaml:"provider"`
+	Service        string         `yaml:"service"` // Deployment target (e.g., cloud-run, gke, lambda)
 	RegistryName   string         `yaml:"registry_name"`
 	DependsOn      []string       `yaml:"depends_on"` // Services this service depends on
 }
@@ -67,6 +81,15 @@ func (s *ServiceInfo) DisplayName() string {
 	return s.Name
 }
 
+// RecipeKey returns the key used to match this service to a recipe.
+// Format: "{provider}-{service}" when service is set, otherwise just "{provider}".
+func (s *ServiceInfo) RecipeKey() string {
+	if s.Service != "" {
+		return s.Provider + "-" + s.Service
+	}
+	return s.Provider
+}
+
 func (s *ServiceInfo) Validate() error {
 	// Minimal base validation - provider-specific validation is done by recipes
 	if s.Name == "" {
@@ -75,6 +98,28 @@ func (s *ServiceInfo) Validate() error {
 	if s.Provider == "" {
 		return errors.New("missing required field: provider")
 	}
+
+	// Validate provider is supported
+	if !providers.IsValidProvider(s.Provider) {
+		suggestion := suggest.FormatSuggestion(s.Provider, providers.GetProviders())
+		if suggestion != "" {
+			return errors.New("unknown provider '%s' - %s", s.Provider, suggestion)
+		}
+		return errors.New("unknown provider '%s'", s.Provider)
+	}
+
+	// Validate service is supported for this provider (only if service is specified)
+	if s.Service != "" && !providers.IsValidService(s.Provider, s.Service) {
+		validServices := providers.GetServices(s.Provider)
+		if len(validServices) > 0 {
+			suggestion := suggest.FormatSuggestion(s.Service, validServices)
+			if suggestion != "" {
+				return errors.New("unknown service '%s' for provider '%s' - %s", s.Service, s.Provider, suggestion)
+			}
+			return errors.New("unknown service '%s' for provider '%s' (valid: %v)", s.Service, s.Provider, validServices)
+		}
+	}
+
 	return nil
 }
 
@@ -137,6 +182,9 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	// Parse homebrew config if present
 	homebrewConfig := parseHomebrewConfig(config)
 
+	// Parse cloud run config if present
+	cloudRunConfig := parseCloudRunConfig(config)
+
 	return &ServiceInfo{
 		Name:           getString(config, "name", ""),
 		Description:    getString(config, "description", ""),
@@ -146,11 +194,13 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		BuildConfig:    buildConfig,
 		Runtime:        runtime,
 		HomebrewConfig: homebrewConfig,
+		CloudRunConfig: cloudRunConfig,
 		Region:         getString(config, "region", ""),
 		Regions:        getStringSlice(config, "regions"),
 		Project:        getString(config, "project", ""),
 		License:        getString(config, "license", ""),
 		Provider:       provider,
+		Service:        getString(config, "service", ""),
 		RegistryName:   getString(config, "registry_name", ""),
 		DependsOn:      getStringSlice(config, "depends_on"),
 		EnvVars:        envVars,
@@ -191,6 +241,39 @@ func parseHomebrewConfig(config map[string]any) HomebrewConfig {
 		ProjectURL: getString(brewMap, "project_url", ""),
 		TokenEnv:   getString(brewMap, "token_env", ""),
 	}
+}
+
+func parseCloudRunConfig(config map[string]any) CloudRunConfig {
+	crMap := mapFromAny(config["cloud_run"])
+	if len(crMap) == 0 {
+		return CloudRunConfig{}
+	}
+
+	cfg := CloudRunConfig{
+		Memory:      getString(crMap, "memory", ""),
+		CPU:         getString(crMap, "cpu", ""),
+		Concurrency: getInt(crMap, "concurrency", 0),
+		Timeout:     getInt(crMap, "timeout", 0),
+	}
+
+	// Handle pointer fields (nil = not set, value = explicitly set)
+	if v, ok := crMap["min_instances"]; ok {
+		if intVal, ok := v.(int); ok {
+			cfg.MinInstances = &intVal
+		}
+	}
+	if v, ok := crMap["max_instances"]; ok {
+		if intVal, ok := v.(int); ok {
+			cfg.MaxInstances = &intVal
+		}
+	}
+	if v, ok := crMap["cpu_throttling"]; ok {
+		if boolVal, ok := v.(bool); ok {
+			cfg.CPUThrottling = &boolVal
+		}
+	}
+
+	return cfg
 }
 
 func parseBuildConfig(config map[string]any) BuildConfig {

@@ -10,6 +10,16 @@ func getString(m map[string]any, key string, def string) string {
 	return def
 }
 
+func getInt(m map[string]any, key string, def int) int {
+	if val, ok := m[key]; ok {
+		if i, ok := val.(int); ok {
+			return i
+		}
+	}
+
+	return def
+}
+
 func getStringSlice(m map[string]any, key string) []string {
 	val, ok := m[key]
 	if !ok {

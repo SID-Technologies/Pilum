@@ -9,6 +9,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	"github.com/sid-technologies/pilum/lib/suggest"
 
@@ -17,22 +18,24 @@ import (
 
 func InitCmd() *cobra.Command {
 	var provider string
+	var service string
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new service configuration",
 		Long:  "Interactively create a service.yaml file for a new service.",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runInit(provider)
+			return runInit(provider, service)
 		},
 	}
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, homebrew)")
+	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, azure, homebrew)")
+	cmd.Flags().StringVarP(&service, "service", "s", "", "Deployment service (cloud-run, lambda, etc.)")
 
 	return cmd
 }
 
-func runInit(provider string) error {
+func runInit(provider, service string) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Check if service.yaml already exists
@@ -58,33 +61,70 @@ func runInit(provider string) error {
 		return errors.New("no recipes found")
 	}
 
-	// If provider not specified, prompt for it
+	// If provider not specified, prompt for it using providers registry
 	if provider == "" {
-		providers := getAvailableProviders(recipes)
+		availableProviders := providers.GetProviders()
 		output.Header("Available providers")
-		for i, p := range providers {
-			fmt.Printf("  %d. %s\n", i+1, p)
+		for i, p := range availableProviders {
+			displayName := providers.GetProviderName(p)
+			fmt.Printf("  %d. %s (%s)\n", i+1, p, displayName)
 		}
 		fmt.Println()
 
-		provider, err = prompt(reader, "Select provider", providers[0])
+		provider, err = prompt(reader, "Select provider", availableProviders[0])
 		if err != nil {
 			return err
 		}
 	}
 
-	// Find the recipe for the provider
-	recipe := findRecipeByProvider(recipes, provider)
-	if recipe == nil {
-		providers := getAvailableProviders(recipes)
-		suggestion := suggest.FormatSuggestion(provider, providers)
+	// Validate provider
+	if !providers.IsValidProvider(provider) {
+		suggestion := suggest.FormatSuggestion(provider, providers.GetProviders())
 		if suggestion != "" {
-			return errors.New("no recipe found for provider '%s' - %s", provider, suggestion)
+			return errors.New("unknown provider '%s' - %s", provider, suggestion)
 		}
-		return errors.New("no recipe found for provider '%s'", provider)
+		return errors.New("unknown provider '%s'", provider)
 	}
 
-	output.Header("Creating service.yaml for %s", recipe.Name)
+	// If service not specified and provider has services, prompt for it
+	availableServices := providers.GetServices(provider)
+	if service == "" && len(availableServices) > 0 {
+		output.Header("Available services for %s", provider)
+		for i, s := range availableServices {
+			fmt.Printf("  %d. %s\n", i+1, s)
+		}
+		fmt.Println()
+
+		service, err = prompt(reader, "Select service", availableServices[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	// Validate service if specified
+	if service != "" && !providers.IsValidService(provider, service) {
+		suggestion := suggest.FormatSuggestion(service, availableServices)
+		if suggestion != "" {
+			return errors.New("unknown service '%s' for provider '%s' - %s", service, provider, suggestion)
+		}
+		return errors.New("unknown service '%s' for provider '%s'", service, provider)
+	}
+
+	// Find the recipe for the provider-service combination
+	recipeKey := provider
+	if service != "" {
+		recipeKey = provider + "-" + service
+	}
+	recipe := findRecipeByKey(recipes, provider, service)
+	if recipe == nil {
+		output.Warning("No recipe found for '%s' - using generic template", recipeKey)
+	}
+
+	if recipe != nil {
+		output.Header("Creating service.yaml for %s", recipe.Name)
+	} else {
+		output.Header("Creating service.yaml for %s", recipeKey)
+	}
 
 	// Collect values for required fields
 	values := make(map[string]string)
@@ -96,31 +136,33 @@ func runInit(provider string) error {
 	}
 	values["name"] = name
 
-	// Prompt for each required field from the recipe
-	for _, field := range recipe.RequiredFields {
-		// Skip if we already have this field
-		if _, ok := values[field.Name]; ok {
-			continue
-		}
+	// Prompt for each required field from the recipe (if we have one)
+	if recipe != nil {
+		for _, field := range recipe.RequiredFields {
+			// Skip if we already have this field
+			if _, ok := values[field.Name]; ok {
+				continue
+			}
 
-		promptText := field.Name
-		if field.Description != "" {
-			promptText = fmt.Sprintf("%s (%s)", field.Name, field.Description)
-		}
+			promptText := field.Name
+			if field.Description != "" {
+				promptText = fmt.Sprintf("%s (%s)", field.Name, field.Description)
+			}
 
-		defaultVal := field.Default
-		value, err := prompt(reader, promptText, defaultVal)
-		if err != nil {
-			return err
+			defaultVal := field.Default
+			value, err := prompt(reader, promptText, defaultVal)
+			if err != nil {
+				return err
+			}
+			values[field.Name] = value
 		}
-		values[field.Name] = value
 	}
 
 	// Generate the YAML content
-	yaml := generateServiceYAML(provider, values)
+	yaml := generateServiceYAML(provider, service, values)
 
 	// Write to service.yaml
-	if err := os.WriteFile("service.yaml", []byte(yaml), 0644); err != nil {
+	if err := os.WriteFile("service.yaml", []byte(yaml), 0600); err != nil {
 		return errors.Wrap(err, "failed to write service.yaml")
 	}
 
@@ -151,14 +193,14 @@ func prompt(reader *bufio.Reader, label, defaultVal string) (string, error) {
 
 func getAvailableProviders(recipes []recepie.RecipeInfo) []string {
 	seen := make(map[string]bool)
-	var providers []string
+	var providerList []string
 	for _, r := range recipes {
 		if !seen[r.Provider] {
 			seen[r.Provider] = true
-			providers = append(providers, r.Provider)
+			providerList = append(providerList, r.Provider)
 		}
 	}
-	return providers
+	return providerList
 }
 
 func findRecipeByProvider(recipes []recepie.RecipeInfo, provider string) *recepie.Recipe {
@@ -170,6 +212,17 @@ func findRecipeByProvider(recipes []recepie.RecipeInfo, provider string) *recepi
 	return nil
 }
 
+func findRecipeByKey(recipes []recepie.RecipeInfo, provider, service string) *recepie.Recipe {
+	// First, try exact provider-service match
+	for _, r := range recipes {
+		if r.Provider == provider && r.Service == service {
+			return &r.Recipe
+		}
+	}
+	// Fallback to provider-only match if no exact match found
+	return findRecipeByProvider(recipes, provider)
+}
+
 func mustGetwd() string {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -178,16 +231,22 @@ func mustGetwd() string {
 	return dir
 }
 
-func generateServiceYAML(provider string, values map[string]string) string {
+func generateServiceYAML(provider, service string, values map[string]string) string {
 	var sb strings.Builder
 
 	// Write header comment
 	sb.WriteString("# Service configuration for Pilum\n")
 	sb.WriteString("# See: https://github.com/sid-technologies/pilum\n\n")
 
-	// Write name and provider first
+	// Write name, provider, and service first
 	sb.WriteString(fmt.Sprintf("name: %s\n", values["name"]))
 	sb.WriteString(fmt.Sprintf("provider: %s\n", provider))
+	if service != "" {
+		sb.WriteString(fmt.Sprintf("service: %s\n", service))
+	}
+
+	// Group nested keys (like homebrew.project_url) to write them together
+	nestedKeys := make(map[string]map[string]string)
 
 	// Write remaining fields
 	for key, value := range values {
@@ -198,18 +257,84 @@ func generateServiceYAML(provider string, values map[string]string) string {
 		// Handle nested keys like "homebrew.project_url"
 		if strings.Contains(key, ".") {
 			parts := strings.SplitN(key, ".", 2)
-			// For now, write as flat key - could be enhanced to write nested YAML
-			sb.WriteString(fmt.Sprintf("%s:\n  %s: %s\n", parts[0], parts[1], value))
+			if nestedKeys[parts[0]] == nil {
+				nestedKeys[parts[0]] = make(map[string]string)
+			}
+			nestedKeys[parts[0]][parts[1]] = value
 		} else {
 			sb.WriteString(fmt.Sprintf("%s: %s\n", key, value))
 		}
 	}
 
-	// Add build section placeholder based on provider
+	// Write nested sections
+	for section, fields := range nestedKeys {
+		sb.WriteString(fmt.Sprintf("\n%s:\n", section))
+		for key, value := range fields {
+			sb.WriteString(fmt.Sprintf("  %s: %s\n", key, value))
+		}
+	}
+
+	// Add build section placeholder
 	sb.WriteString("\n# Build configuration\n")
 	sb.WriteString("build:\n")
 	sb.WriteString("  language: go\n")
 	sb.WriteString("  version: \"1.23\"\n")
+
+	// Add provider-specific config sections with example values
+	sb.WriteString(generateProviderConfig(provider, service))
+
+	return sb.String()
+}
+
+func generateProviderConfig(provider, service string) string {
+	var sb strings.Builder
+
+	switch provider {
+	case "gcp":
+		if service == "cloud-run" {
+			sb.WriteString("\n# Cloud Run configuration\n")
+			sb.WriteString("cloud_run:\n")
+			sb.WriteString("  min_instances: 0      # Scale to zero when idle\n")
+			sb.WriteString("  max_instances: 10     # Maximum instances to scale to\n")
+			sb.WriteString("  cpu_throttling: true  # Throttle CPU when not processing requests\n")
+			sb.WriteString("  memory: 512Mi         # Memory per instance\n")
+			sb.WriteString("  cpu: \"1\"              # CPUs per instance\n")
+			sb.WriteString("  concurrency: 80       # Max concurrent requests per instance\n")
+			sb.WriteString("  timeout: 300          # Request timeout in seconds\n")
+		}
+	case "homebrew":
+		// Homebrew config is already captured in required fields (homebrew.*)
+		// but we can add a comment
+		sb.WriteString("\n# Homebrew-specific configuration is in the 'homebrew' section above\n")
+	case "aws":
+		switch service {
+		case "lambda":
+			sb.WriteString("\n# Lambda configuration (example)\n")
+			sb.WriteString("# lambda:\n")
+			sb.WriteString("#   memory: 128          # Memory in MB\n")
+			sb.WriteString("#   timeout: 30          # Timeout in seconds\n")
+			sb.WriteString("#   runtime: provided.al2023\n")
+		case "ecs", "fargate":
+			sb.WriteString("\n# ECS/Fargate configuration (example)\n")
+			sb.WriteString("# ecs:\n")
+			sb.WriteString("#   cpu: 256             # CPU units\n")
+			sb.WriteString("#   memory: 512          # Memory in MB\n")
+			sb.WriteString("#   desired_count: 1     # Number of tasks\n")
+		default:
+			// No config for other AWS services
+		}
+	case "azure":
+		if service == "container-apps" {
+			sb.WriteString("\n# Container Apps configuration (example)\n")
+			sb.WriteString("# container_apps:\n")
+			sb.WriteString("#   min_replicas: 0\n")
+			sb.WriteString("#   max_replicas: 10\n")
+			sb.WriteString("#   cpu: 0.5\n")
+			sb.WriteString("#   memory: 1Gi\n")
+		}
+	default:
+		// No provider-specific config for unknown providers
+	}
 
 	return sb.String()
 }
