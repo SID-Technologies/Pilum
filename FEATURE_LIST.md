@@ -49,6 +49,10 @@
 - [ ] `pilum rollback [service]` - Rollback to previous revision
 - [ ] Deployment locks (prevent concurrent deploys to same service)
 
+### Multi-Target Deployments
+- [ ] Deploy same service to multiple targets (e.g., Cloud Run + GKE) from single config
+- [ ] Options: multiple `pilum.yaml` files or `targets:` array in config
+
 ### Environment Management
 - [ ] Environment configs (`--env prod` / `--env staging`)
 - [ ] Per-environment overrides in service.yaml
@@ -76,6 +80,7 @@
 - [ ] Kubernetes (generic manifests)
 - [ ] Azure Container Apps
 - [ ] Fly.io
+- [ ] GCP Cloud Run Jobs (batch/migration workloads)
 
 ### Release Targets
 - [ ] GitHub Releases (with assets)

@@ -2,7 +2,7 @@
 name: gcp-cloud-run
 description: Deploy to Google Cloud Run
 provider: gcp
-service: cloud_run
+service: cloud-run
 
 required_fields:
   - name: project

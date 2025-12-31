@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/suggest"
@@ -41,15 +42,20 @@ func CheckCmd() *cobra.Command {
 				return nil
 			}
 
-			// Index recipes by provider
+			// Index recipes by provider-service key (e.g., "gcp-cloud-run")
 			recipeMap := make(map[string]*recepie.Recipe)
 			for i := range recipes {
-				recipeMap[recipes[i].Provider] = &recipes[i].Recipe
+				key := recipes[i].Provider
+				if recipes[i].Service != "" {
+					key = recipes[i].Provider + "-" + recipes[i].Service
+				}
+				recipeMap[key] = &recipes[i].Recipe
 			}
 
 			// Validate each service
 			for _, service := range services {
-				output.Dimmed("  Checking service %s (provider: %s)", service.Name, service.Provider)
+				recipeKey := service.RecipeKey()
+				output.Dimmed("  Checking service %s (recipe: %s)", service.Name, recipeKey)
 
 				// Base validation
 				if err := service.Validate(); err != nil {
@@ -57,17 +63,14 @@ func CheckCmd() *cobra.Command {
 				}
 
 				// Recipe-specific validation
-				recipe, exists := recipeMap[service.Provider]
+				recipe, exists := recipeMap[recipeKey]
 				if !exists {
-					var providerNames []string
-					for name := range recipeMap {
-						providerNames = append(providerNames, name)
-					}
-					suggestion := suggest.FormatSuggestion(service.Provider, providerNames)
+					// Use providers registry for suggestions
+					suggestion := suggest.FormatSuggestion(recipeKey, providers.GetAllRecipeKeys())
 					if suggestion != "" {
-						output.Warning("    No recipe found for provider '%s' - %s", service.Provider, suggestion)
+						output.Warning("    No recipe found for '%s' - %s", recipeKey, suggestion)
 					} else {
-						output.Warning("    No recipe found for provider '%s'", service.Provider)
+						output.Warning("    No recipe found for '%s'", recipeKey)
 					}
 					continue
 				}

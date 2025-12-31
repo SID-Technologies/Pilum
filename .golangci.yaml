@@ -137,6 +137,8 @@ linters:
         linters: [gosec]
       - text: 'defer: prefer not to defer chains of function calls'
         linters: [revive]
+      - text: 'var-naming: avoid package names that conflict with Go standard library'
+        linters: [revive]
 
       # Loop variable issues (fixed in Go 1.22+)
       - text: 'G601: Implicit memory aliasing in for loop'
