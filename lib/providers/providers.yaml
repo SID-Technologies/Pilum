@@ -20,7 +20,10 @@ providers:
   homebrew:
     name: Homebrew
     services: []
-  # Test provider for unit tests
+  # Test providers for unit tests
   test:
     name: Test Provider
+    services: []
+  unknown:
+    name: Unknown Provider
     services: []
