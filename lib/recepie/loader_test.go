@@ -90,7 +90,7 @@ func TestLoadRecipesFromDirectoryNonExistent(t *testing.T) {
 	_, err := recepie.LoadRecipesFromDirectory("/nonexistent/path/xyz")
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to read directory")
+	require.Contains(t, err.Error(), "failed to read recipes directory")
 }
 
 func TestLoadRecipesFromDirectoryInvalidYaml(t *testing.T) {
@@ -111,7 +111,7 @@ steps:
 	_, err = recepie.LoadRecipesFromDirectory(tmpDir)
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to parse YAML")
+	require.Contains(t, err.Error(), "failed to parse recipe YAML")
 }
 
 func TestLoadRecipesFromDirectoryIgnoresNonYaml(t *testing.T) {

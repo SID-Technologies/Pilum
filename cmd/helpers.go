@@ -5,6 +5,9 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/orchestrator"
+	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/recepie"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -79,30 +82,55 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 	return nil
 }
 
-func cmdFlagStrings(cmd *cobra.Command) {
+// addCommandFlags adds standard deployment flags to a command.
+// Set includeDryRun to false for commands that are always dry-run mode.
+func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().StringP("tag", "t", "latest", "Tag for the services")
 	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
 	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")
 	cmd.Flags().IntP("retries", "r", 3, "Number of retries for the build process")
-	cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
 	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
 	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
+
+	if includeDryRun {
+		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
+	}
 }
 
-// cmdFlagStringsNoDryRun adds all standard flags except --dry-run (for commands that are always dry-run).
-func cmdFlagStringsNoDryRun(cmd *cobra.Command) {
-	cmd.Flags().StringP("tag", "t", "latest", "Tag for the services")
-	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
-	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")
-	cmd.Flags().IntP("retries", "r", 3, "Number of retries for the build process")
-	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
-	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
-	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
-	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
-	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
+// runPipeline executes the common deployment pipeline: find services → load recipes → run.
+// The noServicesMsg is shown as a warning if no services are found.
+func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) error {
+	filterOpts := serviceinfo.FilterOptions{
+		Names:       args,
+		OnlyChanged: opts.OnlyChanged,
+		Since:       opts.Since,
+	}
+
+	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
+	if err != nil {
+		return errors.Wrap(err, "error finding services")
+	}
+
+	if len(services) == 0 {
+		output.Warning(noServicesMsg)
+		return nil
+	}
+
+	recipes, err := recepie.LoadEmbeddedRecipes()
+	if err != nil {
+		return errors.Wrap(err, "error loading recipes")
+	}
+
+	if len(recipes) == 0 {
+		output.Warning("No recipes found")
+		return nil
+	}
+
+	runner := orchestrator.NewRunner(services, recipes, opts.toRunnerOptions())
+	return runner.Run()
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.

@@ -1,12 +1,6 @@
 package cmd
 
 import (
-	"github.com/sid-technologies/pilum/lib/errors"
-	"github.com/sid-technologies/pilum/lib/orchestrator"
-	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/lib/recepie"
-	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
-
 	"github.com/spf13/cobra"
 )
 
@@ -23,35 +17,11 @@ func DryRunCmd() *cobra.Command {
 			opts := getDeploymentOptions()
 			opts.DryRun = true // Always dry-run for this command
 
-			filterOpts := serviceinfo.FilterOptions{
-				Names:       args,
-				OnlyChanged: opts.OnlyChanged,
-				Since:       opts.Since,
-			}
-			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
-			if err != nil {
-				return errors.Wrap(err, "error finding services")
-			}
-			if len(services) == 0 {
-				output.Warning("No services found")
-				return nil
-			}
-
-			recipes, err := recepie.LoadEmbeddedRecipes()
-			if err != nil {
-				return errors.Wrap(err, "error loading recipes")
-			}
-			if len(recipes) == 0 {
-				output.Warning("No recipes found")
-				return nil
-			}
-
-			runner := orchestrator.NewRunner(services, recipes, opts.toRunnerOptions())
-			return runner.Run()
+			return runPipeline(args, opts, "No services found")
 		},
 	}
 
-	cmdFlagStringsNoDryRun(cmd)
+	addCommandFlags(cmd, false) // No --dry-run flag needed
 
 	return cmd
 }
