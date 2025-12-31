@@ -1,0 +1,9 @@
+name: dotnet-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: dotnet
+  version: "8.0"
+  cmd: dotnet publish -c Release -o ./dist

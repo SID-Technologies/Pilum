@@ -1,0 +1,15 @@
+name: go-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: go
+  version: "1.23"
+  cmd: go build -o ./dist/server ./cmd/server
+  env_vars:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  flags:
+    ldflags: ["-s", "-w"]

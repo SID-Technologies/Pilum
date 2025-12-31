@@ -1,0 +1,9 @@
+name: python-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: python
+  version: "3.12"
+  cmd: pip install -r requirements.txt

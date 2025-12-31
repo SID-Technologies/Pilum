@@ -1,0 +1,9 @@
+name: nodejs-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: nodejs
+  version: "22"
+  cmd: npm ci --production

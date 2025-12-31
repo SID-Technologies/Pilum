@@ -1,0 +1,9 @@
+name: rust-example
+provider: gcp
+project: your-gcp-project
+region: us-central1
+
+build:
+  language: rust
+  version: "1.75"
+  cmd: cargo build --release
