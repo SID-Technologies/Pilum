@@ -158,7 +158,7 @@ func FindServices(root string) ([]ServiceInfo, error) {
 			return nil
 		}
 
-		if filepath.Base(path) != "service.yaml" {
+		if filepath.Base(path) != "pilum.yaml" {
 			return nil
 		}
 

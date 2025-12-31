@@ -16,7 +16,7 @@ func TestFindServices(t *testing.T) {
 	// Create temp directory structure
 	tmpDir := t.TempDir()
 
-	// Create service1/service.yaml
+	// Create service1/pilum.yaml
 	svc1Dir := filepath.Join(tmpDir, "service1")
 	require.NoError(t, os.MkdirAll(svc1Dir, 0755))
 	svc1Content := `name: myservice
@@ -24,16 +24,16 @@ provider: gcp
 region: us-central1
 project: my-project
 `
-	require.NoError(t, os.WriteFile(filepath.Join(svc1Dir, "service.yaml"), []byte(svc1Content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svc1Dir, "pilum.yaml"), []byte(svc1Content), 0644))
 
-	// Create service2/service.yaml
+	// Create service2/pilum.yaml
 	svc2Dir := filepath.Join(tmpDir, "service2")
 	require.NoError(t, os.MkdirAll(svc2Dir, 0755))
 	svc2Content := `name: api-service
 provider: aws
 region: us-east-1
 `
-	require.NoError(t, os.WriteFile(filepath.Join(svc2Dir, "service.yaml"), []byte(svc2Content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svc2Dir, "pilum.yaml"), []byte(svc2Content), 0644))
 
 	services, err := serviceinfo.FindServices(tmpDir)
 
@@ -65,13 +65,13 @@ func TestFindServicesNestedDirectory(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Create nested/deep/service/service.yaml
+	// Create nested/deep/service/pilum.yaml
 	nestedDir := filepath.Join(tmpDir, "nested", "deep", "service")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))
 	content := `name: nested-service
 provider: gcp
 `
-	require.NoError(t, os.WriteFile(filepath.Join(nestedDir, "service.yaml"), []byte(content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(nestedDir, "pilum.yaml"), []byte(content), 0644))
 
 	services, err := serviceinfo.FindServices(tmpDir)
 
@@ -88,7 +88,7 @@ func TestFindServicesInvalidYAML(t *testing.T) {
 	require.NoError(t, os.MkdirAll(svcDir, 0755))
 
 	// Write invalid YAML
-	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte("invalid: yaml: content:"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte("invalid: yaml: content:"), 0644))
 
 	_, err := serviceinfo.FindServices(tmpDir)
 
@@ -109,7 +109,7 @@ func TestFindServicesMissingName(t *testing.T) {
 	content := `provider: gcp
 region: us-central1
 `
-	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte(content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
 
 	require.Panics(t, func() {
 		_, _ = serviceinfo.FindServices(tmpDir)
@@ -214,7 +214,7 @@ func TestFindAndFilterServices(t *testing.T) {
 		svcDir := filepath.Join(tmpDir, name)
 		require.NoError(t, os.MkdirAll(svcDir, 0755))
 		content := "name: " + name + "\nprovider: gcp\n"
-		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte(content), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
 	}
 
 	tests := []struct {
@@ -323,7 +323,7 @@ build:
   version: "1.23"
   cmd: "go build -o ./dist/app"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte(content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
 
 	services, err := serviceinfo.FindServices(tmpDir)
 
@@ -339,10 +339,10 @@ func TestFindServicesIgnoresNonServiceFiles(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Create a service.yaml
+	// Create a pilum.yaml
 	svcDir := filepath.Join(tmpDir, "valid")
 	require.NoError(t, os.MkdirAll(svcDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "service.yaml"), []byte("name: valid\nprovider: gcp\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte("name: valid\nprovider: gcp\n"), 0644))
 
 	// Create other YAML files that should be ignored
 	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "config.yaml"), []byte("key: value\n"), 0644))
