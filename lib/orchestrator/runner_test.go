@@ -487,9 +487,8 @@ func TestRunnerRunNoServices(t *testing.T) {
 func TestRunnerRunNoRecipeSteps(t *testing.T) {
 	t.Parallel()
 
-	// Use "test" provider which is valid but has no recipe
 	services := []serviceinfo.ServiceInfo{
-		{Name: "svc", Provider: "test"},
+		{Name: "svc", Provider: "unknown"},
 	}
 
 	runner := NewRunner(services, nil, RunnerOptions{})
@@ -497,7 +496,7 @@ func TestRunnerRunNoRecipeSteps(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no matching recipe found")
+	require.Contains(t, err.Error(), "no recipe found for that provider")
 }
 
 func TestRunnerGenerateCommand(t *testing.T) {
@@ -870,10 +869,9 @@ func TestRunnerMultipleProviders(t *testing.T) {
 func TestRunnerServiceWithoutRecipe(t *testing.T) {
 	t.Parallel()
 
-	// Use "test" provider which is valid but has no recipe
 	services := []serviceinfo.ServiceInfo{
 		{Name: "svc-with-recipe", Provider: "gcp"},
-		{Name: "svc-without-recipe", Provider: "test"},
+		{Name: "svc-without-recipe", Provider: "unknown"},
 	}
 
 	recipes := []recepie.RecipeInfo{
@@ -899,7 +897,7 @@ func TestRunnerServiceWithoutRecipe(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no matching recipe found")
+	require.Contains(t, err.Error(), "no recipe found for that provider")
 }
 
 func TestRunnerExecuteTaskNilCommand(t *testing.T) {

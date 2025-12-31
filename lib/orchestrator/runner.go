@@ -83,13 +83,9 @@ func NewRunner(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo,
 		registry:   cmdRegistry,
 	}
 
-	// Index recipes by provider-service key (e.g., "gcp-cloud-run")
+	// Index recipes by provider
 	for _, rec := range recipes {
-		key := rec.Provider
-		if rec.Service != "" {
-			key = rec.Provider + "-" + rec.Service
-		}
-		r.recipes[key] = rec.Recipe
+		r.recipes[rec.Provider] = rec.Recipe
 	}
 
 	// Calculate max name length for output alignment (use DisplayName for multi-region)
@@ -154,10 +150,9 @@ func (r *Runner) validateServices() error {
 		}
 
 		// Check for matching recipe
-		recipeKey := svc.RecipeKey()
-		if _, exists := r.recipes[recipeKey]; !exists {
-			return errors.New("service '%s' has recipe key '%s' but no matching recipe found",
-				svc.Name, recipeKey)
+		if _, exists := r.recipes[svc.Provider]; !exists {
+			return errors.New("service '%s' has provider '%s' but no recipe found for that provider",
+				svc.Name, svc.Provider)
 		}
 	}
 	return nil
@@ -167,7 +162,7 @@ func (r *Runner) validateServices() error {
 func (r *Runner) findMaxSteps() int {
 	maxSteps := 0
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.RecipeKey()]
+		recipe, exists := r.recipes[svc.Provider]
 		if !exists {
 			continue
 		}
@@ -221,7 +216,7 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 	stepNames := make(map[string]bool)
 
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.RecipeKey()]
+		recipe, exists := r.recipes[svc.Provider]
 		if !exists {
 			continue
 		}
@@ -247,7 +242,7 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 
 	// Show skipped services
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.RecipeKey()]
+		recipe, exists := r.recipes[svc.Provider]
 		if !exists {
 			r.output.PrintSkipped(svc.DisplayName(), "no recipe")
 		} else if stepIdx >= len(recipe.Steps) {
