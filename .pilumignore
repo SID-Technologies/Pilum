@@ -1,0 +1,5 @@
+# Ignore example services - they are for documentation only
+examples/
+
+# Ignore test fixtures
+test/

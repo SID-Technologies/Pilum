@@ -15,10 +15,9 @@ required_fields:
     type: string
     default: us-central1
 
-  - name: service_name
-    description: Cloud Run service name
+  - name: name
+    description: Service name (used for Cloud Run service and container naming)
     type: string
-    default: my-cloud-run-service
 
   - name: registry_name
     description: Docker registry prefix (e.g., gcr.io/my-project, us-docker.pkg.dev/my-project/repo)

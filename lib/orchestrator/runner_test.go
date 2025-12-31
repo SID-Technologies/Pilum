@@ -494,7 +494,9 @@ func TestRunnerRunNoRecipeSteps(t *testing.T) {
 	runner := NewRunner(services, nil, RunnerOptions{})
 	err := runner.Run()
 
-	require.NoError(t, err)
+	// Services without matching recipes now cause validation errors
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no recipe found for that provider")
 }
 
 func TestRunnerGenerateCommand(t *testing.T) {
@@ -893,7 +895,9 @@ func TestRunnerServiceWithoutRecipe(t *testing.T) {
 	runner := NewRunner(services, recipes, opts)
 	err := runner.Run()
 
-	require.NoError(t, err)
+	// Services without matching recipes now cause validation errors
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no recipe found for that provider")
 }
 
 func TestRunnerExecuteTaskNilCommand(t *testing.T) {

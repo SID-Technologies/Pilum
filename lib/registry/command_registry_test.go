@@ -57,29 +57,29 @@ func TestCommandRegistryRegisterAndGetHandler(t *testing.T) {
 		{
 			name: "fall back to generic when provider-specific not found",
 			registerCalls: []struct{ pattern, provider string }{
-				{pattern: "build", provider: ""},
+				{pattern: "build binary", provider: ""},
 			},
-			lookupStepName: "build",
+			lookupStepName: "build binary",
 			lookupProvider: "aws",
 			shouldFind:     true,
 		},
 		{
 			name: "case-insensitive step name matching",
 			registerCalls: []struct{ pattern, provider string }{
-				{pattern: "build", provider: ""},
+				{pattern: "build binary", provider: ""},
 			},
-			lookupStepName: "BUILD",
+			lookupStepName: "BUILD BINARY",
 			lookupProvider: "",
 			shouldFind:     true,
 		},
 		{
-			name: "partial match in step name",
+			name: "exact match required - partial match should NOT work",
 			registerCalls: []struct{ pattern, provider string }{
 				{pattern: "build", provider: ""},
 			},
-			lookupStepName: "docker build image",
+			lookupStepName: "build docker image",
 			lookupProvider: "",
-			shouldFind:     true,
+			shouldFind:     false, // exact match required now
 		},
 		{
 			name:           "handler not found",

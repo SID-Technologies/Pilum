@@ -1,9 +1,11 @@
 package serviceinfo
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/git"
@@ -133,12 +135,36 @@ func FilterByChanges(services []ServiceInfo, since string) ([]ServiceInfo, error
 func FindServices(root string) ([]ServiceInfo, error) {
 	var services []ServiceInfo
 
+	// Load ignore patterns from .pilumignore
+	ignorePatterns := loadIgnorePatterns(root)
+	if len(ignorePatterns) > 0 {
+		output.Debugf("Loaded %d ignore patterns from .pilumignore", len(ignorePatterns))
+	}
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return errors.Wrap(err, "error walking %s", path)
 		}
 
-		if info.IsDir() || filepath.Base(path) != "service.yaml" {
+		// Get path relative to root for pattern matching
+		relPath, _ := filepath.Rel(root, path)
+
+		// Skip ignored directories entirely
+		if info.IsDir() {
+			if shouldIgnore(relPath, ignorePatterns) {
+				output.Debugf("Ignoring directory: %s", relPath)
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if filepath.Base(path) != "pilum.yaml" {
+			return nil
+		}
+
+		// Check if this service.yaml is in an ignored path
+		if shouldIgnore(relPath, ignorePatterns) {
+			output.Debugf("Ignoring service: %s", relPath)
 			return nil
 		}
 
@@ -158,8 +184,8 @@ func FindServices(root string) ([]ServiceInfo, error) {
 			return errors.Wrap(err, "error parsing %s", path)
 		}
 
-		relPath, _ := filepath.Rel(root, filepath.Dir(path))
-		svc := NewServiceInfo(config, relPath)
+		svcRelPath, _ := filepath.Rel(root, filepath.Dir(path))
+		svc := NewServiceInfo(config, svcRelPath)
 
 		// Expand multi-region services into separate instances
 		expanded := ExpandMultiRegion(*svc)
@@ -173,6 +199,74 @@ func FindServices(root string) ([]ServiceInfo, error) {
 	}
 
 	return services, nil
+}
+
+// loadIgnorePatterns reads patterns from .pilumignore file.
+// Supports:
+// - Directory names: "examples" matches any path containing "examples"
+// - Paths: "examples/" matches the examples directory at root
+// - Globs: "test-*" matches directories starting with "test-"
+// - Comments: lines starting with # are ignored
+// - Blank lines are ignored
+func loadIgnorePatterns(root string) []string {
+	ignoreFile := filepath.Join(root, ".pilumignore")
+	file, err := os.Open(ignoreFile)
+	if err != nil {
+		return nil // No .pilumignore file
+	}
+	defer file.Close()
+
+	var patterns []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
+
+// shouldIgnore checks if a path matches any ignore pattern.
+func shouldIgnore(path string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+
+	// Normalize path separators
+	path = filepath.ToSlash(path)
+
+	for _, pattern := range patterns {
+		pattern = filepath.ToSlash(pattern)
+
+		// Exact directory match (pattern ends with /)
+		if strings.HasSuffix(pattern, "/") {
+			dir := strings.TrimSuffix(pattern, "/")
+			if path == dir || strings.HasPrefix(path, dir+"/") {
+				return true
+			}
+			continue
+		}
+
+		// Check if any path component matches the pattern
+		parts := strings.Split(path, "/")
+		for _, part := range parts {
+			matched, _ := filepath.Match(pattern, part)
+			if matched {
+				return true
+			}
+		}
+
+		// Also try matching the full path
+		matched, _ := filepath.Match(pattern, path)
+		if matched {
+			return true
+		}
+	}
+
+	return false
 }
 
 func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {

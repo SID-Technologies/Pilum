@@ -108,6 +108,11 @@ func (r *Runner) Run() error {
 		return nil
 	}
 
+	// Validate all services before execution
+	if err := r.validateServices(); err != nil {
+		return err
+	}
+
 	// Find max steps
 	maxSteps := r.findMaxSteps()
 	if maxSteps == 0 {
@@ -132,6 +137,24 @@ func (r *Runner) Run() error {
 	}
 
 	r.output.PrintComplete(r.results)
+	return nil
+}
+
+// validateServices validates all services before execution.
+// Returns an error if any service is invalid or has no matching recipe.
+func (r *Runner) validateServices() error {
+	for _, svc := range r.services {
+		// Base validation (name, provider required)
+		if err := svc.Validate(); err != nil {
+			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
+		}
+
+		// Check for matching recipe
+		if _, exists := r.recipes[svc.Provider]; !exists {
+			return errors.New("service '%s' has provider '%s' but no recipe found for that provider",
+				svc.Name, svc.Provider)
+		}
+	}
 	return nil
 }
 
