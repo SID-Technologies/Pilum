@@ -15,34 +15,29 @@ func TestRegisterDefaultHandlers(t *testing.T) {
 	reg := registry.NewCommandRegistry()
 	registry.RegisterDefaultHandlers(reg)
 
-	// Test that various handlers are registered
+	// Test that various handlers are registered with exact step names
 	tests := []struct {
 		stepName string
 		provider string
 		found    bool
 	}{
-		// Docker handlers
-		{"docker", "", true},
-		{"push", "", true},
-		{"publish", "", true},
+		// GCP Cloud Run handlers (exact step names from recipe)
+		{"build binary", "", true},
+		{"build docker image", "", true},
+		{"publish to registry", "", true},
+		{"deploy to cloud run", "gcp", true},
 
-		// Build handlers
-		{"build", "", true},
-
-		// Deploy handlers
-		{"deploy", "gcp", true},
-		{"deploy", "aws", true},
-		{"deploy", "azure", true},
-
-		// Homebrew handlers
-		{"build", "homebrew", true},
-		{"archive", "homebrew", true},
-		{"checksum", "homebrew", true},
-		{"formula", "homebrew", true},
-		{"tap", "homebrew", true},
+		// Homebrew handlers (exact step names from recipe)
+		{"build binaries", "homebrew", true},
+		{"create archives", "homebrew", true},
+		{"generate checksums", "homebrew", true},
+		{"update formula", "homebrew", true},
+		{"push to tap", "homebrew", true},
 
 		// Unknown
 		{"unknown-step", "", false},
+		{"build", "", false},  // old-style partial match should NOT work
+		{"docker", "", false}, // old-style partial match should NOT work
 	}
 
 	for _, tt := range tests {
@@ -58,7 +53,7 @@ func TestRegisterDefaultHandlers(t *testing.T) {
 	}
 }
 
-func TestDockerHandlerExecution(t *testing.T) {
+func TestBuildDockerImageHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -73,7 +68,7 @@ func TestDockerHandlerExecution(t *testing.T) {
 		TemplatePath: "./_templates",
 	}
 
-	handler, found := reg.GetHandler("docker", "")
+	handler, found := reg.GetHandler("build docker image", "")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -86,7 +81,7 @@ func TestDockerHandlerExecution(t *testing.T) {
 	require.Equal(t, "build", cmd[1])
 }
 
-func TestPushHandlerExecution(t *testing.T) {
+func TestPublishToRegistryHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -96,7 +91,7 @@ func TestPushHandlerExecution(t *testing.T) {
 		ImageName: "gcr.io/project/myservice:v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("push", "")
+	handler, found := reg.GetHandler("publish to registry", "")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -107,29 +102,7 @@ func TestPushHandlerExecution(t *testing.T) {
 	require.Equal(t, []string{"docker", "push", "gcr.io/project/myservice:v1.0.0"}, cmd)
 }
 
-func TestPublishHandlerExecution(t *testing.T) {
-	t.Parallel()
-
-	reg := registry.NewCommandRegistry()
-	registry.RegisterDefaultHandlers(reg)
-
-	ctx := registry.StepContext{
-		ImageName: "myimage:tag",
-	}
-
-	handler, found := reg.GetHandler("publish", "")
-	require.True(t, found)
-
-	result := handler(ctx)
-	require.NotNil(t, result)
-
-	cmd, ok := result.([]string)
-	require.True(t, ok)
-	require.Equal(t, "docker", cmd[0])
-	require.Equal(t, "push", cmd[1])
-}
-
-func TestBuildHandlerExecution(t *testing.T) {
+func TestBuildBinaryHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -145,7 +118,7 @@ func TestBuildHandlerExecution(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("build", "")
+	handler, found := reg.GetHandler("build binary", "")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -157,7 +130,7 @@ func TestBuildHandlerExecution(t *testing.T) {
 	}
 }
 
-func TestGCPDeployHandlerExecution(t *testing.T) {
+func TestDeployToCloudRunHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -171,7 +144,7 @@ func TestGCPDeployHandlerExecution(t *testing.T) {
 		ImageName: "gcr.io/project/myservice:latest",
 	}
 
-	handler, found := reg.GetHandler("deploy", "gcp")
+	handler, found := reg.GetHandler("deploy to cloud run", "gcp")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -184,37 +157,7 @@ func TestGCPDeployHandlerExecution(t *testing.T) {
 	require.Equal(t, "deploy", cmd[2])
 }
 
-func TestAWSDeployHandlerReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	reg := registry.NewCommandRegistry()
-	registry.RegisterDefaultHandlers(reg)
-
-	ctx := registry.StepContext{}
-
-	handler, found := reg.GetHandler("deploy", "aws")
-	require.True(t, found)
-
-	result := handler(ctx)
-	require.Nil(t, result) // Not yet implemented
-}
-
-func TestAzureDeployHandlerReturnsNil(t *testing.T) {
-	t.Parallel()
-
-	reg := registry.NewCommandRegistry()
-	registry.RegisterDefaultHandlers(reg)
-
-	ctx := registry.StepContext{}
-
-	handler, found := reg.GetHandler("deploy", "azure")
-	require.True(t, found)
-
-	result := handler(ctx)
-	require.Nil(t, result) // Not yet implemented
-}
-
-func TestHomebrewBuildHandlerExecution(t *testing.T) {
+func TestHomebrewBuildBinariesHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -227,7 +170,7 @@ func TestHomebrewBuildHandlerExecution(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("build", "homebrew")
+	handler, found := reg.GetHandler("build binaries", "homebrew")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -239,7 +182,7 @@ func TestHomebrewBuildHandlerExecution(t *testing.T) {
 	require.Contains(t, cmd, "GOOS=darwin")
 }
 
-func TestHomebrewArchiveHandlerExecution(t *testing.T) {
+func TestHomebrewCreateArchivesHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -252,7 +195,7 @@ func TestHomebrewArchiveHandlerExecution(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("archive", "homebrew")
+	handler, found := reg.GetHandler("create archives", "homebrew")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -263,13 +206,13 @@ func TestHomebrewArchiveHandlerExecution(t *testing.T) {
 	require.Contains(t, cmd, "tar -czf")
 }
 
-func TestHomebrewChecksumHandlerExecution(t *testing.T) {
+func TestHomebrewGenerateChecksumsHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
 	registry.RegisterDefaultHandlers(reg)
 
-	handler, found := reg.GetHandler("checksum", "homebrew")
+	handler, found := reg.GetHandler("generate checksums", "homebrew")
 	require.True(t, found)
 
 	result := handler(registry.StepContext{})
@@ -280,7 +223,7 @@ func TestHomebrewChecksumHandlerExecution(t *testing.T) {
 	require.Contains(t, cmd, "shasum -a 256")
 }
 
-func TestHomebrewFormulaHandlerExecution(t *testing.T) {
+func TestHomebrewUpdateFormulaHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -298,7 +241,7 @@ func TestHomebrewFormulaHandlerExecution(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("formula", "homebrew")
+	handler, found := reg.GetHandler("update formula", "homebrew")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -309,7 +252,7 @@ func TestHomebrewFormulaHandlerExecution(t *testing.T) {
 	require.Contains(t, cmd, "class Myapp < Formula")
 }
 
-func TestHomebrewTapHandlerExecution(t *testing.T) {
+func TestHomebrewPushToTapHandlerExecution(t *testing.T) {
 	t.Parallel()
 
 	reg := registry.NewCommandRegistry()
@@ -326,7 +269,7 @@ func TestHomebrewTapHandlerExecution(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	handler, found := reg.GetHandler("tap", "homebrew")
+	handler, found := reg.GetHandler("push to tap", "homebrew")
 	require.True(t, found)
 
 	result := handler(ctx)
@@ -351,12 +294,12 @@ func TestProviderSpecificOverridesGeneric(t *testing.T) {
 		Tag: "v1.0.0",
 	}
 
-	// Generic build
-	genericHandler, found := reg.GetHandler("build", "")
+	// Generic build binary
+	genericHandler, found := reg.GetHandler("build binary", "")
 	require.True(t, found)
 
-	// Homebrew-specific build
-	homebrewHandler, found := reg.GetHandler("build", "homebrew")
+	// Homebrew-specific build binaries
+	homebrewHandler, found := reg.GetHandler("build binaries", "homebrew")
 	require.True(t, found)
 
 	// They should be different handlers

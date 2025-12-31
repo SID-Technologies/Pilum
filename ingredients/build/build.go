@@ -27,15 +27,16 @@ func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string)
 		command = fmt.Sprintf("%s -%s='%s'", command, flag.Name, vals)
 	}
 
-	// Construct image name for downstream docker operations
+	// Construct image name using provider-specific formatting.
+	// The registry parameter is for CLI overrides only (full registry URL).
+	// If empty, use service configuration with provider-specific paths.
 	var imageName string
-	if registry != "" {
+	if registry != "" && !isRegistryName(registry, service) {
+		// CLI override with full registry path
 		imageName = fmt.Sprintf("%s/%s", registry, service.Name)
-	} else if service.Provider == "gcp" && service.Region != "" && service.Project != "" {
-		imageName = fmt.Sprintf("%s-docker.pkg.dev/%s/%s/%s",
-			service.Region, service.Project, service.Project, service.Name)
 	} else {
-		imageName = service.Name
+		// Use provider-specific formatting
+		imageName = generateProviderImageName(service)
 	}
 
 	if tag != "" {
@@ -48,6 +49,45 @@ func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string)
 	fullCmd := []string{"/bin/sh", "-c", command}
 
 	return fullCmd, imageName
+}
+
+// isRegistryName checks if the registry param matches the service's RegistryName
+// (meaning it was passed through from service config, not a CLI override).
+func isRegistryName(registry string, service serviceinfo.ServiceInfo) bool {
+	return registry == service.RegistryName
+}
+
+// generateProviderImageName creates the full image name using provider-specific formatting.
+func generateProviderImageName(service serviceinfo.ServiceInfo) string {
+	switch service.Provider {
+	case "gcp":
+		if service.Region != "" && service.Project != "" {
+			registryName := service.RegistryName
+			if registryName == "" {
+				registryName = service.Project
+			}
+			return fmt.Sprintf("%s-docker.pkg.dev/%s/%s/%s",
+				service.Region, service.Project, registryName, service.Name)
+		}
+	case "aws":
+		if service.RegistryName != "" && service.Region != "" {
+			return fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s",
+				service.RegistryName, service.Region, service.Name)
+		}
+	case "azure":
+		if service.RegistryName != "" {
+			return fmt.Sprintf("%s.azurecr.io/%s", service.RegistryName, service.Name)
+		}
+	case "github":
+		if service.RegistryName != "" {
+			return fmt.Sprintf("ghcr.io/%s/%s", service.RegistryName, service.Name)
+		}
+	case "dockerhub":
+		return fmt.Sprintf("docker.io/%s", service.Name)
+	default:
+		// Unknown provider, use service name only
+	}
+	return service.Name
 }
 
 // GenerateBuildCommandString returns just the command string for display/dry-run.

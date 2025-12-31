@@ -126,6 +126,23 @@ func TestGenerateBuildCommand(t *testing.T) {
 			expectedImage: "us-central1-docker.pkg.dev/my-project/my-project/myservice:v1.0.0",
 		},
 		{
+			name: "GCP provider with registry_name uses full path",
+			service: serviceinfo.ServiceInfo{
+				Name:         "myservice",
+				Provider:     "gcp",
+				Region:       "us-central1",
+				Project:      "my-project",
+				RegistryName: "my-repo",
+				BuildConfig: serviceinfo.BuildConfig{
+					Cmd: "go build -o ./dist/myservice",
+				},
+			},
+			registry:      "my-repo", // Same as service.RegistryName - should NOT override
+			tag:           "v1.0.0",
+			expectedCmd:   []string{"/bin/sh", "-c", "go build -o ./dist/myservice"},
+			expectedImage: "us-central1-docker.pkg.dev/my-project/my-repo/myservice:v1.0.0",
+		},
+		{
 			name: "empty tag defaults to latest",
 			service: serviceinfo.ServiceInfo{
 				Name: "myservice",

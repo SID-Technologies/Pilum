@@ -29,7 +29,7 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "123456789012.dkr.ecr.us-east-1.amazonaws.com/myservice::v1.0.0",
+			expected: "123456789012.dkr.ecr.us-east-1.amazonaws.com/myservice:v1.0.0",
 		},
 		{
 			name: "GCP Artifact Registry image",
@@ -42,7 +42,20 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "us-central1-docker.pkg.dev/my-project/my-repo/myservice::v1.0.0",
+			expected: "us-central1-docker.pkg.dev/my-project/my-repo/myservice:v1.0.0",
+		},
+		{
+			name: "GCP uses RegistryName from service config",
+			service: serviceinfo.ServiceInfo{
+				Name:         "myservice",
+				Provider:     "gcp",
+				Region:       "us-central1",
+				Project:      "my-project",
+				RegistryName: "my-repo",
+			},
+			registry: "my-repo", // Same as service.RegistryName - should NOT override
+			tag:      "v1.0.0",
+			expected: "us-central1-docker.pkg.dev/my-project/my-repo/myservice:v1.0.0",
 		},
 		{
 			name: "Azure Container Registry image",
@@ -53,7 +66,7 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "myregistry.azurecr.io/myservice::v1.0.0",
+			expected: "myregistry.azurecr.io/myservice:v1.0.0",
 		},
 		{
 			name: "Docker Hub image",
@@ -63,7 +76,7 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "docker.io/myservice::v1.0.0",
+			expected: "docker.io/myservice:v1.0.0",
 		},
 		{
 			name: "GitLab Registry image",
@@ -74,7 +87,7 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "mygroup.gitlab.io/myservice::v1.0.0",
+			expected: "mygroup.gitlab.io/myservice:v1.0.0",
 		},
 		{
 			name: "GitHub Container Registry image",
@@ -85,20 +98,10 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "v1.0.0",
-			expected: "ghcr.io/myorg/myservice::v1.0.0",
+			expected: "ghcr.io/myorg/myservice:v1.0.0",
 		},
 		{
-			name: "unknown provider defaults to service name",
-			service: serviceinfo.ServiceInfo{
-				Name:     "myservice",
-				Provider: "unknown",
-			},
-			registry: "",
-			tag:      "v1.0.0",
-			expected: "myservice::v1.0.0",
-		},
-		{
-			name: "explicit registry overrides provider",
+			name: "explicit registry URL overrides provider",
 			service: serviceinfo.ServiceInfo{
 				Name:     "myservice",
 				Provider: "gcp",
@@ -107,7 +110,7 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "custom.registry.io/org",
 			tag:      "v1.0.0",
-			expected: "custom.registry.io/org/myservice::v1.0.0",
+			expected: "custom.registry.io/org/myservice:v1.0.0",
 		},
 		{
 			name: "empty tag defaults to latest",
@@ -117,25 +120,142 @@ func TestGenerateImageName(t *testing.T) {
 			},
 			registry: "",
 			tag:      "",
-			expected: "docker.io/myservice::latest",
-		},
-		{
-			name: "empty provider with no registry",
-			service: serviceinfo.ServiceInfo{
-				Name:     "myservice",
-				Provider: "",
-			},
-			registry: "",
-			tag:      "v1.0.0",
-			expected: "myservice::v1.0.0",
+			expected: "docker.io/myservice:latest",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := docker.GenerateImageName(tt.service, tt.registry, tt.tag)
+			result, err := docker.GenerateImageName(tt.service, tt.registry, tt.tag)
+			require.NoError(t, err)
 			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGenerateImageNameErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		service     serviceinfo.ServiceInfo
+		registry    string
+		tag         string
+		errContains string
+	}{
+		{
+			name: "unknown provider returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "unknown",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "unknown provider 'unknown'",
+		},
+		{
+			name: "empty provider returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "unknown provider ''",
+		},
+		{
+			name: "GCP missing region returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "gcp",
+				Project:  "my-project",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "GCP provider requires region",
+		},
+		{
+			name: "GCP missing project returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "gcp",
+				Region:   "us-central1",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "GCP provider requires project",
+		},
+		{
+			name: "AWS missing registry_name returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "aws",
+				Region:   "us-east-1",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "AWS provider requires registry_name",
+		},
+		{
+			name: "AWS missing region returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:         "myservice",
+				Provider:     "aws",
+				RegistryName: "123456789012",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "AWS provider requires region",
+		},
+		{
+			name: "Azure missing registry_name returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "azure",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "Azure provider requires registry_name",
+		},
+		{
+			name: "GitLab missing registry_name returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "gitlab",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "GitLab provider requires registry_name",
+		},
+		{
+			name: "GitHub missing registry_name returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "github",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "GitHub provider requires registry_name",
+		},
+		{
+			name: "Homebrew provider returns error",
+			service: serviceinfo.ServiceInfo{
+				Name:     "myservice",
+				Provider: "homebrew",
+			},
+			registry:    "",
+			tag:         "v1.0.0",
+			errContains: "Homebrew provider does not use Docker images",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := docker.GenerateImageName(tt.service, tt.registry, tt.tag)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.errContains)
 		})
 	}
 }
@@ -149,6 +269,7 @@ func TestGenerateImageNameWithLatestDefault(t *testing.T) {
 	}
 
 	// Test that empty tag defaults to "latest"
-	result := docker.GenerateImageName(service, "", "")
+	result, err := docker.GenerateImageName(service, "", "")
+	require.NoError(t, err)
 	require.Contains(t, result, ":latest")
 }

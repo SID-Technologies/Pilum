@@ -41,28 +41,21 @@ func (cr *CommandRegistry) Register(pattern string, provider string, handler Ste
 }
 
 // GetHandler finds the appropriate handler for a step.
+// Uses exact matching on step names for deterministic behavior.
 func (cr *CommandRegistry) GetHandler(stepName string, provider string) (StepHandler, bool) {
 	stepLower := strings.ToLower(stepName)
 
-	// Try provider-specific first
+	// Try provider-specific exact match first
 	if provider != "" {
-		for pattern, handler := range cr.handlers {
-			patternParts := strings.Split(pattern, ":")
-			if len(patternParts) == 2 {
-				patternName := patternParts[0]
-				patternProvider := patternParts[1]
-				if patternProvider == provider && strings.Contains(stepLower, patternName) {
-					return handler, true
-				}
-			}
+		key := cr.buildKey(stepLower, provider)
+		if handler, ok := cr.handlers[key]; ok {
+			return handler, true
 		}
 	}
 
-	// Fall back to generic handlers (no provider specified)
-	for pattern, handler := range cr.handlers {
-		if !strings.Contains(pattern, ":") && strings.Contains(stepLower, pattern) {
-			return handler, true
-		}
+	// Try generic exact match (no provider)
+	if handler, ok := cr.handlers[stepLower]; ok {
+		return handler, true
 	}
 
 	return nil, false
