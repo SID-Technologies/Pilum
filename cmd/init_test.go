@@ -150,7 +150,4 @@ func TestInitCmdFlags(t *testing.T) {
 	require.NotNil(t, providerFlag)
 	require.Equal(t, "p", providerFlag.Shorthand)
 
-	recipePathFlag := cmd.Flags().Lookup("recipe-path")
-	require.NotNil(t, recipePathFlag)
-	require.Equal(t, "./recepies", recipePathFlag.DefValue)
 }

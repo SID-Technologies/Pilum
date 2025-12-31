@@ -37,7 +37,7 @@ func DryRunCmd() *cobra.Command {
 				return nil
 			}
 
-			recipes, err := recepie.LoadRecipesFromDirectory(opts.RecipePath)
+			recipes, err := recepie.LoadEmbeddedRecipes()
 			if err != nil {
 				return errors.Wrap(err, "error loading recipes")
 			}
