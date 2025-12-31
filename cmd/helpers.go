@@ -17,7 +17,6 @@ type deploymentOptions struct {
 	Timeout     int
 	Retries     int
 	DryRun      bool
-	RecipePath  string
 	MaxWorkers  int
 	OnlyTags    []string
 	ExcludeTags []string
@@ -33,7 +32,6 @@ func getDeploymentOptions() deploymentOptions {
 		Timeout:     viper.GetInt("timeout"),
 		Retries:     viper.GetInt("retries"),
 		DryRun:      viper.GetBool("dry-run"),
-		RecipePath:  viper.GetString("recipe-path"),
 		MaxWorkers:  viper.GetInt("max-workers"),
 		OnlyTags:    parseCommaSeparated(viper.GetString("only-tags")),
 		ExcludeTags: parseCommaSeparated(viper.GetString("exclude-tags")),
@@ -63,7 +61,6 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"timeout",
 		"retries",
 		"dry-run",
-		"recipe-path",
 		"max-workers",
 		"only-tags",
 		"exclude-tags",
@@ -88,7 +85,6 @@ func cmdFlagStrings(cmd *cobra.Command) {
 	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")
 	cmd.Flags().IntP("retries", "r", 3, "Number of retries for the build process")
 	cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
-	cmd.Flags().String("recipe-path", "./recepies", "Path to recipe definitions")
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
@@ -102,7 +98,6 @@ func cmdFlagStringsNoDryRun(cmd *cobra.Command) {
 	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
 	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")
 	cmd.Flags().IntP("retries", "r", 3, "Number of retries for the build process")
-	cmd.Flags().String("recipe-path", "./recepies", "Path to recipe definitions")
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")

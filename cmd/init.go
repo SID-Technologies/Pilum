@@ -17,24 +17,22 @@ import (
 
 func InitCmd() *cobra.Command {
 	var provider string
-	var recipePath string
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new service configuration",
 		Long:  "Interactively create a service.yaml file for a new service.",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runInit(provider, recipePath)
+			return runInit(provider)
 		},
 	}
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, homebrew)")
-	cmd.Flags().StringVar(&recipePath, "recipe-path", "./recepies", "Path to recipe directory")
 
 	return cmd
 }
 
-func runInit(provider, recipePath string) error {
+func runInit(provider string) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Check if service.yaml already exists
@@ -51,13 +49,13 @@ func runInit(provider, recipePath string) error {
 	}
 
 	// Load available recipes
-	recipes, err := recepie.LoadRecipesFromDirectory(recipePath)
+	recipes, err := recepie.LoadEmbeddedRecipes()
 	if err != nil {
 		return errors.Wrap(err, "failed to load recipes")
 	}
 
 	if len(recipes) == 0 {
-		return errors.New("no recipes found in %s", recipePath)
+		return errors.New("no recipes found")
 	}
 
 	// If provider not specified, prompt for it

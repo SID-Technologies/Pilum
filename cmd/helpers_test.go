@@ -96,7 +96,6 @@ func TestDeploymentOptionsToRunnerOptions(t *testing.T) {
 		Timeout:     120,
 		Retries:     5,
 		DryRun:      true,
-		RecipePath:  "./custom-recipes",
 		MaxWorkers:  4,
 		OnlyTags:    []string{"build", "test"},
 		ExcludeTags: []string{"deploy"},
