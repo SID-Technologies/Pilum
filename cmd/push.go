@@ -27,7 +27,12 @@ func PushCmd() *cobra.Command {
 				opts.OnlyTags = []string{"push"}
 			}
 
-			services, err := serviceinfo.FindAndFilterServices(".", args)
+			filterOpts := serviceinfo.FilterOptions{
+				Names:       args,
+				OnlyChanged: opts.OnlyChanged,
+				Since:       opts.Since,
+			}
+			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}

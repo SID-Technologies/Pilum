@@ -21,6 +21,8 @@ type deploymentOptions struct {
 	MaxWorkers  int
 	OnlyTags    []string
 	ExcludeTags []string
+	OnlyChanged bool
+	Since       string
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
@@ -35,6 +37,8 @@ func getDeploymentOptions() deploymentOptions {
 		MaxWorkers:  viper.GetInt("max-workers"),
 		OnlyTags:    parseCommaSeparated(viper.GetString("only-tags")),
 		ExcludeTags: parseCommaSeparated(viper.GetString("exclude-tags")),
+		OnlyChanged: viper.GetBool("only-changed"),
+		Since:       viper.GetString("since"),
 	}
 }
 
@@ -63,6 +67,8 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"max-workers",
 		"only-tags",
 		"exclude-tags",
+		"only-changed",
+		"since",
 	}
 
 	for _, flag := range flagBindings {
@@ -86,6 +92,8 @@ func cmdFlagStrings(cmd *cobra.Command) {
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
+	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
+	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
 }
 
 // cmdFlagStringsNoDryRun adds all standard flags except --dry-run (for commands that are always dry-run).
@@ -98,6 +106,8 @@ func cmdFlagStringsNoDryRun(cmd *cobra.Command) {
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
+	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
+	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.

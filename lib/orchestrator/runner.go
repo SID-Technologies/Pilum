@@ -8,6 +8,7 @@ import (
 
 	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
@@ -63,8 +64,18 @@ func NewRunner(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo,
 	cmdRegistry := registry.NewCommandRegistry()
 	registry.RegisterDefaultHandlers(cmdRegistry)
 
+	// Sort services by dependencies (topological order)
+	sortedServices, err := serviceinfo.SortByDependencies(services)
+	if err != nil {
+		// Log warning but continue with original order
+		output.Warning("Could not sort by dependencies: %v", err)
+		sortedServices = services
+	} else if hasDependencies(services) {
+		output.Debugf("Services sorted by dependencies")
+	}
+
 	r := &Runner{
-		services:   services,
+		services:   sortedServices,
 		recipes:    make(map[string]recepie.Recipe),
 		imageNames: make(map[string]string),
 		options:    opts,
@@ -438,4 +449,14 @@ func (r *Runner) getWorkerCount() int {
 		return len(r.services)
 	}
 	return 4
+}
+
+// hasDependencies returns true if any service has dependencies.
+func hasDependencies(services []serviceinfo.ServiceInfo) bool {
+	for _, svc := range services {
+		if len(svc.DependsOn) > 0 {
+			return true
+		}
+	}
+	return false
 }

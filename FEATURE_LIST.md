@@ -41,8 +41,9 @@
 - [ ] `pilum history` - View deployment history (local cache)
 
 ### Monorepo Support
-- [ ] `--only-changed` flag - Detect git changes, deploy only affected services
-- [ ] Dependency graph between services (optional)
+- [x] `--only-changed` flag - Detect git changes, deploy only affected services
+- [x] `--since` flag - Specify git ref to compare against (default: main/master)
+- [x] Dependency graph between services (`depends_on` in service.yaml)
 
 ### Deployment Safety
 - [ ] `pilum rollback [service]` - Rollback to previous revision
@@ -54,7 +55,21 @@
 
 ---
 
-## Phase 3: Expanded Providers
+## Phase 3: CI/CD & Automation
+
+### CI/CD Integration
+- [ ] GitHub Actions (official action: `uses: pilum/deploy@v1`)
+- [ ] `pilum ci detect` - Auto-detect CI environment and set defaults
+- [ ] GitHub commit status updates
+- [ ] GitHub deployment environments
+
+### Advanced Monorepo
+- [ ] Parallel builds with dependency ordering
+- [ ] Build caching (hash-based skip)
+
+---
+
+## Phase 4: Expanded Providers
 
 ### Cloud Platforms (Priority Order)
 - [ ] AWS ECS (Fargate)
@@ -71,20 +86,6 @@
 
 ### Notifications
 - [ ] Generic webhook (POST JSON on deploy start/complete/fail)
-
----
-
-## Phase 4: CI/CD & Automation
-
-### CI/CD Integration
-- [ ] GitHub Actions (official action: `uses: pilum/deploy@v1`)
-- [ ] `pilum ci detect` - Auto-detect CI environment and set defaults
-- [ ] GitHub commit status updates
-- [ ] GitHub deployment environments
-
-### Advanced Monorepo
-- [ ] Parallel builds with dependency ordering
-- [ ] Build caching (hash-based skip)
 
 ---
 
