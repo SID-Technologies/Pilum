@@ -16,8 +16,10 @@ func TestGenerateFormulaCommand(t *testing.T) {
 		Name:        "myapp",
 		Description: "A test application",
 		License:     "MIT",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/myapp",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/myapp",
+			},
 		},
 	}
 
@@ -67,8 +69,10 @@ func TestGenerateFormulaCommandVersionStripping(t *testing.T) {
 		Name:        "myapp",
 		Description: "Test",
 		License:     "Apache-2.0",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/myapp",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/myapp",
+			},
 		},
 	}
 
@@ -89,8 +93,10 @@ func TestGenerateFormulaCommandOutputPath(t *testing.T) {
 		Name:        "cli",
 		Description: "CLI tool",
 		License:     "MIT",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/cli",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/cli",
+			},
 		},
 	}
 
@@ -110,8 +116,10 @@ func TestGenerateFormulaCommandArchitectureBlocks(t *testing.T) {
 		Name:        "myapp",
 		Description: "Test",
 		License:     "MIT",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/myapp",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/myapp",
+			},
 		},
 	}
 
@@ -134,8 +142,10 @@ func TestGenerateFormulaCommandInstallBlock(t *testing.T) {
 		Name:        "mytool",
 		Description: "Test",
 		License:     "MIT",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/mytool",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/mytool",
+			},
 		},
 	}
 
@@ -152,8 +162,10 @@ func TestGenerateFormulaCommandTestBlock(t *testing.T) {
 		Name:        "myapp",
 		Description: "Test",
 		License:     "MIT",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/myapp",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/myapp",
+			},
 		},
 	}
 

@@ -3,6 +3,7 @@ package recepie
 import (
 	"reflect"
 
+	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
@@ -68,9 +69,9 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		"provider":             func(s *serviceinfo.ServiceInfo) string { return s.Provider },
 		"template":             func(s *serviceinfo.ServiceInfo) string { return s.Template },
 		"registry_name":        func(s *serviceinfo.ServiceInfo) string { return s.RegistryName },
-		"homebrew.project_url": func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.ProjectURL },
-		"homebrew.tap_url":     func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.TapURL },
-		"homebrew.token_env":   func(s *serviceinfo.ServiceInfo) string { return s.HomebrewConfig.TokenEnv },
+		"homebrew.project_url": func(s *serviceinfo.ServiceInfo) string { return configutil.GetNestedString(s.Config, "homebrew", "project_url") },
+		"homebrew.tap_url":     func(s *serviceinfo.ServiceInfo) string { return configutil.GetNestedString(s.Config, "homebrew", "tap_url") },
+		"homebrew.token_env":   func(s *serviceinfo.ServiceInfo) string { return configutil.GetNestedString(s.Config, "homebrew", "token_env") },
 	}
 
 	if getter, exists := fieldMap[fieldName]; exists {

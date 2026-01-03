@@ -1,6 +1,7 @@
 package serviceinfo
 
 import (
+	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 )
 
@@ -32,22 +33,15 @@ type RuntimeConfig struct {
 	Service string `yaml:"service"`
 }
 
-type HomebrewConfig struct {
-	TapURL     string `yaml:"tap_url"`     // Full repository URL for tap (e.g., https://github.com/org/Homebrew-tap)
-	ProjectURL string `yaml:"project_url"` // Full repository URL for releases (e.g., https://github.com/org/project)
-	TokenEnv   string `yaml:"token_env"`   // Environment variable name for auth token
-}
-
 type ServiceInfo struct {
 	Name           string         `yaml:"name"`
 	Description    string         `yaml:"description"`
 	Template       string         `yaml:"template"`
 	Path           string         `yaml:"-"`
-	Config         map[string]any `yaml:"-"`
-	BuildConfig    BuildConfig    `yaml:"build"`
-	Runtime        RuntimeConfig  `yaml:"runtime"`
-	HomebrewConfig HomebrewConfig `yaml:"homebrew"`
-	EnvVars        []EnvVars      `yaml:"env_vars"`
+	Config      map[string]any `yaml:"-"`
+	BuildConfig BuildConfig    `yaml:"build"`
+	Runtime     RuntimeConfig  `yaml:"runtime"`
+	EnvVars     []EnvVars      `yaml:"env_vars"`
 	Secrets        []Secrets      `yaml:"secrets"`
 	Region         string         `yaml:"region"`
 	Regions        []string       `yaml:"regions"` // For multi-region deployments
@@ -79,7 +73,7 @@ func (s *ServiceInfo) Validate() error {
 }
 
 func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
-	rt := mapFromAny(config["runtime"])
+	rt := configutil.MapFromAny(config["runtime"])
 	runtime := RuntimeConfig{}
 
 	if rt["service"] != nil {
@@ -89,7 +83,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	}
 
 	// env vars conversions
-	evs := mapFromAny(config["env_vars"])
+	evs := configutil.MapFromAny(config["env_vars"])
 	var envVars []EnvVars
 	for k, v := range evs {
 		key := k
@@ -101,7 +95,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	}
 
 	// secrets conversion
-	secrets := mapFromAny(config["secrets"])
+	secrets := configutil.MapFromAny(config["secrets"])
 	var secretVars []Secrets
 	for k, v := range secrets {
 		secretVars = append(secretVars, Secrets{Name: k, Value: v.(string)})
@@ -111,13 +105,13 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	buildConfig := parseBuildConfig(config)
 
 	// Template can be specified as "template" or "type"
-	template := getString(config, "template", "")
+	template := configutil.GetString(config, "template", "")
 	if template == "" {
-		template = getString(config, "type", "")
+		template = configutil.GetString(config, "type", "")
 	}
 
 	// Provider can be explicit or derived from type
-	provider := getString(config, "provider", "")
+	provider := configutil.GetString(config, "provider", "")
 	if provider == "" {
 		// Derive provider from type if not explicitly set
 		switch template {
@@ -134,27 +128,23 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		}
 	}
 
-	// Parse homebrew config if present
-	homebrewConfig := parseHomebrewConfig(config)
-
 	return &ServiceInfo{
-		Name:           getString(config, "name", ""),
-		Description:    getString(config, "description", ""),
-		Template:       template,
-		Path:           path,
-		Config:         config,
-		BuildConfig:    buildConfig,
-		Runtime:        runtime,
-		HomebrewConfig: homebrewConfig,
-		Region:         getString(config, "region", ""),
-		Regions:        getStringSlice(config, "regions"),
-		Project:        getString(config, "project", ""),
-		License:        getString(config, "license", ""),
-		Provider:       provider,
-		RegistryName:   getString(config, "registry_name", ""),
-		DependsOn:      getStringSlice(config, "depends_on"),
-		EnvVars:        envVars,
-		Secrets:        secretVars,
+		Name:        configutil.GetString(config, "name", ""),
+		Description: configutil.GetString(config, "description", ""),
+		Template:    template,
+		Path:        path,
+		Config:      config,
+		BuildConfig: buildConfig,
+		Runtime:     runtime,
+		Region:      configutil.GetString(config, "region", ""),
+		Regions:     configutil.GetStringSlice(config, "regions"),
+		Project:     configutil.GetString(config, "project", ""),
+		License:     configutil.GetString(config, "license", ""),
+		Provider:    provider,
+		RegistryName: configutil.GetString(config, "registry_name", ""),
+		DependsOn:   configutil.GetStringSlice(config, "depends_on"),
+		EnvVars:     envVars,
+		Secrets:     secretVars,
 	}
 }
 
@@ -180,34 +170,21 @@ func ExpandMultiRegion(svc ServiceInfo) []ServiceInfo {
 	return expanded
 }
 
-func parseHomebrewConfig(config map[string]any) HomebrewConfig {
-	brewMap := mapFromAny(config["homebrew"])
-	if len(brewMap) == 0 {
-		return HomebrewConfig{}
-	}
-
-	return HomebrewConfig{
-		TapURL:     getString(brewMap, "tap_url", ""),
-		ProjectURL: getString(brewMap, "project_url", ""),
-		TokenEnv:   getString(brewMap, "token_env", ""),
-	}
-}
-
 func parseBuildConfig(config map[string]any) BuildConfig {
-	buildMap := mapFromAny(config["build"])
+	buildMap := configutil.MapFromAny(config["build"])
 	if len(buildMap) == 0 {
 		return BuildConfig{}
 	}
 
 	bc := BuildConfig{
-		Language:   getString(buildMap, "language", ""),
-		Version:    getString(buildMap, "version", ""),
-		Cmd:        getString(buildMap, "cmd", ""),
-		VersionVar: getString(buildMap, "version_var", ""),
+		Language:   configutil.GetString(buildMap, "language", ""),
+		Version:    configutil.GetString(buildMap, "version", ""),
+		Cmd:        configutil.GetString(buildMap, "cmd", ""),
+		VersionVar: configutil.GetString(buildMap, "version_var", ""),
 	}
 
 	// Parse build env vars
-	buildEnvVars := mapFromAny(buildMap["env_vars"])
+	buildEnvVars := configutil.MapFromAny(buildMap["env_vars"])
 	for k, v := range buildEnvVars {
 		if val, ok := v.(string); ok {
 			bc.EnvVars = append(bc.EnvVars, EnvVars{Name: k, Value: val})
@@ -215,7 +192,7 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 	}
 
 	// Parse build flags (e.g., ldflags: ["-s", "-w"])
-	flagsMap := mapFromAny(buildMap["flags"])
+	flagsMap := configutil.MapFromAny(buildMap["flags"])
 	for flagName, flagVal := range flagsMap {
 		var values []string
 		switch v := flagVal.(type) {

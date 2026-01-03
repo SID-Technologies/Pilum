@@ -3,7 +3,13 @@ type: gcp-cloud-run
 provider: gcp
 project: test-project
 region: us-central1
+registry_name: test-project
+template: golang-api.v1.dockerfile
 
 build:
   language: go
   cmd: "echo 'Building api-gateway...' && sleep 1 && echo 'Build complete'"
+
+cloud_run:
+  min_instances: 0
+  cpu_throttling: true
