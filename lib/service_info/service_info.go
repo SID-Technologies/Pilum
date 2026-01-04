@@ -1,33 +1,56 @@
 package serviceinfo
 
 import (
+	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
-	"github.com/sid-technologies/pilum/lib/providers"
-	"github.com/sid-technologies/pilum/lib/suggest"
 )
 
-// ServiceInfo contains all configuration for a service deployment.
+type EnvVars struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+type Secrets struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+type BuildFlag struct {
+	Name   string   `yaml:"name"`   // e.g., "ldflags", "gcflags"
+	Values []string `yaml:"values"` // e.g., ["-s", "-w"]
+}
+
+type BuildConfig struct {
+	Language   string      `yaml:"language"`
+	Version    string      `yaml:"version"`
+	Cmd        string      `yaml:"cmd"`
+	EnvVars    []EnvVars   `yaml:"env_vars"`
+	Flags      []BuildFlag `yaml:"flags"`
+	VersionVar string      `yaml:"version_var"` // Go variable path for version injection (e.g., "main.version")
+}
+
+type RuntimeConfig struct {
+	Service string `yaml:"service"`
+}
+
 type ServiceInfo struct {
-	Name           string         `yaml:"name"`
-	Description    string         `yaml:"description"`
-	Template       string         `yaml:"template"`
-	Path           string         `yaml:"-"`
-	Config         map[string]any `yaml:"-"`
-	BuildConfig    BuildConfig    `yaml:"build"`
-	Runtime        RuntimeConfig  `yaml:"runtime"`
-	HomebrewConfig HomebrewConfig `yaml:"homebrew"`
-	CloudRunConfig CloudRunConfig `yaml:"cloud_run"`
-	EnvVars        []EnvVars      `yaml:"env_vars"`
-	Secrets        []Secrets      `yaml:"secrets"`
-	Region         string         `yaml:"region"`
-	Regions        []string       `yaml:"regions"` // For multi-region deployments
-	IsMultiRegion  bool           `yaml:"-"`       // True if this was expanded from a multi-region config
-	Project        string         `yaml:"project"`
-	License        string         `yaml:"license"`
-	Provider       string         `yaml:"provider"`
-	Service        string         `yaml:"service"` // Deployment target (e.g., cloud-run, gke, lambda)
-	RegistryName   string         `yaml:"registry_name"`
-	DependsOn      []string       `yaml:"depends_on"` // Services this service depends on
+	Name          string         `yaml:"name"`
+	Description   string         `yaml:"description"`
+	Template      string         `yaml:"template"`
+	Path          string         `yaml:"-"`
+	Config        map[string]any `yaml:"-"`
+	BuildConfig   BuildConfig    `yaml:"build"`
+	Runtime       RuntimeConfig  `yaml:"runtime"`
+	EnvVars       []EnvVars      `yaml:"env_vars"`
+	Secrets       []Secrets      `yaml:"secrets"`
+	Region        string         `yaml:"region"`
+	Regions       []string       `yaml:"regions"` // For multi-region deployments
+	IsMultiRegion bool           `yaml:"-"`       // True if this was expanded from a multi-region config
+	Project       string         `yaml:"project"`
+	License       string         `yaml:"license"`
+	Provider      string         `yaml:"provider"`
+	RegistryName  string         `yaml:"registry_name"`
+	DependsOn     []string       `yaml:"depends_on"` // Services this service depends on
 }
 
 // DisplayName returns the service name with region suffix for multi-region deployments.
@@ -38,103 +61,90 @@ func (s *ServiceInfo) DisplayName() string {
 	return s.Name
 }
 
-// RecipeKey returns the key used to match this service to a recipe.
-// Format: "{provider}-{service}" when service is set, otherwise just "{provider}".
-func (s *ServiceInfo) RecipeKey() string {
-	if s.Service != "" {
-		return s.Provider + "-" + s.Service
-	}
-	return s.Provider
-}
-
-// Validate performs basic validation on the service configuration.
 func (s *ServiceInfo) Validate() error {
+	// Minimal base validation - provider-specific validation is done by recipes
 	if s.Name == "" {
 		return errors.New("missing required field: name")
 	}
 	if s.Provider == "" {
 		return errors.New("missing required field: provider")
 	}
-
-	// Validate provider is supported
-	if !providers.IsValidProvider(s.Provider) {
-		suggestion := suggest.FormatSuggestion(s.Provider, providers.GetProviders())
-		if suggestion != "" {
-			return errors.New("unknown provider '%s' - %s", s.Provider, suggestion)
-		}
-		return errors.New("unknown provider '%s'", s.Provider)
-	}
-
-	// Validate service is supported for this provider (only if service is specified)
-	if s.Service != "" && !providers.IsValidService(s.Provider, s.Service) {
-		validServices := providers.GetServices(s.Provider)
-		if len(validServices) > 0 {
-			suggestion := suggest.FormatSuggestion(s.Service, validServices)
-			if suggestion != "" {
-				return errors.New("unknown service '%s' for provider '%s' - %s", s.Service, s.Provider, suggestion)
-			}
-			return errors.New("unknown service '%s' for provider '%s' (valid: %v)", s.Service, s.Provider, validServices)
-		}
-	}
-
 	return nil
 }
 
-// NewServiceInfo creates a ServiceInfo from a config map and path.
 func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
-	// Parse provider (can be explicit or derived from template)
-	template := getString(config, "template", "")
+	rt := configutil.MapFromAny(config["runtime"])
+	runtime := RuntimeConfig{}
+
+	if rt["service"] != nil {
+		if svc, ok := rt["service"].(string); ok {
+			runtime.Service = svc
+		}
+	}
+
+	// env vars conversions
+	evs := configutil.MapFromAny(config["env_vars"])
+	var envVars []EnvVars
+	for k, v := range evs {
+		key := k
+		val, ok := v.(string)
+		if !ok {
+			return nil
+		}
+		envVars = append(envVars, EnvVars{Name: key, Value: val})
+	}
+
+	// secrets conversion
+	secrets := configutil.MapFromAny(config["secrets"])
+	var secretVars []Secrets
+	for k, v := range secrets {
+		secretVars = append(secretVars, Secrets{Name: k, Value: v.(string)})
+	}
+
+	// Parse build config
+	buildConfig := parseBuildConfig(config)
+
+	// Template can be specified as "template" or "type"
+	template := configutil.GetString(config, "template", "")
 	if template == "" {
-		template = getString(config, "type", "")
+		template = configutil.GetString(config, "type", "")
 	}
 
-	provider := getString(config, "provider", "")
+	// Provider can be explicit or derived from type
+	provider := configutil.GetString(config, "provider", "")
 	if provider == "" {
-		provider = deriveProviderFromTemplate(template)
-	}
-
-	// Parse env vars - return nil if invalid
-	envVars, ok := parseEnvVars(config)
-	if !ok {
-		return nil
+		// Derive provider from type if not explicitly set
+		switch template {
+		case "gcp-cloud-run", "gcp":
+			provider = "gcp"
+		case "aws-lambda", "aws-ecs", "aws":
+			provider = "aws"
+		case "azure-container-apps", "azure":
+			provider = "azure"
+		case "homebrew":
+			provider = "homebrew"
+		default:
+			// Unknown template type, leave provider empty
+		}
 	}
 
 	return &ServiceInfo{
-		Name:           getString(config, "name", ""),
-		Description:    getString(config, "description", ""),
-		Template:       template,
-		Path:           path,
-		Config:         config,
-		BuildConfig:    parseBuildConfig(config),
-		Runtime:        parseRuntimeConfig(config),
-		HomebrewConfig: parseHomebrewConfig(config),
-		CloudRunConfig: parseCloudRunConfig(config),
-		Region:         getString(config, "region", ""),
-		Regions:        getStringSlice(config, "regions"),
-		Project:        getString(config, "project", ""),
-		License:        getString(config, "license", ""),
-		Provider:       provider,
-		Service:        getString(config, "service", ""),
-		RegistryName:   getString(config, "registry_name", ""),
-		DependsOn:      getStringSlice(config, "depends_on"),
-		EnvVars:        envVars,
-		Secrets:        parseSecrets(config),
-	}
-}
-
-// deriveProviderFromTemplate infers the provider from template name.
-func deriveProviderFromTemplate(template string) string {
-	switch template {
-	case "gcp-cloud-run", "gcp":
-		return "gcp"
-	case "aws-lambda", "aws-ecs", "aws":
-		return "aws"
-	case "azure-container-apps", "azure":
-		return "azure"
-	case "homebrew":
-		return "homebrew"
-	default:
-		return ""
+		Name:         configutil.GetString(config, "name", ""),
+		Description:  configutil.GetString(config, "description", ""),
+		Template:     template,
+		Path:         path,
+		Config:       config,
+		BuildConfig:  buildConfig,
+		Runtime:      runtime,
+		Region:       configutil.GetString(config, "region", ""),
+		Regions:      configutil.GetStringSlice(config, "regions"),
+		Project:      configutil.GetString(config, "project", ""),
+		License:      configutil.GetString(config, "license", ""),
+		Provider:     provider,
+		RegistryName: configutil.GetString(config, "registry_name", ""),
+		DependsOn:    configutil.GetStringSlice(config, "depends_on"),
+		EnvVars:      envVars,
+		Secrets:      secretVars,
 	}
 }
 
@@ -142,18 +152,65 @@ func deriveProviderFromTemplate(template string) string {
 // If the service has a Regions array, it creates one instance per region.
 // If the service only has a single Region, it returns the original service unchanged.
 func ExpandMultiRegion(svc ServiceInfo) []ServiceInfo {
+	// If no regions array, return as-is
 	if len(svc.Regions) == 0 {
 		return []ServiceInfo{svc}
 	}
 
+	// Expand into multiple services, one per region
 	expanded := make([]ServiceInfo, 0, len(svc.Regions))
 	for _, region := range svc.Regions {
-		instance := svc
-		instance.Region = region
-		instance.Regions = nil
+		instance := svc          // copy
+		instance.Region = region // set specific region
+		instance.Regions = nil   // clear regions array
 		instance.IsMultiRegion = true
 		expanded = append(expanded, instance)
 	}
 
 	return expanded
+}
+
+func parseBuildConfig(config map[string]any) BuildConfig {
+	buildMap := configutil.MapFromAny(config["build"])
+	if len(buildMap) == 0 {
+		return BuildConfig{}
+	}
+
+	bc := BuildConfig{
+		Language:   configutil.GetString(buildMap, "language", ""),
+		Version:    configutil.GetString(buildMap, "version", ""),
+		Cmd:        configutil.GetString(buildMap, "cmd", ""),
+		VersionVar: configutil.GetString(buildMap, "version_var", ""),
+	}
+
+	// Parse build env vars
+	buildEnvVars := configutil.MapFromAny(buildMap["env_vars"])
+	for k, v := range buildEnvVars {
+		if val, ok := v.(string); ok {
+			bc.EnvVars = append(bc.EnvVars, EnvVars{Name: k, Value: val})
+		}
+	}
+
+	// Parse build flags (e.g., ldflags: ["-s", "-w"])
+	flagsMap := configutil.MapFromAny(buildMap["flags"])
+	for flagName, flagVal := range flagsMap {
+		var values []string
+		switch v := flagVal.(type) {
+		case []any:
+			for _, item := range v {
+				if s, ok := item.(string); ok {
+					values = append(values, s)
+				}
+			}
+		case []string:
+			values = v
+		case string:
+			values = []string{v}
+		}
+		if len(values) > 0 {
+			bc.Flags = append(bc.Flags, BuildFlag{Name: flagName, Values: values})
+		}
+	}
+
+	return bc
 }

@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	service "github.com/sid-technologies/pilum/lib/service_info"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-func GenerateGCPDeployCommand(svc service.ServiceInfo, imageName string) []string {
+func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []string {
+	// Parse Cloud Run config from the raw service config
+	cfg := ParseCloudRunConfig(svc.Config)
+
 	cmd := []string{
 		"gcloud",
 		"run",
@@ -19,44 +22,39 @@ func GenerateGCPDeployCommand(svc service.ServiceInfo, imageName string) []strin
 		"--allow-unauthenticated",
 	}
 
-	// Always include project if set
-	if svc.Project != "" {
-		cmd = append(cmd, "--project", svc.Project)
+	// Add CPU throttling if enabled
+	if cfg.CPUThrottling {
+		cmd = append(cmd, "--cpu-throttling")
 	}
 
-	// Add Cloud Run specific configuration
-	cr := svc.CloudRunConfig
-
-	if cr.MinInstances != nil {
-		cmd = append(cmd, fmt.Sprintf("--min-instances=%d", *cr.MinInstances))
+	// Add min instances if set (>= 0)
+	if cfg.MinInstances >= 0 {
+		cmd = append(cmd, fmt.Sprintf("--min-instances=%d", cfg.MinInstances))
 	}
 
-	if cr.MaxInstances != nil {
-		cmd = append(cmd, fmt.Sprintf("--max-instances=%d", *cr.MaxInstances))
+	// Add max instances if set (> 0)
+	if cfg.MaxInstances > 0 {
+		cmd = append(cmd, fmt.Sprintf("--max-instances=%d", cfg.MaxInstances))
 	}
 
-	if cr.CPUThrottling != nil {
-		if *cr.CPUThrottling {
-			cmd = append(cmd, "--cpu-throttling")
-		} else {
-			cmd = append(cmd, "--no-cpu-throttling")
-		}
+	// Add memory if set
+	if cfg.Memory != "" {
+		cmd = append(cmd, "--memory", cfg.Memory)
 	}
 
-	if cr.Memory != "" {
-		cmd = append(cmd, "--memory", cr.Memory)
+	// Add CPU if set
+	if cfg.CPU != "" {
+		cmd = append(cmd, "--cpu", cfg.CPU)
 	}
 
-	if cr.CPU != "" {
-		cmd = append(cmd, "--cpu", cr.CPU)
+	// Add concurrency if set (> 0)
+	if cfg.Concurrency > 0 {
+		cmd = append(cmd, fmt.Sprintf("--concurrency=%d", cfg.Concurrency))
 	}
 
-	if cr.Concurrency > 0 {
-		cmd = append(cmd, fmt.Sprintf("--concurrency=%d", cr.Concurrency))
-	}
-
-	if cr.Timeout > 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", cr.Timeout))
+	// Add timeout if set (> 0)
+	if cfg.TimeoutSeconds > 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", cfg.TimeoutSeconds))
 	}
 
 	// Add secrets if provided
@@ -69,6 +67,11 @@ func GenerateGCPDeployCommand(svc service.ServiceInfo, imageName string) []strin
 		// Join the secrets into a single string
 		secretsJoined := strings.Join(secretsStrs, ",")
 		cmd = append(cmd, "--set-secrets", secretsJoined)
+	}
+
+	// Add project if set
+	if svc.Project != "" {
+		cmd = append(cmd, "--project", svc.Project)
 	}
 
 	return cmd

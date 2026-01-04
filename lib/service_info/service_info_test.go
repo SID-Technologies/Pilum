@@ -267,9 +267,13 @@ func TestNewServiceInfoWithHomebrewConfig(t *testing.T) {
 	svc := serviceinfo.NewServiceInfo(config, "/path")
 
 	require.NotNil(t, svc)
-	require.Equal(t, "https://github.com/org/homebrew-tap", svc.HomebrewConfig.TapURL)
-	require.Equal(t, "https://github.com/org/project", svc.HomebrewConfig.ProjectURL)
-	require.Equal(t, "GITHUB_TOKEN", svc.HomebrewConfig.TokenEnv)
+	// Homebrew config is stored in the raw Config map, not parsed into a struct
+	// The ingredients package is responsible for parsing it
+	homebrewConfig, ok := svc.Config["homebrew"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "https://github.com/org/homebrew-tap", homebrewConfig["tap_url"])
+	require.Equal(t, "https://github.com/org/project", homebrewConfig["project_url"])
+	require.Equal(t, "GITHUB_TOKEN", homebrewConfig["token_env"])
 }
 
 func TestNewServiceInfoWithEnvVars(t *testing.T) {
@@ -457,20 +461,6 @@ func TestRuntimeConfigStruct(t *testing.T) {
 	}
 
 	require.Equal(t, "my-service", rc.Service)
-}
-
-func TestHomebrewConfigStruct(t *testing.T) {
-	t.Parallel()
-
-	hc := serviceinfo.HomebrewConfig{
-		TapURL:     "https://github.com/org/tap",
-		ProjectURL: "https://github.com/org/project",
-		TokenEnv:   "GITHUB_TOKEN",
-	}
-
-	require.Equal(t, "https://github.com/org/tap", hc.TapURL)
-	require.Equal(t, "https://github.com/org/project", hc.ProjectURL)
-	require.Equal(t, "GITHUB_TOKEN", hc.TokenEnv)
 }
 
 func TestDisplayName(t *testing.T) {

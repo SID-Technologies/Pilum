@@ -26,6 +26,7 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 			service: serviceinfo.ServiceInfo{
 				Name:   "myservice",
 				Region: "us-central1",
+				Config: map[string]any{}, // Empty config means no cloud_run settings
 			},
 			imageName:     "gcr.io/project/myservice:latest",
 			minLen:        11,
@@ -38,6 +39,7 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 			service: serviceinfo.ServiceInfo{
 				Name:   "api-service",
 				Region: "europe-west1",
+				Config: map[string]any{}, // Empty config means no cloud_run settings
 			},
 			imageName:     "gcr.io/project/api-service:v1.0.0",
 			minLen:        11,
@@ -92,6 +94,7 @@ func TestGenerateGCPDeployCommandWithSecrets(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
+		Config: map[string]any{},
 		Secrets: []serviceinfo.Secrets{
 			{Name: "DB_PASSWORD", Value: "projects/123/secrets/db-pass:latest"},
 			{Name: "API_KEY", Value: "projects/123/secrets/api-key:latest"},
@@ -121,6 +124,7 @@ func TestGenerateGCPDeployCommandNoSecrets(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:    "myservice",
 		Region:  "us-central1",
+		Config:  map[string]any{},
 		Secrets: []serviceinfo.Secrets{},
 	}
 
@@ -138,6 +142,7 @@ func TestGenerateGCPDeployCommandImageName(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
+		Config: map[string]any{},
 	}
 
 	imageName := "us-central1-docker.pkg.dev/my-project/repo/myservice:v2.0.0"
@@ -161,6 +166,7 @@ func TestGenerateGCPDeployCommandPlatformManaged(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
+		Config: map[string]any{},
 	}
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
@@ -183,6 +189,7 @@ func TestGenerateGCPDeployCommandAllowUnauthenticated(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
+		Config: map[string]any{},
 	}
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
@@ -204,6 +211,7 @@ func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
+		Config: map[string]any{},
 		Secrets: []serviceinfo.Secrets{
 			{Name: "API_KEY", Value: "projects/123/secrets/key:latest"},
 		},
