@@ -375,3 +375,38 @@ steps:
 	require.Equal(t, "full-recipe", info.Recipe.Name)
 	require.Equal(t, "A complete test recipe", info.Recipe.Description)
 }
+
+func TestLoadEmbeddedRecipes(t *testing.T) {
+	t.Parallel()
+
+	recipes, err := recepie.LoadEmbeddedRecipes()
+
+	require.NoError(t, err)
+	require.NotEmpty(t, recipes, "expected at least one embedded recipe")
+}
+
+func TestEmbeddedRecipesHaveRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	recipes, err := recepie.LoadEmbeddedRecipes()
+	require.NoError(t, err)
+	require.NotEmpty(t, recipes, "expected at least one embedded recipe")
+
+	for _, info := range recipes {
+		t.Run(info.Recipe.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// Every recipe must have these fields
+			require.NotEmpty(t, info.Recipe.Name, "recipe must have a name")
+			require.NotEmpty(t, info.Recipe.Description, "recipe %s must have a description", info.Recipe.Name)
+			require.NotEmpty(t, info.Provider, "recipe %s must have a provider", info.Recipe.Name)
+			require.NotEmpty(t, info.Service, "recipe %s must have a service", info.Recipe.Name)
+
+			// Provider should match recipe's provider field
+			require.Equal(t, info.Recipe.Provider, info.Provider, "RecipeInfo.Provider should match Recipe.Provider")
+
+			// Service should match recipe's service field
+			require.Equal(t, info.Recipe.Service, info.Service, "RecipeInfo.Service should match Recipe.Service")
+		})
+	}
+}

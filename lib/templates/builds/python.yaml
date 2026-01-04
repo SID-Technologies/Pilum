@@ -1,0 +1,7 @@
+# Python build configuration
+language: python
+version: "3.12"
+cmd: "pip install -r requirements.txt"
+env_vars:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PYTHONUNBUFFERED: "1"

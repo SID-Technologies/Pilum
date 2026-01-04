@@ -6,58 +6,10 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/templates"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestGetAvailableProviders(t *testing.T) {
-	t.Parallel()
-
-	recipes := []recepie.RecipeInfo{
-		{Provider: "gcp", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
-		{Provider: "aws", Recipe: recepie.Recipe{Name: "aws-lambda"}},
-		{Provider: "gcp", Recipe: recepie.Recipe{Name: "gcp-gke"}}, // duplicate provider
-		{Provider: "homebrew", Recipe: recepie.Recipe{Name: "homebrew"}},
-	}
-
-	providers := getAvailableProviders(recipes)
-
-	require.Len(t, providers, 3)
-	require.Contains(t, providers, "gcp")
-	require.Contains(t, providers, "aws")
-	require.Contains(t, providers, "homebrew")
-}
-
-func TestGetAvailableProvidersEmpty(t *testing.T) {
-	t.Parallel()
-
-	providers := getAvailableProviders([]recepie.RecipeInfo{})
-	require.Empty(t, providers)
-}
-
-func TestFindRecipeByProvider(t *testing.T) {
-	t.Parallel()
-
-	recipes := []recepie.RecipeInfo{
-		{Provider: "gcp", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
-		{Provider: "aws", Recipe: recepie.Recipe{Name: "aws-lambda"}},
-	}
-
-	recipe := findRecipeByProvider(recipes, "aws")
-	require.NotNil(t, recipe)
-	require.Equal(t, "aws-lambda", recipe.Name)
-}
-
-func TestFindRecipeByProviderNotFound(t *testing.T) {
-	t.Parallel()
-
-	recipes := []recepie.RecipeInfo{
-		{Provider: "gcp", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
-	}
-
-	recipe := findRecipeByProvider(recipes, "azure")
-	require.Nil(t, recipe)
-}
 
 func TestGenerateServiceYAML(t *testing.T) {
 	t.Parallel()
@@ -68,13 +20,22 @@ func TestGenerateServiceYAML(t *testing.T) {
 		"region":  "us-central1",
 	}
 
-	yaml := generateServiceYAML("gcp", values)
+	buildConfig := &templates.BuildConfig{
+		Language: "go",
+		Version:  "1.23",
+		Cmd:      "go build -o ./dist",
+		EnvVars:  map[string]string{"CGO_ENABLED": "0"},
+	}
+
+	yaml := generateServiceYAML("gcp", "cloud-run", values, buildConfig)
 
 	require.Contains(t, yaml, "name: my-service")
 	require.Contains(t, yaml, "provider: gcp")
+	require.Contains(t, yaml, "type: gcp-cloud-run")
 	require.Contains(t, yaml, "project: my-project")
 	require.Contains(t, yaml, "region: us-central1")
 	require.Contains(t, yaml, "build:")
+	require.Contains(t, yaml, "language: go")
 }
 
 func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
@@ -85,12 +46,68 @@ func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
 		"homebrew.project_url": "https://github.com/org/project",
 	}
 
-	yaml := generateServiceYAML("homebrew", values)
+	buildConfig := &templates.BuildConfig{
+		Language: "go",
+		Version:  "1.23",
+		Cmd:      "go build -o ./dist",
+	}
+
+	yaml := generateServiceYAML("homebrew", "", values, buildConfig)
 
 	require.Contains(t, yaml, "name: my-cli")
 	require.Contains(t, yaml, "provider: homebrew")
 	require.Contains(t, yaml, "homebrew:")
 	require.Contains(t, yaml, "project_url: https://github.com/org/project")
+}
+
+func TestGenerateServiceYAMLNoService(t *testing.T) {
+	t.Parallel()
+
+	values := map[string]string{
+		"name": "my-service",
+	}
+
+	buildConfig := &templates.BuildConfig{
+		Language: "go",
+		Version:  "1.23",
+		Cmd:      "go build -o ./dist",
+	}
+
+	yaml := generateServiceYAML("homebrew", "", values, buildConfig)
+
+	require.Contains(t, yaml, "name: my-service")
+	require.Contains(t, yaml, "provider: homebrew")
+	require.NotContains(t, yaml, "type:")
+}
+
+func TestFindRecipeByKey(t *testing.T) {
+	t.Parallel()
+
+	recipes := []recepie.RecipeInfo{
+		{Provider: "gcp", Service: "cloud-run", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
+		{Provider: "gcp", Service: "gke", Recipe: recepie.Recipe{Name: "gcp-gke"}},
+		{Provider: "aws", Service: "lambda", Recipe: recepie.Recipe{Name: "aws-lambda"}},
+		{Provider: "homebrew", Service: "", Recipe: recepie.Recipe{Name: "homebrew"}},
+	}
+
+	// Exact match
+	recipe := findRecipeByKey(recipes, "gcp", "cloud-run")
+	require.NotNil(t, recipe)
+	require.Equal(t, "gcp-cloud-run", recipe.Name)
+
+	// Different service
+	recipe = findRecipeByKey(recipes, "gcp", "gke")
+	require.NotNil(t, recipe)
+	require.Equal(t, "gcp-gke", recipe.Name)
+
+	// Provider-only match
+	recipe = findRecipeByKey(recipes, "homebrew", "")
+	require.NotNil(t, recipe)
+	require.Equal(t, "homebrew", recipe.Name)
+
+	// No match for unknown provider/service
+	recipe = findRecipeByKey(recipes, "azure", "container-apps")
+	require.Nil(t, recipe)
 }
 
 func TestMustGetwd(t *testing.T) {
@@ -132,6 +149,42 @@ func TestPromptTrimsWhitespace(t *testing.T) {
 	require.Equal(t, "trimmed", result)
 }
 
+func TestPromptForFields(t *testing.T) {
+	t.Parallel()
+
+	fields := []recepie.Field{
+		{Name: "project", Description: "Project ID", Default: "default-project"},
+		{Name: "region", Description: "Region", Default: "us-central1"},
+	}
+
+	// Simulate user pressing enter for both (using defaults)
+	reader := bufio.NewReader(strings.NewReader("\n\n"))
+	values := make(map[string]string)
+
+	err := promptForFields(reader, fields, values, true)
+	require.NoError(t, err)
+	require.Equal(t, "default-project", values["project"])
+	require.Equal(t, "us-central1", values["region"])
+}
+
+func TestPromptForFieldsSkipsExisting(t *testing.T) {
+	t.Parallel()
+
+	fields := []recepie.Field{
+		{Name: "name", Description: "Service name"},
+		{Name: "project", Description: "Project ID"},
+	}
+
+	// Pre-populate name
+	values := map[string]string{"name": "already-set"}
+	reader := bufio.NewReader(strings.NewReader("my-project\n"))
+
+	err := promptForFields(reader, fields, values, true)
+	require.NoError(t, err)
+	require.Equal(t, "already-set", values["name"]) // Should not be overwritten
+	require.Equal(t, "my-project", values["project"])
+}
+
 func TestInitCmdExists(t *testing.T) {
 	t.Parallel()
 
@@ -150,4 +203,26 @@ func TestInitCmdFlags(t *testing.T) {
 	require.NotNil(t, providerFlag)
 	require.Equal(t, "p", providerFlag.Shorthand)
 
+	serviceFlag := cmd.Flags().Lookup("service")
+	require.NotNil(t, serviceFlag)
+	require.Equal(t, "s", serviceFlag.Shorthand)
+}
+
+func TestGetBuildTemplates(t *testing.T) {
+	t.Parallel()
+
+	languages := templates.GetAvailableLanguages()
+	require.NotEmpty(t, languages)
+	require.Contains(t, languages, "go")
+}
+
+func TestGetBuildConfig(t *testing.T) {
+	t.Parallel()
+
+	config, err := templates.GetBuildConfig("go")
+	require.NoError(t, err)
+	require.NotNil(t, config)
+	require.Equal(t, "go", config.Language)
+	require.NotEmpty(t, config.Version)
+	require.NotEmpty(t, config.Cmd)
 }

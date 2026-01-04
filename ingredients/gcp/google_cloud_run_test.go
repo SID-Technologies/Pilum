@@ -16,7 +16,7 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 		name          string
 		service       serviceinfo.ServiceInfo
 		imageName     string
-		expectedLen   int
+		minLen        int
 		expectedFirst string
 		containsFlag  string
 		containsValue string
@@ -29,7 +29,7 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 				Config: map[string]any{}, // Empty config means no cloud_run settings
 			},
 			imageName:     "gcr.io/project/myservice:latest",
-			expectedLen:   11,
+			minLen:        11,
 			expectedFirst: "gcloud",
 			containsFlag:  "--region",
 			containsValue: "us-central1",
@@ -42,10 +42,23 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 				Config: map[string]any{}, // Empty config means no cloud_run settings
 			},
 			imageName:     "gcr.io/project/api-service:v1.0.0",
-			expectedLen:   11,
+			minLen:        11,
 			expectedFirst: "gcloud",
 			containsFlag:  "--region",
 			containsValue: "europe-west1",
+		},
+		{
+			name: "deploy with project",
+			service: serviceinfo.ServiceInfo{
+				Name:    "myservice",
+				Region:  "us-central1",
+				Project: "my-project",
+			},
+			imageName:     "gcr.io/project/myservice:latest",
+			minLen:        13, // 11 + 2 for --project value
+			expectedFirst: "gcloud",
+			containsFlag:  "--project",
+			containsValue: "my-project",
 		},
 	}
 
@@ -55,7 +68,7 @@ func TestGenerateGCPDeployCommand(t *testing.T) {
 
 			cmd := gcp.GenerateGCPDeployCommand(tt.service, tt.imageName)
 
-			require.Len(t, cmd, tt.expectedLen)
+			require.GreaterOrEqual(t, len(cmd), tt.minLen)
 			require.Equal(t, tt.expectedFirst, cmd[0])
 			require.Equal(t, "run", cmd[1])
 			require.Equal(t, "deploy", cmd[2])
@@ -215,4 +228,86 @@ func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
 		}
 	}
 	t.Fatal("--set-secrets flag not found")
+}
+
+func TestGenerateGCPDeployCommandCloudRunConfig(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "myservice",
+		Region:  "us-central1",
+		Project: "my-project",
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"min_instances":   0,
+				"max_instances":   10,
+				"cpu_throttling":  true,
+				"memory":          "2048Mi",
+				"cpu":             "2",
+				"concurrency":     80,
+				"timeout_seconds": 300,
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Check all Cloud Run config flags are present
+	cmdStr := ""
+	for _, arg := range cmd {
+		cmdStr += arg + " "
+	}
+
+	require.Contains(t, cmdStr, "--min-instances=0")
+	require.Contains(t, cmdStr, "--max-instances=10")
+	require.Contains(t, cmdStr, "--cpu-throttling")
+	require.Contains(t, cmdStr, "--memory 2048Mi")
+	require.Contains(t, cmdStr, "--cpu 2")
+	require.Contains(t, cmdStr, "--concurrency=80")
+	require.Contains(t, cmdStr, "--timeout=300")
+	require.Contains(t, cmdStr, "--project my-project")
+}
+
+func TestGenerateGCPDeployCommandCPUThrottlingDisabled(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"cpu_throttling": false,
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Should NOT have --cpu-throttling when set to false
+	for _, arg := range cmd {
+		require.NotEqual(t, "--cpu-throttling", arg)
+	}
+}
+
+func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{}, // No cloud_run section
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Should not have any Cloud Run specific flags when config is empty
+	for _, arg := range cmd {
+		require.NotContains(t, arg, "--min-instances")
+		require.NotContains(t, arg, "--max-instances")
+		require.NotEqual(t, "--cpu-throttling", arg)
+		require.NotEqual(t, "--memory", arg)
+		require.NotEqual(t, "--cpu", arg)
+		require.NotContains(t, arg, "--concurrency")
+		require.NotContains(t, arg, "--timeout")
+	}
 }

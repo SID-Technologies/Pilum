@@ -20,6 +20,22 @@ required_fields:
     type: string
     default: my-stack
 
+optional_fields:
+  - name: lambda.memory
+    description: Memory in MB
+    type: int
+    default: "128"
+
+  - name: lambda.timeout
+    description: Timeout in seconds
+    type: int
+    default: "30"
+
+  - name: lambda.runtime
+    description: Lambda runtime (e.g., provided.al2023, python3.12)
+    type: string
+    default: "provided.al2023"
+
 steps:
   - name: build
     command: ["sam", "build"]
