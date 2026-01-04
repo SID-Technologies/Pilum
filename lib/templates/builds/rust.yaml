@@ -1,0 +1,9 @@
+# Rust build configuration
+language: rust
+version: "1.75"
+cmd: "cargo build --release"
+env_vars:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+flags:
+  target:
+    - "x86_64-unknown-linux-musl"

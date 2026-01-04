@@ -27,6 +27,42 @@ required_fields:
     description: Dockerfile template name (path relative to _templates directory)
     type: string
 
+optional_fields:
+  - name: cloud_run.min_instances
+    description: Minimum instances (0 for scale to zero)
+    type: int
+    default: "0"
+
+  - name: cloud_run.max_instances
+    description: Maximum instances to scale to
+    type: int
+    default: "10"
+
+  - name: cloud_run.cpu_throttling
+    description: Throttle CPU when not processing requests
+    type: bool
+    default: "true"
+
+  - name: cloud_run.memory
+    description: Memory per instance (e.g., 512Mi, 1Gi)
+    type: string
+    default: "512Mi"
+
+  - name: cloud_run.cpu
+    description: CPUs per instance
+    type: string
+    default: "1"
+
+  - name: cloud_run.concurrency
+    description: Max concurrent requests per instance
+    type: int
+    default: "80"
+
+  - name: cloud_run.timeout_seconds
+    description: Request timeout in seconds
+    type: int
+    default: "300"
+
 steps:
   - name: build binary
     execution_mode: service_dir

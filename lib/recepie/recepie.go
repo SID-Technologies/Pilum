@@ -8,22 +8,27 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-// RequiredField defines a field required by a recipe.
-type RequiredField struct {
+// Field defines a configuration field for a recipe.
+// Used for both required and optional fields.
+type Field struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
 	Type        string `yaml:"type"`    // string, int, bool, list
 	Default     string `yaml:"default"` // default value if not provided
 }
 
+// RequiredField is an alias for Field for backwards compatibility.
+type RequiredField = Field
+
 // Recipe defines a deployment workflow.
 type Recipe struct {
-	Name           string          `yaml:"name"`
-	Description    string          `yaml:"description"`
-	Provider       string          `yaml:"provider"`
-	Service        string          `yaml:"service"`
-	RequiredFields []RequiredField `yaml:"required_fields"`
-	Steps          []RecipeStep    `yaml:"steps"`
+	Name           string       `yaml:"name"`
+	Description    string       `yaml:"description"`
+	Provider       string       `yaml:"provider"`
+	Service        string       `yaml:"service"`
+	RequiredFields []Field      `yaml:"required_fields"`
+	OptionalFields []Field      `yaml:"optional_fields"`
+	Steps          []RecipeStep `yaml:"steps"`
 }
 
 // RecipeStep defines a single step in a recipe.
@@ -52,8 +57,13 @@ func (r *Recipe) ValidateService(svc *serviceinfo.ServiceInfo) error {
 }
 
 // GetRequiredFields returns the list of required fields with descriptions.
-func (r *Recipe) GetRequiredFields() []RequiredField {
+func (r *Recipe) GetRequiredFields() []Field {
 	return r.RequiredFields
+}
+
+// GetOptionalFields returns the list of optional fields with descriptions.
+func (r *Recipe) GetOptionalFields() []Field {
+	return r.OptionalFields
 }
 
 // getServiceField extracts a field value from ServiceInfo by name.

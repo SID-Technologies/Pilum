@@ -1,0 +1,6 @@
+# Node.js build configuration
+language: node
+version: "20"
+cmd: "npm run build"
+env_vars:
+  NODE_ENV: "production"
