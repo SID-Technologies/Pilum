@@ -61,6 +61,17 @@ func (s *ServiceInfo) DisplayName() string {
 	return s.Name
 }
 
+// RecipeKey returns the recipe lookup key for this service.
+// This matches the format used to index recipes: "provider-service" or just "provider".
+// It uses the Template field (from "type" in config) which contains the full key.
+func (s *ServiceInfo) RecipeKey() string {
+	// Template contains the type (e.g., "gcp-cloud-run", "homebrew")
+	if s.Template != "" {
+		return s.Template
+	}
+	return s.Provider
+}
+
 func (s *ServiceInfo) Validate() error {
 	// Minimal base validation - provider-specific validation is done by recipes
 	if s.Name == "" {

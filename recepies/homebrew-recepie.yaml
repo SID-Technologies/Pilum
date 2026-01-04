@@ -1,7 +1,6 @@
 name: homebrew
 description: Build and release to Homebrew tap
 provider: homebrew
-service: package
 
 required_fields:
   - name: name

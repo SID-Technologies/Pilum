@@ -233,22 +233,20 @@ func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
 func TestGenerateGCPDeployCommandCloudRunConfig(t *testing.T) {
 	t.Parallel()
 
-	minInstances := 0
-	maxInstances := 10
-	cpuThrottling := true
-
 	service := serviceinfo.ServiceInfo{
 		Name:    "myservice",
 		Region:  "us-central1",
 		Project: "my-project",
-		CloudRunConfig: serviceinfo.CloudRunConfig{
-			MinInstances:  &minInstances,
-			MaxInstances:  &maxInstances,
-			CPUThrottling: &cpuThrottling,
-			Memory:        "2048Mi",
-			CPU:           "2",
-			Concurrency:   80,
-			Timeout:       300,
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"min_instances":   0,
+				"max_instances":   10,
+				"cpu_throttling":  true,
+				"memory":          "2048Mi",
+				"cpu":             "2",
+				"concurrency":     80,
+				"timeout_seconds": 300,
+			},
 		},
 	}
 
@@ -270,39 +268,34 @@ func TestGenerateGCPDeployCommandCloudRunConfig(t *testing.T) {
 	require.Contains(t, cmdStr, "--project my-project")
 }
 
-func TestGenerateGCPDeployCommandNoCPUThrottling(t *testing.T) {
+func TestGenerateGCPDeployCommandCPUThrottlingDisabled(t *testing.T) {
 	t.Parallel()
-
-	cpuThrottling := false
 
 	service := serviceinfo.ServiceInfo{
 		Name:   "myservice",
 		Region: "us-central1",
-		CloudRunConfig: serviceinfo.CloudRunConfig{
-			CPUThrottling: &cpuThrottling,
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"cpu_throttling": false,
+			},
 		},
 	}
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
 
-	// Should have --no-cpu-throttling when explicitly set to false
-	found := false
+	// Should NOT have --cpu-throttling when set to false
 	for _, arg := range cmd {
-		if arg == "--no-cpu-throttling" {
-			found = true
-			break
-		}
+		require.NotEqual(t, "--cpu-throttling", arg)
 	}
-	require.True(t, found, "--no-cpu-throttling flag not found")
 }
 
 func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
 	t.Parallel()
 
 	service := serviceinfo.ServiceInfo{
-		Name:           "myservice",
-		Region:         "us-central1",
-		CloudRunConfig: serviceinfo.CloudRunConfig{},
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{}, // No cloud_run section
 	}
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
@@ -312,7 +305,6 @@ func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
 		require.NotContains(t, arg, "--min-instances")
 		require.NotContains(t, arg, "--max-instances")
 		require.NotEqual(t, "--cpu-throttling", arg)
-		require.NotEqual(t, "--no-cpu-throttling", arg)
 		require.NotEqual(t, "--memory", arg)
 		require.NotEqual(t, "--cpu", arg)
 		require.NotContains(t, arg, "--concurrency")
