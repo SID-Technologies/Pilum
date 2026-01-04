@@ -34,23 +34,23 @@ type RuntimeConfig struct {
 }
 
 type ServiceInfo struct {
-	Name           string         `yaml:"name"`
-	Description    string         `yaml:"description"`
-	Template       string         `yaml:"template"`
-	Path           string         `yaml:"-"`
-	Config      map[string]any `yaml:"-"`
-	BuildConfig BuildConfig    `yaml:"build"`
-	Runtime     RuntimeConfig  `yaml:"runtime"`
-	EnvVars     []EnvVars      `yaml:"env_vars"`
-	Secrets        []Secrets      `yaml:"secrets"`
-	Region         string         `yaml:"region"`
-	Regions        []string       `yaml:"regions"` // For multi-region deployments
-	IsMultiRegion  bool           `yaml:"-"`       // True if this was expanded from a multi-region config
-	Project        string         `yaml:"project"`
-	License        string         `yaml:"license"`
-	Provider       string         `yaml:"provider"`
-	RegistryName   string         `yaml:"registry_name"`
-	DependsOn      []string       `yaml:"depends_on"` // Services this service depends on
+	Name          string         `yaml:"name"`
+	Description   string         `yaml:"description"`
+	Template      string         `yaml:"template"`
+	Path          string         `yaml:"-"`
+	Config        map[string]any `yaml:"-"`
+	BuildConfig   BuildConfig    `yaml:"build"`
+	Runtime       RuntimeConfig  `yaml:"runtime"`
+	EnvVars       []EnvVars      `yaml:"env_vars"`
+	Secrets       []Secrets      `yaml:"secrets"`
+	Region        string         `yaml:"region"`
+	Regions       []string       `yaml:"regions"` // For multi-region deployments
+	IsMultiRegion bool           `yaml:"-"`       // True if this was expanded from a multi-region config
+	Project       string         `yaml:"project"`
+	License       string         `yaml:"license"`
+	Provider      string         `yaml:"provider"`
+	RegistryName  string         `yaml:"registry_name"`
+	DependsOn     []string       `yaml:"depends_on"` // Services this service depends on
 }
 
 // DisplayName returns the service name with region suffix for multi-region deployments.
@@ -129,22 +129,22 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	}
 
 	return &ServiceInfo{
-		Name:        configutil.GetString(config, "name", ""),
-		Description: configutil.GetString(config, "description", ""),
-		Template:    template,
-		Path:        path,
-		Config:      config,
-		BuildConfig: buildConfig,
-		Runtime:     runtime,
-		Region:      configutil.GetString(config, "region", ""),
-		Regions:     configutil.GetStringSlice(config, "regions"),
-		Project:     configutil.GetString(config, "project", ""),
-		License:     configutil.GetString(config, "license", ""),
-		Provider:    provider,
+		Name:         configutil.GetString(config, "name", ""),
+		Description:  configutil.GetString(config, "description", ""),
+		Template:     template,
+		Path:         path,
+		Config:       config,
+		BuildConfig:  buildConfig,
+		Runtime:      runtime,
+		Region:       configutil.GetString(config, "region", ""),
+		Regions:      configutil.GetStringSlice(config, "regions"),
+		Project:      configutil.GetString(config, "project", ""),
+		License:      configutil.GetString(config, "license", ""),
+		Provider:     provider,
 		RegistryName: configutil.GetString(config, "registry_name", ""),
-		DependsOn:   configutil.GetStringSlice(config, "depends_on"),
-		EnvVars:     envVars,
-		Secrets:     secretVars,
+		DependsOn:    configutil.GetStringSlice(config, "depends_on"),
+		EnvVars:      envVars,
+		Secrets:      secretVars,
 	}
 }
 

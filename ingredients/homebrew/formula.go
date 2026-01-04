@@ -9,7 +9,7 @@ import (
 
 // GenerateFormulaCommand creates a command that generates the Homebrew formula.
 func GenerateFormulaCommand(svc serviceinfo.ServiceInfo, tag string, outputDir string, formulaPath string) string {
-	cfg := ParseHomebrewConfig(svc.Config)
+	cfg := ParseConfig(svc.Config)
 
 	name := svc.Name
 	projectURL := cfg.ProjectURL

@@ -4,38 +4,52 @@ package configutil
 
 // GetString extracts a string value from a map, returning the default if not found or wrong type.
 func GetString(m map[string]any, key string, def string) string {
-	if val, ok := m[key]; ok {
-		if s, ok := val.(string); ok {
-			return s
-		}
+	val, ok := m[key]
+	if !ok {
+		return def
 	}
-	return def
+
+	s, ok := val.(string)
+	if !ok {
+		return def
+	}
+
+	return s
 }
 
 // GetInt extracts an int value from a map, handling int, int64, and float64 types.
 // Returns the default if not found or wrong type.
 func GetInt(m map[string]any, key string, def int) int {
-	if val, ok := m[key]; ok {
-		switch v := val.(type) {
-		case int:
-			return v
-		case int64:
-			return int(v)
-		case float64:
-			return int(v)
-		}
+	val, ok := m[key]
+	if !ok {
+		return def
 	}
+
+	switch v := val.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	}
+
 	return def
 }
 
 // GetBool extracts a bool value from a map, returning the default if not found or wrong type.
 func GetBool(m map[string]any, key string, def bool) bool {
-	if val, ok := m[key]; ok {
-		if b, ok := val.(bool); ok {
-			return b
-		}
+	val, ok := m[key]
+	if !ok {
+		return def
 	}
-	return def
+
+	b, ok := val.(bool)
+	if !ok {
+		return def
+	}
+
+	return b
 }
 
 // GetStringSlice extracts a string slice from a map, handling both []string and []any types.
@@ -52,7 +66,8 @@ func GetStringSlice(m map[string]any, key string) []string {
 	case []any:
 		result := make([]string, 0, len(v))
 		for _, item := range v {
-			if s, ok := item.(string); ok {
+			s, ok := item.(string)
+			if ok {
 				result = append(result, s)
 			}
 		}
@@ -67,15 +82,18 @@ func GetStringSlice(m map[string]any, key string) []string {
 // Returns an empty map if the value cannot be converted.
 func MapFromAny(v any) map[string]any {
 	// Handle map[string]any directly
-	if m, ok := v.(map[string]any); ok {
+	m, ok := v.(map[string]any)
+	if ok {
 		return m
 	}
 
 	// Handle map[interface{}]interface{} from yaml.v2
-	if m, ok := v.(map[any]any); ok {
+	mAny, ok := v.(map[any]any)
+	if ok {
 		result := make(map[string]any)
-		for k, val := range m {
-			if keyStr, ok := k.(string); ok {
+		for k, val := range mAny {
+			keyStr, ok := k.(string)
+			if ok {
 				result[keyStr] = val
 			}
 		}
@@ -101,18 +119,19 @@ func GetNestedString(config map[string]any, keys ...string) string {
 
 		// If this is the last key, try to return it as a string
 		if i == len(keys)-1 {
-			if str, ok := val.(string); ok {
+			str, ok := val.(string)
+			if ok {
 				return str
 			}
 			return ""
 		}
 
 		// Otherwise, navigate deeper into the map
-		if nested, ok := val.(map[string]any); ok {
-			current = nested
-		} else {
+		nested, ok := val.(map[string]any)
+		if !ok {
 			return ""
 		}
+		current = nested
 	}
 
 	return ""

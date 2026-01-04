@@ -11,7 +11,7 @@ import (
 // It expects the formula to already exist at the formulaPath.
 // Uses the tap_url and token_env from the service's homebrew config.
 func GenerateTapPushCommand(svc serviceinfo.ServiceInfo, tag string, formulaPath string) string {
-	cfg := ParseHomebrewConfig(svc.Config)
+	cfg := ParseConfig(svc.Config)
 
 	name := svc.Name
 	tapURL := cfg.TapURL

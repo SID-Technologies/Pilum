@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/configutil"
+
 	"github.com/stretchr/testify/require"
 )
 
