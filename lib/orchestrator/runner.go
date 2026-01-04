@@ -46,7 +46,7 @@ type stepTask struct {
 // RunnerOptions configures the runner.
 type RunnerOptions struct {
 	Tag          string
-	Registry     string // Docker registry prefix (overrides service.yaml)
+	Registry     string // Docker registry prefix (overrides pilum.yaml)
 	TemplatePath string // Default template path for services that don't specify one
 	Debug        bool
 	Timeout      int

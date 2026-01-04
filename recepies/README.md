@@ -18,7 +18,7 @@ Create a new file in `recepies/` following this structure:
 name: my-provider
 description: Deploy to My Provider
 provider: my-provider    # Used for handler lookup and validation
-service: my-service      # Service type identifier
+service: my-service      # Required - service type identifier
 
 # Required fields - validated when running `pilum check`
 required_fields:
@@ -30,6 +30,18 @@ required_fields:
     description: Deployment region
     type: string
     default: us-east-1    # Optional default value
+
+# Optional fields - shown during `pilum init`, have defaults
+optional_fields:
+  - name: min_instances
+    description: Minimum number of instances
+    type: int
+    default: "0"
+
+  - name: max_instances
+    description: Maximum number of instances
+    type: int
+    default: "10"
 
 steps:
   - name: build
@@ -44,20 +56,39 @@ steps:
 
 ## Required Fields
 
-The `required_fields` section defines what a `service.yaml` must contain to use this recipe. This is **recipe-driven validation** - no Go code needed per provider.
+The `required_fields` section defines what a `pilum.yaml` must contain to use this recipe. This is **recipe-driven validation** - no Go code needed per provider.
 
 ```yaml
 required_fields:
-  - name: project           # Field name in service.yaml
+  - name: project           # Field name in pilum.yaml
     description: GCP project ID   # Shown in error messages
     type: string            # string, int, bool, list
     default: ""             # If set, field is optional
 ```
 
 When you run `pilum check`, it:
-1. Finds all `service.yaml` files
+1. Finds all `pilum.yaml` files
 2. Looks up the recipe for each service's provider
 3. Validates that all required fields (without defaults) are present
+
+## Optional Fields
+
+The `optional_fields` section defines additional configuration that users can provide. These are shown during `pilum init` and have sensible defaults.
+
+```yaml
+optional_fields:
+  - name: min_instances     # Field name in pilum.yaml
+    description: Minimum number of instances
+    type: int
+    default: "0"            # Used if not specified
+
+  - name: memory
+    description: Memory allocation (e.g., 512Mi, 2Gi)
+    type: string
+    default: "512Mi"
+```
+
+Optional fields are **not validated** by `pilum check` - they simply provide suggestions during service initialization.
 
 ### Field Types
 
@@ -208,12 +239,18 @@ No handler registration needed - just shell commands and validation:
 name: static-site
 description: Deploy static site to S3
 provider: aws-s3
-service: static
+service: static    # Required - service type identifier
 
 required_fields:
   - name: bucket
     description: S3 bucket name
     type: string
+
+optional_fields:
+  - name: cache_control
+    description: Cache-Control header value
+    type: string
+    default: "max-age=3600"
 
 steps:
   - name: build
@@ -235,7 +272,7 @@ Using registered handlers for standard steps:
 name: kubernetes
 description: Deploy to Kubernetes
 provider: k8s
-service: container
+service: container    # Required - service type identifier
 
 required_fields:
   - name: cluster
@@ -283,7 +320,8 @@ The recipe-driven approach scales well:
 | Recipe-driven validation | 50 YAML files (you need these anyway) |
 
 Benefits:
-- **Self-documenting** - Recipe declares its own requirements
+- **Self-documenting** - Recipe declares its own requirements (required + optional fields)
 - **No code changes** - Adding a provider = adding a YAML file
 - **User-editable** - Users can customize without recompiling
 - **Discoverable** - `pilum check` shows exactly what's missing
+- **Interactive setup** - `pilum init` walks users through all fields
