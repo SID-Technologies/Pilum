@@ -14,9 +14,11 @@ func TestGenerateTapPushCommand(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "myapp",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/org/homebrew-tap",
-			TokenEnv: "GITHUB_TOKEN",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/org/homebrew-tap",
+				"token_env": "GITHUB_TOKEN",
+			},
 		},
 	}
 
@@ -62,9 +64,11 @@ func TestGenerateTapPushCommandDifferentToken(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "cli",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/org/homebrew-cli",
-			TokenEnv: "GH_PAT",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/org/homebrew-cli",
+				"token_env": "GH_PAT",
+			},
 		},
 	}
 
@@ -80,9 +84,11 @@ func TestGenerateTapPushCommandDifferentTapURL(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "tool",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/myorg/homebrew-tools",
-			TokenEnv: "TOKEN",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/myorg/homebrew-tools",
+				"token_env": "TOKEN",
+			},
 		},
 	}
 
@@ -98,9 +104,11 @@ func TestBuildAuthenticatedURLHTTPS(t *testing.T) {
 	// Test with standard HTTPS URL
 	service := serviceinfo.ServiceInfo{
 		Name: "app",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/org/tap",
-			TokenEnv: "MY_TOKEN",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/org/tap",
+				"token_env": "MY_TOKEN",
+			},
 		},
 	}
 
@@ -115,9 +123,11 @@ func TestGenerateTapPushCommandCommitMessage(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "myapp",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/org/tap",
-			TokenEnv: "TOKEN",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/org/tap",
+				"token_env": "TOKEN",
+			},
 		},
 	}
 
@@ -132,9 +142,11 @@ func TestGenerateTapPushCommandFormulaPath(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "cli",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			TapURL:   "https://github.com/org/tap",
-			TokenEnv: "TOKEN",
+		Config: map[string]any{
+			"homebrew": map[string]any{
+				"tap_url":   "https://github.com/org/tap",
+				"token_env": "TOKEN",
+			},
 		},
 	}
 

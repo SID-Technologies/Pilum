@@ -101,8 +101,10 @@ func TestRecipeValidateService(t *testing.T) {
 			},
 			service: &serviceinfo.ServiceInfo{
 				Name: "myapp",
-				HomebrewConfig: serviceinfo.HomebrewConfig{
-					ProjectURL: "https://github.com/org/myapp",
+				Config: map[string]any{
+					"homebrew": map[string]any{
+						"project_url": "https://github.com/org/myapp",
+					},
 				},
 			},
 			expectError: false,
@@ -119,8 +121,10 @@ func TestRecipeValidateService(t *testing.T) {
 			},
 			service: &serviceinfo.ServiceInfo{
 				Name: "myapp",
-				HomebrewConfig: serviceinfo.HomebrewConfig{
-					ProjectURL: "https://github.com/org/myapp",
+				Config: map[string]any{
+					"homebrew": map[string]any{
+						"project_url": "https://github.com/org/myapp",
+					},
 				},
 			},
 			expectError: true,
@@ -192,13 +196,13 @@ func TestGetServiceField(t *testing.T) {
 		Provider:     "gcp",
 		Template:     "cloud-run",
 		RegistryName: "gcr.io/my-project",
-		HomebrewConfig: serviceinfo.HomebrewConfig{
-			ProjectURL: "https://github.com/org/myapp",
-			TapURL:     "https://github.com/org/homebrew-tap",
-			TokenEnv:   "GITHUB_TOKEN",
-		},
 		Config: map[string]any{
 			"custom_field": "custom_value",
+			"homebrew": map[string]any{
+				"project_url": "https://github.com/org/myapp",
+				"tap_url":     "https://github.com/org/homebrew-tap",
+				"token_env":   "GITHUB_TOKEN",
+			},
 		},
 	}
 

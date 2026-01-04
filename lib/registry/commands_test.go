@@ -234,8 +234,10 @@ func TestHomebrewUpdateFormulaHandlerExecution(t *testing.T) {
 			Name:        "myapp",
 			Description: "Test app",
 			License:     "MIT",
-			HomebrewConfig: serviceinfo.HomebrewConfig{
-				ProjectURL: "https://github.com/org/myapp",
+			Config: map[string]any{
+				"homebrew": map[string]any{
+					"project_url": "https://github.com/org/myapp",
+				},
 			},
 		},
 		Tag: "v1.0.0",
@@ -261,9 +263,11 @@ func TestHomebrewPushToTapHandlerExecution(t *testing.T) {
 	ctx := registry.StepContext{
 		Service: serviceinfo.ServiceInfo{
 			Name: "myapp",
-			HomebrewConfig: serviceinfo.HomebrewConfig{
-				TapURL:   "https://github.com/org/tap",
-				TokenEnv: "GITHUB_TOKEN",
+			Config: map[string]any{
+				"homebrew": map[string]any{
+					"tap_url":   "https://github.com/org/tap",
+					"token_env": "GITHUB_TOKEN",
+				},
 			},
 		},
 		Tag: "v1.0.0",
