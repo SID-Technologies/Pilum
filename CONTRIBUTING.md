@@ -107,7 +107,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
 
 ## Adding a New Provider
 
-This is the most common contribution. See [docs/adding-a-provider.md](docs/adding-a-provider.md) for a complete walkthrough.
+This is the most common contribution. See the [Adding a Provider](https://pilum.dev/docs/providers/adding-a-provider/) guide for a complete walkthrough.
 
 **Quick overview:**
 

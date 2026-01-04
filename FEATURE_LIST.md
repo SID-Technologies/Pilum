@@ -23,7 +23,7 @@
 
 ### CLI Polish
 - [x] `pilum init` - Interactive scaffolding for new services
-- [x] `pilum validate` - Validate service.yaml and recipe syntax (alias: `check`)
+- [x] `pilum validate` - Validate pilum.yaml and recipe syntax (alias: `check`)
 - [x] `pilum list` - List all discovered services and their recipes
 - [x] `--verbose / -v` - Stream command stdout/stderr in real-time
 - [x] `--quiet / -q` - Minimal output (CI-friendly)
@@ -43,7 +43,7 @@
 ### Monorepo Support
 - [x] `--only-changed` flag - Detect git changes, deploy only affected services
 - [x] `--since` flag - Specify git ref to compare against (default: main/master)
-- [x] Dependency graph between services (`depends_on` in service.yaml)
+- [x] Dependency graph between services (`depends_on` in pilum.yaml)
 
 ### Deployment Safety
 - [ ] `pilum rollback [service]` - Rollback to previous revision
@@ -55,7 +55,7 @@
 
 ### Environment Management
 - [ ] Environment configs (`--env prod` / `--env staging`)
-- [ ] Per-environment overrides in service.yaml
+- [ ] Per-environment overrides in pilum.yaml
 
 ---
 
@@ -70,6 +70,9 @@
 ### Advanced Monorepo
 - [ ] Parallel builds with dependency ordering
 - [ ] Build caching (hash-based skip)
+- [ ] Pattern matching for service selection (`pilum deploy "api-*"`)
+- [ ] Filter services by provider (`--provider=gcp`)
+- [ ] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
 
 ---
 

@@ -38,9 +38,23 @@ go install github.com/sid-technologies/pilum@latest
 
 ## Quick Start
 
-### 1. Create a service configuration
+### 1. Initialize a service (optional)
 
-Create a `service.yaml` in your project:
+Use the interactive init command to generate a `pilum.yaml`:
+
+```bash
+pilum init
+```
+
+This walks you through:
+1. Selecting a provider (GCP, AWS, Homebrew, etc.)
+2. Selecting a service type (Cloud Run, Lambda, etc.)
+3. Filling in required and optional fields
+4. Choosing a build language (Go, Python, Rust, Node)
+
+### 2. Or create a service configuration manually
+
+Create a `pilum.yaml` in your project:
 
 ```yaml
 name: my-api
@@ -53,15 +67,15 @@ build:
   version: "1.23"
 ```
 
-### 2. Validate your configuration
+### 3. Validate your configuration
 
 ```bash
 pilum check
 ```
 
-This validates your `service.yaml` against the recipe's required fields.
+This validates your `pilum.yaml` against the recipe's required fields.
 
-### 3. Deploy
+### 4. Deploy
 
 ```bash
 # Deploy all services
@@ -81,7 +95,8 @@ pilum publish --tag=v1.0.0
 
 Pilum uses recipes to define deployment workflows. Each recipe defines:
 - **Steps** - Ordered commands to execute
-- **Required fields** - What your `service.yaml` must contain
+- **Required fields** - What your `pilum.yaml` must contain
+- **Optional fields** - Additional configuration options with defaults
 
 ### Built-in Recipes
 
@@ -99,6 +114,7 @@ Create your own recipes in `recepies/`:
 name: my-recipe
 description: My deployment workflow
 provider: my-provider
+service: my-service    # Required - service type identifier
 
 required_fields:
   - name: cluster
@@ -108,6 +124,12 @@ required_fields:
     description: Target namespace
     type: string
     default: default  # Optional default
+
+optional_fields:
+  - name: replicas
+    description: Number of replicas
+    type: int
+    default: "1"
 
 steps:
   - name: build
@@ -129,6 +151,7 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 
 | Command | Alias | Description |
 |---------|-------|-------------|
+| `pilum init` | | Generate a new pilum.yaml interactively |
 | `pilum list` | `ls` | List discovered services |
 | `pilum check [services...]` | `validate` | Validate configs against recipes |
 | `pilum build [services...]` | `b`, `make` | Build services |
@@ -155,6 +178,9 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 ### Examples
 
 ```bash
+# Initialize a new service (interactive)
+pilum init
+
 # Deploy all services
 pilum deploy --tag=v1.0.0
 
@@ -186,16 +212,16 @@ my-project/
 │   └── aws-lambda-recepie.yaml
 ├── services/
 │   ├── api/
-│   │   ├── service.yaml
+│   │   ├── pilum.yaml
 │   │   └── main.go
 │   └── worker/
-│       ├── service.yaml
+│       ├── pilum.yaml
 │       └── main.go
 ```
 
 ## How It Works
 
-1. **Discovery** - Pilum finds all `service.yaml` files in your project
+1. **Discovery** - Pilum finds all `pilum.yaml` files in your project
 2. **Validation** - Each service is validated against its recipe's required fields
 3. **Matching** - Services are matched to recipes based on `provider` field
 4. **Orchestration** - Steps execute in order, services run in parallel within steps
@@ -228,13 +254,15 @@ Step 3: deploy
 | `ingredients/` | Cloud-specific command generators |
 | `recepies/` | Deployment workflow definitions |
 
-See [Adding a New Provider](docs/adding-a-provider.md) for extension details.
-
 ## Documentation
 
-- [Adding a New Provider](docs/adding-a-provider.md) - Step-by-step guide with examples
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- [Recipe Reference](recepies/README.md) - Full recipe configuration guide
+📚 **Full documentation available at [pilum.dev/docs](https://pilum.dev/docs/getting-started/introduction/)**
+
+- [Getting Started](https://pilum.dev/docs/getting-started/introduction/) - Introduction and quick start
+- [Service Configuration](https://pilum.dev/docs/configuration/service-yaml/) - Full `pilum.yaml` reference
+- [CLI Commands](https://pilum.dev/docs/reference/cli/) - Complete CLI reference
+- [Adding a Provider](https://pilum.dev/docs/providers/adding-a-provider/) - Extend Pilum with new providers
+- [Troubleshooting](https://pilum.dev/docs/reference/troubleshooting/) - Common issues and solutions
 
 ## Contributing
 

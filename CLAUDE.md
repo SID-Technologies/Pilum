@@ -15,7 +15,7 @@ Pilum is a **cloud-agnostic deployment CLI** - define a service once, deploy to 
 **The cooking metaphor:**
 - **Recipes** (`recepies/`) - Deployment workflows with required fields and ordered steps
 - **Ingredients** (`ingredients/`) - Cloud-specific command generators
-- **Services** - Discovered via `service.yaml` files
+- **Services** - Discovered via `pilum.yaml` files
 
 ## Quick Reference
 
@@ -114,7 +114,7 @@ Provider-specific handlers take precedence over generic ones.
 
 See `recepies/README.md` for full guide.
 
-## Service Configuration (`service.yaml`)
+## Service Configuration (`pilum.yaml`)
 
 ```yaml
 name: my-service

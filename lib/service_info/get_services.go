@@ -162,7 +162,7 @@ func FindServices(root string) ([]ServiceInfo, error) {
 			return nil
 		}
 
-		// Check if this service.yaml is in an ignored path
+		// Check if this pilum.yaml is in an ignored path
 		if shouldIgnore(relPath, ignorePatterns) {
 			output.Debugf("Ignoring service: %s", relPath)
 			return nil

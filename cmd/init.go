@@ -25,7 +25,7 @@ func InitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new service configuration",
-		Long:  "Interactively create a service.yaml file for a new service.",
+		Long:  "Interactively create a pilum.yaml file for a new service.",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runInit(provider, service)
 		},
@@ -40,9 +40,9 @@ func InitCmd() *cobra.Command {
 func runInit(providerFlag, serviceFlag string) error {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Check if service.yaml already exists
-	if _, err := os.Stat("service.yaml"); err == nil {
-		output.Warning("service.yaml already exists in this directory")
+	// Check if pilum.yaml already exists
+	if _, err := os.Stat("pilum.yaml"); err == nil {
+		output.Warning("pilum.yaml already exists in this directory")
 		overwrite, err := prompt(reader, "Overwrite? (y/N)", "n")
 		if err != nil {
 			return err
@@ -85,7 +85,7 @@ func runInit(providerFlag, serviceFlag string) error {
 	if recipe == nil {
 		output.Warning("No recipe found for '%s' - using minimal template", recipeKey)
 	} else {
-		output.Header("Creating service.yaml for %s", recipe.Name)
+		output.Header("Creating pilum.yaml for %s", recipe.Name)
 	}
 
 	// Step 4: Collect required field values
@@ -126,14 +126,14 @@ func runInit(providerFlag, serviceFlag string) error {
 		return errors.Wrap(err, "failed to load build template for %s", language)
 	}
 
-	// Step 8: Generate and write service.yaml
+	// Step 8: Generate and write pilum.yaml
 	yaml := generateServiceYAML(provider, service, values, buildConfig)
 
-	if err := os.WriteFile("service.yaml", []byte(yaml), 0600); err != nil {
-		return errors.Wrap(err, "failed to write service.yaml")
+	if err := os.WriteFile("pilum.yaml", []byte(yaml), 0600); err != nil {
+		return errors.Wrap(err, "failed to write pilum.yaml")
 	}
 
-	output.Success("Created service.yaml")
+	output.Success("Created pilum.yaml")
 	output.Dimmed("Run 'pilum check' to validate your configuration")
 
 	return nil

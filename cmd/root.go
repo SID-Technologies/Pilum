@@ -32,7 +32,7 @@ var rootCmd = &cobra.Command{
 A cloud-agnostic deployment CLI that lets you define a service once
 and deploy it to any cloud provider (AWS, GCP, Azure).
 
-Define your service in a service.yaml file, specify the target provider,
+Define your service in a pilum.yaml file, specify the target provider,
 and Pilum handles the build, containerization, and deployment.`,
 }
 
