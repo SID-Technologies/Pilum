@@ -107,6 +107,7 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 		Names:       args,
 		OnlyChanged: opts.OnlyChanged,
 		Since:       opts.Since,
+		NoGitIgnore: NoGitIgnore(),
 	}
 
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)

@@ -19,7 +19,10 @@ func ListCmd() *cobra.Command {
 				return errors.Wrap(err, "error finding project root")
 			}
 
-			services, err := serviceinfo.FindServices(root)
+			opts := serviceinfo.DefaultDiscoveryOptions()
+			opts.NoGitIgnore = NoGitIgnore()
+
+			services, err := serviceinfo.FindServicesWithOptions(root, opts)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}

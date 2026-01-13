@@ -80,15 +80,16 @@ func TestGenerateDockerBuildCommandServiceName(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "my-awesome-service",
+		Path: "services/my-awesome-service",
 	}
 
 	cmd := docker.GenerateDockerBuildCommand(service, "image:tag", "Dockerfile")
 
-	// Should contain SERVICE_NAME build arg
+	// Should contain SERVICE_NAME build arg with the service path (not name)
 	foundServiceName := false
 	for i, arg := range cmd {
 		if arg == "--build-arg" && i+1 < len(cmd) {
-			if cmd[i+1] == "SERVICE_NAME=my-awesome-service" {
+			if cmd[i+1] == "SERVICE_NAME=services/my-awesome-service" {
 				foundServiceName = true
 				break
 			}
@@ -102,6 +103,7 @@ func TestGenerateDockerBuildCommandWithEnvVars(t *testing.T) {
 
 	service := serviceinfo.ServiceInfo{
 		Name: "myservice",
+		Path: "services/myservice",
 		EnvVars: []serviceinfo.EnvVars{
 			{Name: "DATABASE_URL", Value: "postgres://localhost/db"},
 			{Name: "API_KEY", Value: "secret123"},
@@ -115,7 +117,7 @@ func TestGenerateDockerBuildCommandWithEnvVars(t *testing.T) {
 	for i, arg := range cmd {
 		if arg == "--build-arg" && i+1 < len(cmd) {
 			val := cmd[i+1]
-			if val != "SERVICE_NAME=myservice" {
+			if val != "SERVICE_NAME=services/myservice" {
 				require.Contains(t, val, "DATABASE_URL=")
 				require.Contains(t, val, "API_KEY=")
 				foundEnvArg = true

@@ -11,7 +11,7 @@ func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, template
 	cmd := []string{
 		"docker", "build",
 		"-t", imageName,
-		"--build-arg", "SERVICE_NAME=" + service.Name,
+		"--build-arg", "SERVICE_NAME=" + service.Path,
 	}
 
 	if len(service.EnvVars) > 0 {
