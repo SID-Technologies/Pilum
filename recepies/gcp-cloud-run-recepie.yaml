@@ -71,7 +71,7 @@ steps:
       - build
 
   - name: build docker image
-    execution_mode: service_dir
+    execution_mode: root
     timeout: 300
     tags:
       - build

@@ -357,3 +357,240 @@ func TestFindServicesIgnoresNonServiceFiles(t *testing.T) {
 	require.Len(t, services, 1)
 	require.Equal(t, "valid", services[0].Name)
 }
+
+func TestDefaultDiscoveryOptions(t *testing.T) {
+	t.Parallel()
+
+	opts := serviceinfo.DefaultDiscoveryOptions()
+
+	require.Equal(t, serviceinfo.DefaultMaxDepth, opts.MaxDepth)
+	require.False(t, opts.NoGitIgnore)
+}
+
+func TestFindServicesWithOptions(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create a service
+	svcDir := filepath.Join(tmpDir, "myservice")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte("name: myservice\nprovider: gcp\n"), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth:    4,
+		NoGitIgnore: false,
+	}
+
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "myservice", services[0].Name)
+}
+
+func TestFindServicesWithDepth(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create service at depth 1
+	svc1Dir := filepath.Join(tmpDir, "level1")
+	require.NoError(t, os.MkdirAll(svc1Dir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(svc1Dir, "pilum.yaml"), []byte("name: level1-svc\nprovider: gcp\n"), 0644))
+
+	// Create service at depth 3
+	svc3Dir := filepath.Join(tmpDir, "a", "b", "level3")
+	require.NoError(t, os.MkdirAll(svc3Dir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(svc3Dir, "pilum.yaml"), []byte("name: level3-svc\nprovider: gcp\n"), 0644))
+
+	// With depth 2, should only find level1
+	services, err := serviceinfo.FindServicesWithDepth(tmpDir, 2)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "level1-svc", services[0].Name)
+
+	// With depth 4, should find both
+	services, err = serviceinfo.FindServicesWithDepth(tmpDir, 4)
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+}
+
+func TestFindServicesReadsGitignore(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create .gitignore that ignores "ignored-dir"
+	gitignore := "ignored-dir\nnode_modules\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte(gitignore), 0644))
+
+	// Create service in normal directory
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in gitignored directory
+	ignoredDir := filepath.Join(tmpDir, "ignored-dir")
+	require.NoError(t, os.MkdirAll(ignoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "pilum.yaml"), []byte("name: ignored-svc\nprovider: gcp\n"), 0644))
+
+	// With default options (reads .gitignore), should only find normal-svc
+	services, err := serviceinfo.FindServices(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "normal-svc", services[0].Name)
+}
+
+func TestFindServicesNoGitIgnoreFlag(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create .gitignore that ignores "ignored-dir"
+	gitignore := "ignored-dir\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte(gitignore), 0644))
+
+	// Create service in normal directory
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in gitignored directory
+	ignoredDir := filepath.Join(tmpDir, "ignored-dir")
+	require.NoError(t, os.MkdirAll(ignoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "pilum.yaml"), []byte("name: ignored-svc\nprovider: gcp\n"), 0644))
+
+	// With NoGitIgnore=true, should find BOTH services
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth:    serviceinfo.DefaultMaxDepth,
+		NoGitIgnore: true,
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+
+	names := make(map[string]bool)
+	for _, svc := range services {
+		names[svc.Name] = true
+	}
+	require.True(t, names["normal-svc"])
+	require.True(t, names["ignored-svc"])
+}
+
+func TestFindServicesReadsPilumignore(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create .pilumignore that ignores "local-only"
+	pilumignore := "local-only\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".pilumignore"), []byte(pilumignore), 0644))
+
+	// Create service in normal directory
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in pilumignored directory
+	ignoredDir := filepath.Join(tmpDir, "local-only")
+	require.NoError(t, os.MkdirAll(ignoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "pilum.yaml"), []byte("name: local-svc\nprovider: gcp\n"), 0644))
+
+	// Should only find normal-svc
+	services, err := serviceinfo.FindServices(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "normal-svc", services[0].Name)
+}
+
+func TestFindServicesCombinesGitignoreAndPilumignore(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create .gitignore
+	gitignore := "git-ignored\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte(gitignore), 0644))
+
+	// Create .pilumignore
+	pilumignore := "pilum-ignored\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".pilumignore"), []byte(pilumignore), 0644))
+
+	// Create service in normal directory
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in gitignored directory
+	gitIgnoredDir := filepath.Join(tmpDir, "git-ignored")
+	require.NoError(t, os.MkdirAll(gitIgnoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitIgnoredDir, "pilum.yaml"), []byte("name: git-ignored-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in pilumignored directory
+	pilumIgnoredDir := filepath.Join(tmpDir, "pilum-ignored")
+	require.NoError(t, os.MkdirAll(pilumIgnoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(pilumIgnoredDir, "pilum.yaml"), []byte("name: pilum-ignored-svc\nprovider: gcp\n"), 0644))
+
+	// Should only find normal-svc (both ignore files are combined)
+	services, err := serviceinfo.FindServices(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "normal-svc", services[0].Name)
+}
+
+func TestFindServicesFallbackIgnorePatterns(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// No .gitignore or .pilumignore - should use fallback patterns
+
+	// Create service in normal directory
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in node_modules (should be ignored by fallback)
+	nodeModulesDir := filepath.Join(tmpDir, "node_modules", "some-pkg")
+	require.NoError(t, os.MkdirAll(nodeModulesDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(nodeModulesDir, "pilum.yaml"), []byte("name: npm-svc\nprovider: gcp\n"), 0644))
+
+	// Create service in .git (should be ignored by fallback)
+	gitDir := filepath.Join(tmpDir, ".git", "hooks")
+	require.NoError(t, os.MkdirAll(gitDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(gitDir, "pilum.yaml"), []byte("name: git-svc\nprovider: gcp\n"), 0644))
+
+	// Should only find normal-svc
+	services, err := serviceinfo.FindServices(tmpDir)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "normal-svc", services[0].Name)
+}
+
+func TestFilterOptionsNoGitIgnore(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create .gitignore
+	gitignore := "ignored-dir\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte(gitignore), 0644))
+
+	// Create services
+	normalDir := filepath.Join(tmpDir, "normal")
+	require.NoError(t, os.MkdirAll(normalDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(normalDir, "pilum.yaml"), []byte("name: normal-svc\nprovider: gcp\n"), 0644))
+
+	ignoredDir := filepath.Join(tmpDir, "ignored-dir")
+	require.NoError(t, os.MkdirAll(ignoredDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(ignoredDir, "pilum.yaml"), []byte("name: ignored-svc\nprovider: gcp\n"), 0644))
+
+	// Test with NoGitIgnore in FilterOptions
+	opts := serviceinfo.FilterOptions{
+		NoGitIgnore: true,
+	}
+	services, err := serviceinfo.FindAndFilterServicesWithOptions(tmpDir, opts)
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+}

@@ -14,9 +14,10 @@ var configFile string
 
 // Output mode flags
 var (
-	verboseFlag bool
-	quietFlag   bool
-	jsonFlag    bool
+	verboseFlag     bool
+	quietFlag       bool
+	jsonFlag        bool
+	noGitIgnoreFlag bool
 )
 
 // version is set at build time via ldflags:
@@ -63,6 +64,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Stream command output in real-time")
 	rootCmd.PersistentFlags().BoolVarP(&quietFlag, "quiet", "q", false, "Minimal output (CI-friendly)")
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON for scripting")
+	rootCmd.PersistentFlags().BoolVar(&noGitIgnoreFlag, "no-gitignore", false, "Don't read .gitignore for ignore patterns")
 
 	// Mark flags as mutually exclusive
 	rootCmd.MarkFlagsMutuallyExclusive("verbose", "quiet", "json")
@@ -92,4 +94,9 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		output.Debugf("Using configuration file: %s", viper.ConfigFileUsed())
 	}
+}
+
+// NoGitIgnore returns whether the --no-gitignore flag is set.
+func NoGitIgnore() bool {
+	return noGitIgnoreFlag
 }

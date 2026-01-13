@@ -21,6 +21,7 @@ type FilterOptions struct {
 	Names       []string // Service names to filter by
 	OnlyChanged bool     // Only include services with git changes
 	Since       string   // Git ref to compare against (default: main/master)
+	NoGitIgnore bool     // Skip reading .gitignore patterns
 }
 
 func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) {
@@ -28,7 +29,10 @@ func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) 
 }
 
 func FindAndFilterServicesWithOptions(root string, opts FilterOptions) ([]ServiceInfo, error) {
-	services, err := FindServices(root)
+	discoveryOpts := DefaultDiscoveryOptions()
+	discoveryOpts.NoGitIgnore = opts.NoGitIgnore
+
+	services, err := FindServicesWithOptions(root, discoveryOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "error finding services")
 	}
@@ -132,13 +136,47 @@ func FilterByChanges(services []ServiceInfo, since string) ([]ServiceInfo, error
 	return changed, nil
 }
 
+// DefaultMaxDepth is the default maximum directory depth to search for services.
+// This matches the Python implementation's default of 3, with +1 to account for
+// the pilum.yaml file itself being one level deeper.
+const DefaultMaxDepth = 4
+
+// DiscoveryOptions configures service discovery behavior.
+type DiscoveryOptions struct {
+	MaxDepth    int  // Maximum directory depth (-1 for unlimited)
+	NoGitIgnore bool // Skip reading .gitignore patterns
+}
+
+// DefaultDiscoveryOptions returns the default discovery options.
+func DefaultDiscoveryOptions() DiscoveryOptions {
+	return DiscoveryOptions{
+		MaxDepth:    DefaultMaxDepth,
+		NoGitIgnore: false,
+	}
+}
+
+// FindServices searches for pilum.yaml files with default options.
 func FindServices(root string) ([]ServiceInfo, error) {
+	return FindServicesWithOptions(root, DefaultDiscoveryOptions())
+}
+
+// FindServicesWithDepth searches for pilum.yaml files up to the specified depth.
+// A maxDepth of 0 means only search the root directory.
+// A maxDepth of -1 means unlimited depth.
+func FindServicesWithDepth(root string, maxDepth int) ([]ServiceInfo, error) {
+	opts := DefaultDiscoveryOptions()
+	opts.MaxDepth = maxDepth
+	return FindServicesWithOptions(root, opts)
+}
+
+// FindServicesWithOptions searches for pilum.yaml files with the given options.
+func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo, error) {
 	var services []ServiceInfo
 
-	// Load ignore patterns from .pilumignore
-	ignorePatterns := loadIgnorePatterns(root)
+	// Load ignore patterns
+	ignorePatterns := loadIgnorePatterns(root, opts.NoGitIgnore)
 	if len(ignorePatterns) > 0 {
-		output.Debugf("Loaded %d ignore patterns from .pilumignore", len(ignorePatterns))
+		output.Debugf("Loaded %d ignore patterns", len(ignorePatterns))
 	}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -146,11 +184,22 @@ func FindServices(root string) ([]ServiceInfo, error) {
 			return errors.Wrap(err, "error walking %s", path)
 		}
 
-		// Get path relative to root for pattern matching
+		// Get path relative to root for pattern matching and depth calculation
 		relPath, _ := filepath.Rel(root, path)
 
-		// Skip ignored directories entirely
+		// Calculate current depth (root = 0, immediate children = 1, etc.)
+		depth := 0
+		if relPath != "." {
+			depth = strings.Count(relPath, string(filepath.Separator)) + 1
+		}
+
+		// Skip directories entirely if we've exceeded max depth
 		if info.IsDir() {
+			// Check depth limit first (most common case for skipping)
+			if opts.MaxDepth >= 0 && depth > opts.MaxDepth {
+				return filepath.SkipDir
+			}
+
 			if shouldIgnore(relPath, ignorePatterns) {
 				output.Debugf("Ignoring directory: %s", relPath)
 				return filepath.SkipDir
@@ -201,18 +250,46 @@ func FindServices(root string) ([]ServiceInfo, error) {
 	return services, nil
 }
 
-// loadIgnorePatterns reads patterns from .pilumignore file.
+// fallbackIgnorePatterns are used when neither .gitignore nor .pilumignore exist.
+var fallbackIgnorePatterns = []string{
+	"node_modules",
+	".git",
+	"vendor",
+}
+
+// loadIgnorePatterns reads patterns from .gitignore and .pilumignore files.
+// .gitignore provides the base patterns, .pilumignore adds project-specific overrides.
+// If noGitIgnore is true, .gitignore is skipped.
 // Supports:
 // - Directory names: "examples" matches any path containing "examples"
 // - Paths: "examples/" matches the examples directory at root
 // - Globs: "test-*" matches directories starting with "test-"
 // - Comments: lines starting with # are ignored
 // - Blank lines are ignored
-func loadIgnorePatterns(root string) []string {
-	ignoreFile := filepath.Join(root, ".pilumignore")
-	file, err := os.Open(ignoreFile)
+func loadIgnorePatterns(root string, noGitIgnore bool) []string {
+	var patterns []string
+
+	// Load from .gitignore first (base patterns) unless disabled
+	if !noGitIgnore {
+		patterns = append(patterns, loadPatternsFromFile(filepath.Join(root, ".gitignore"))...)
+	}
+
+	// Load from .pilumignore (overrides/additions)
+	patterns = append(patterns, loadPatternsFromFile(filepath.Join(root, ".pilumignore"))...)
+
+	// If no patterns loaded, use fallback defaults
+	if len(patterns) == 0 {
+		return fallbackIgnorePatterns
+	}
+
+	return patterns
+}
+
+// loadPatternsFromFile reads ignore patterns from a file.
+func loadPatternsFromFile(path string) []string {
+	file, err := os.Open(path)
 	if err != nil {
-		return nil // No .pilumignore file
+		return nil
 	}
 	defer file.Close()
 
@@ -222,6 +299,10 @@ func loadIgnorePatterns(root string) []string {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Skip negation patterns (e.g., !important.log) - we don't support these
+		if strings.HasPrefix(line, "!") {
 			continue
 		}
 		patterns = append(patterns, line)
