@@ -136,6 +136,8 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 			provider = "homebrew"
 		case "npm":
 			provider = "npm"
+		case "cloudflare-pages", "cloudflare":
+			provider = "cloudflare"
 		default:
 			// Unknown template type, leave provider empty
 		}

@@ -24,6 +24,10 @@ providers:
   npm:
     name: npm
     services: []
+  cloudflare:
+    name: Cloudflare
+    services:
+      - pages
   # Test providers for unit tests
   test:
     name: Test Provider

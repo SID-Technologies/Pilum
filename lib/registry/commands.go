@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sid-technologies/pilum/ingredients/build"
+	"github.com/sid-technologies/pilum/ingredients/cloudflare"
 	"github.com/sid-technologies/pilum/ingredients/docker"
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/ingredients/homebrew"
@@ -17,6 +18,7 @@ func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerGCPCloudRunJobHandlers(reg)
 	registerHomebrewHandlers(reg)
 	registerNpmHandlers(reg)
+	registerCloudflareHandlers(reg)
 }
 
 // registerGCPCloudRunHandlers registers handlers for GCP Cloud Run recipe steps.
@@ -114,5 +116,24 @@ func registerNpmHandlers(reg *CommandRegistry) {
 	// Step 4: Publish to npm registry
 	reg.Register("publish package", "npm", func(ctx StepContext) any {
 		return npm.GeneratePublishCommand(ctx.Service)
+	})
+}
+
+// registerCloudflareHandlers registers handlers for Cloudflare Pages recipe steps.
+// Step names must match exactly: "install dependencies", "build site", "deploy to pages".
+func registerCloudflareHandlers(reg *CommandRegistry) {
+	// Step 1: Install dependencies
+	reg.Register("install dependencies", "cloudflare", func(ctx StepContext) any {
+		return cloudflare.GenerateInstallCommand(ctx.Service)
+	})
+
+	// Step 2: Build static site (optional, returns nil if no build cmd)
+	reg.Register("build site", "cloudflare", func(ctx StepContext) any {
+		return cloudflare.GenerateBuildCommand(ctx.Service)
+	})
+
+	// Step 3: Deploy to Cloudflare Pages
+	reg.Register("deploy to pages", "cloudflare", func(ctx StepContext) any {
+		return cloudflare.GenerateDeployCommand(ctx.Service, ctx.Tag)
 	})
 }
