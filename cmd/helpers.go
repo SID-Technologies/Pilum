@@ -25,6 +25,7 @@ type deploymentOptions struct {
 	ExcludeTags []string
 	OnlyChanged bool
 	Since       string
+	NoDeps      bool
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
@@ -40,6 +41,7 @@ func getDeploymentOptions() deploymentOptions {
 		ExcludeTags: parseCommaSeparated(viper.GetString("exclude-tags")),
 		OnlyChanged: viper.GetBool("only-changed"),
 		Since:       viper.GetString("since"),
+		NoDeps:      viper.GetBool("no-deps"),
 	}
 }
 
@@ -54,6 +56,7 @@ func (o deploymentOptions) toRunnerOptions() orchestrator.RunnerOptions {
 		MaxWorkers:  o.MaxWorkers,
 		OnlyTags:    o.OnlyTags,
 		ExcludeTags: o.ExcludeTags,
+		NoDeps:      o.NoDeps,
 	}
 }
 
@@ -69,6 +72,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"exclude-tags",
 		"only-changed",
 		"since",
+		"no-deps",
 	}
 
 	for _, flag := range flagBindings {
@@ -94,6 +98,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().String("exclude-tags", "", "Exclude steps with these tags (comma-separated)")
 	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
 	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
+	cmd.Flags().Bool("no-deps", false, "Disable dependency-based deployment ordering")
 
 	if includeDryRun {
 		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")

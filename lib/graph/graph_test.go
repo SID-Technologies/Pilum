@@ -274,6 +274,153 @@ func TestValidateDependencies(t *testing.T) {
 	}
 }
 
+func TestCalculateDepths(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		nodes     map[string][]string
+		wantDepth map[string]int
+		wantErr   bool
+	}{
+		{
+			name: "simple chain A->B->C",
+			nodes: map[string][]string{
+				"A": {},
+				"B": {"A"},
+				"C": {"B"},
+			},
+			wantDepth: map[string]int{"A": 0, "B": 1, "C": 2},
+		},
+		{
+			name: "diamond A->B,C->D",
+			nodes: map[string][]string{
+				"A": {},
+				"B": {"A"},
+				"C": {"A"},
+				"D": {"B", "C"},
+			},
+			wantDepth: map[string]int{"A": 0, "B": 1, "C": 1, "D": 2},
+		},
+		{
+			name: "no dependencies",
+			nodes: map[string][]string{
+				"A": {},
+				"B": {},
+				"C": {},
+			},
+			wantDepth: map[string]int{"A": 0, "B": 0, "C": 0},
+		},
+		{
+			name: "complex multi-level",
+			nodes: map[string][]string{
+				"A": {},
+				"B": {"A"},
+				"C": {"A"},
+				"D": {"B"},
+				"E": {"C", "D"},
+			},
+			wantDepth: map[string]int{"A": 0, "B": 1, "C": 1, "D": 2, "E": 3},
+		},
+		{
+			name: "asymmetric diamond",
+			nodes: map[string][]string{
+				"A": {},
+				"B": {"A"},
+				"C": {"B"},
+				"D": {"A", "C"},
+			},
+			// D depends on A (depth 0) and C (depth 2), so D = max(0,2)+1 = 3
+			wantDepth: map[string]int{"A": 0, "B": 1, "C": 2, "D": 3},
+		},
+		{
+			name: "wide tree all depend on root",
+			nodes: map[string][]string{
+				"root": {},
+				"a":    {"root"},
+				"b":    {"root"},
+				"c":    {"root"},
+				"d":    {"root"},
+			},
+			wantDepth: map[string]int{"root": 0, "a": 1, "b": 1, "c": 1, "d": 1},
+		},
+		{
+			name: "deep chain 5 levels",
+			nodes: map[string][]string{
+				"L0": {},
+				"L1": {"L0"},
+				"L2": {"L1"},
+				"L3": {"L2"},
+				"L4": {"L3"},
+			},
+			wantDepth: map[string]int{"L0": 0, "L1": 1, "L2": 2, "L3": 3, "L4": 4},
+		},
+		{
+			name: "single node",
+			nodes: map[string][]string{
+				"only": {},
+			},
+			wantDepth: map[string]int{"only": 0},
+		},
+		{
+			name: "circular dependency",
+			nodes: map[string][]string{
+				"A": {"B"},
+				"B": {"C"},
+				"C": {"A"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "external deps not in graph treated as depth 0",
+			nodes: map[string][]string{
+				"A": {"external-service"},
+				"B": {"A"},
+			},
+			// "external-service" is not in graph, so A's dep on it is ignored → A depth 0
+			wantDepth: map[string]int{"A": 0, "B": 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			g := New()
+			for name, deps := range tt.nodes {
+				g.AddNode(name, deps)
+			}
+
+			depths, err := g.CalculateDepths()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("CalculateDepths() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("CalculateDepths() unexpected error: %v", err)
+				return
+			}
+
+			if len(depths) != len(tt.wantDepth) {
+				t.Errorf("CalculateDepths() returned %d depths, want %d", len(depths), len(tt.wantDepth))
+				return
+			}
+
+			for name, wantD := range tt.wantDepth {
+				if gotD, ok := depths[name]; !ok {
+					t.Errorf("CalculateDepths() missing depth for %s", name)
+				} else if gotD != wantD {
+					t.Errorf("CalculateDepths()[%s] = %d, want %d", name, gotD, wantD)
+				}
+			}
+		})
+	}
+}
+
 func TestNodeCount(t *testing.T) {
 	g := New()
 	if g.NodeCount() != 0 {
