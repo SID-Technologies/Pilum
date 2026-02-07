@@ -103,6 +103,45 @@ func MapFromAny(v any) map[string]any {
 	return map[string]any{}
 }
 
+// DeepMerge merges src into dst recursively, returning a new map.
+// Scalars: src overrides dst. Maps: recursively merged. Slices: src replaces dst.
+// Keys in src not in dst are added. Keys in dst not in src are preserved.
+func DeepMerge(dst, src map[string]any) map[string]any {
+	result := make(map[string]any, len(dst))
+
+	for k, v := range dst {
+		result[k] = v
+	}
+
+	for k, srcVal := range src {
+		dstVal, exists := result[k]
+		if !exists {
+			result[k] = srcVal
+			continue
+		}
+
+		if isMap(srcVal) && isMap(dstVal) {
+			result[k] = DeepMerge(MapFromAny(dstVal), MapFromAny(srcVal))
+		} else {
+			result[k] = srcVal
+		}
+	}
+
+	return result
+}
+
+// isMap returns true if the value is a map type (map[string]any or map[any]any from yaml.v2).
+func isMap(v any) bool {
+	switch v.(type) {
+	case map[string]any:
+		return true
+	case map[any]any:
+		return true
+	default:
+		return false
+	}
+}
+
 // GetNestedString extracts a string value from a nested map structure.
 // e.g., GetNestedString(config, "homebrew", "project_url") returns config["homebrew"]["project_url"]
 func GetNestedString(config map[string]any, keys ...string) string {

@@ -17,11 +17,18 @@ func CheckCmd() *cobra.Command {
 		Aliases: []string{"validate"},
 		Short:   "Check the configuration of the services",
 		Long:    "Check the configuration of the services against their recipe requirements. Optionally specify service names to check only those services.",
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			output.Info("Checking configuration of the services")
 
+			env, _ := cmd.Flags().GetString("env")
+
 			// Find services
-			services, err := serviceinfo.FindAndFilterServices(".", args)
+			filterOpts := serviceinfo.FilterOptions{
+				Names:       args,
+				NoGitIgnore: NoGitIgnore(),
+				Env:         env,
+			}
+			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
 				return errors.Wrap(err, "error finding services")
 			}
@@ -82,6 +89,8 @@ func CheckCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 
 	return cmd
 }

@@ -302,6 +302,144 @@ func TestMapFromAny(t *testing.T) {
 	}
 }
 
+func TestDeepMerge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dst      map[string]any
+		src      map[string]any
+		expected map[string]any
+	}{
+		{
+			name:     "scalar override",
+			dst:      map[string]any{"project": "acme-dev", "region": "us-central1"},
+			src:      map[string]any{"project": "acme-prod"},
+			expected: map[string]any{"project": "acme-prod", "region": "us-central1"},
+		},
+		{
+			name: "deep merge nested maps",
+			dst: map[string]any{
+				"cloud_run": map[string]any{
+					"min_instances": 0,
+					"max_instances": 10,
+				},
+			},
+			src: map[string]any{
+				"cloud_run": map[string]any{
+					"min_instances": 2,
+				},
+			},
+			expected: map[string]any{
+				"cloud_run": map[string]any{
+					"min_instances": 2,
+					"max_instances": 10,
+				},
+			},
+		},
+		{
+			name: "slice replacement",
+			dst: map[string]any{
+				"depends_on": []any{"svc-a", "svc-b"},
+			},
+			src: map[string]any{
+				"depends_on": []any{"svc-c"},
+			},
+			expected: map[string]any{
+				"depends_on": []any{"svc-c"},
+			},
+		},
+		{
+			name:     "new key added",
+			dst:      map[string]any{"name": "api"},
+			src:      map[string]any{"extra": "value"},
+			expected: map[string]any{"name": "api", "extra": "value"},
+		},
+		{
+			name:     "empty src returns dst copy",
+			dst:      map[string]any{"name": "api"},
+			src:      map[string]any{},
+			expected: map[string]any{"name": "api"},
+		},
+		{
+			name:     "empty dst returns src copy",
+			dst:      map[string]any{},
+			src:      map[string]any{"name": "api"},
+			expected: map[string]any{"name": "api"},
+		},
+		{
+			name: "yaml.v2 map[any]any in nested src",
+			dst: map[string]any{
+				"cloud_run": map[string]any{"min_instances": 0},
+			},
+			src: map[string]any{
+				"cloud_run": map[any]any{"min_instances": 5},
+			},
+			expected: map[string]any{
+				"cloud_run": map[string]any{"min_instances": 5},
+			},
+		},
+		{
+			name: "regions array replaced entirely",
+			dst: map[string]any{
+				"regions": []any{"us-central1", "us-east1"},
+			},
+			src: map[string]any{
+				"regions": []any{"eu-west1"},
+			},
+			expected: map[string]any{
+				"regions": []any{"eu-west1"},
+			},
+		},
+		{
+			name: "multi-level nesting",
+			dst: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"a": "original",
+						"b": "kept",
+					},
+				},
+			},
+			src: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"a": "overridden",
+					},
+				},
+			},
+			expected: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"a": "overridden",
+						"b": "kept",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := configutil.DeepMerge(tt.dst, tt.src)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDeepMergeDoesNotMutateDst(t *testing.T) {
+	t.Parallel()
+
+	dst := map[string]any{"project": "dev", "region": "us-central1"}
+	src := map[string]any{"project": "prod"}
+
+	result := configutil.DeepMerge(dst, src)
+
+	require.Equal(t, "prod", result["project"])
+	require.Equal(t, "dev", dst["project"]) // original unchanged
+}
+
 func TestGetNestedString(t *testing.T) {
 	t.Parallel()
 

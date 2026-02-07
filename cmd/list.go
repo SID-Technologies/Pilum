@@ -13,14 +13,17 @@ func ListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all discovered services",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := path.FindProjectRoot()
 			if err != nil {
 				return errors.Wrap(err, "error finding project root")
 			}
 
+			env, _ := cmd.Flags().GetString("env")
+
 			opts := serviceinfo.DefaultDiscoveryOptions()
 			opts.NoGitIgnore = NoGitIgnore()
+			opts.Env = env
 
 			services, err := serviceinfo.FindServicesWithOptions(root, opts)
 			if err != nil {
@@ -37,6 +40,8 @@ func ListCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 
 	return cmd
 }
