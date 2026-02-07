@@ -7,6 +7,7 @@ import (
 	"github.com/sid-technologies/pilum/ingredients/docker"
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/ingredients/homebrew"
+	"github.com/sid-technologies/pilum/ingredients/npm"
 )
 
 // RegisterDefaultHandlers registers all built-in step handlers.
@@ -15,6 +16,7 @@ func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerGCPCloudRunHandlers(reg)
 	registerGCPCloudRunJobHandlers(reg)
 	registerHomebrewHandlers(reg)
+	registerNpmHandlers(reg)
 }
 
 // registerGCPCloudRunHandlers registers handlers for GCP Cloud Run recipe steps.
@@ -88,5 +90,29 @@ func registerHomebrewHandlers(reg *CommandRegistry) {
 	reg.Register("push to tap", "homebrew", func(ctx StepContext) any {
 		formulaPath := fmt.Sprintf("%s/%s.rb", outputDir, ctx.Service.Name)
 		return homebrew.GenerateTapPushCommand(ctx.Service, ctx.Tag, formulaPath)
+	})
+}
+
+// registerNpmHandlers registers handlers for npm package recipe steps.
+// Step names must match exactly: "install dependencies", "set version", etc.
+func registerNpmHandlers(reg *CommandRegistry) {
+	// Step 1: Install dependencies
+	reg.Register("install dependencies", "npm", func(_ StepContext) any {
+		return npm.GenerateInstallCommand()
+	})
+
+	// Step 2: Set version from tag
+	reg.Register("set version", "npm", func(ctx StepContext) any {
+		return npm.GenerateSetVersionCommand(ctx.Tag)
+	})
+
+	// Step 3: Build package (optional, returns nil if no build cmd)
+	reg.Register("build package", "npm", func(ctx StepContext) any {
+		return npm.GenerateBuildCommand(ctx.Service)
+	})
+
+	// Step 4: Publish to npm registry
+	reg.Register("publish package", "npm", func(ctx StepContext) any {
+		return npm.GeneratePublishCommand(ctx.Service)
 	})
 }

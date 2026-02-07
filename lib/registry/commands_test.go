@@ -38,6 +38,12 @@ func TestRegisterDefaultHandlers(t *testing.T) {
 		{"update formula", "homebrew", true},
 		{"push to tap", "homebrew", true},
 
+		// npm handlers (exact step names from recipe)
+		{"install dependencies", "npm", true},
+		{"set version", "npm", true},
+		{"build package", "npm", true},
+		{"publish package", "npm", true},
+
 		// Unknown
 		{"unknown-step", "", false},
 		{"build", "", false},  // old-style partial match should NOT work
@@ -404,4 +410,118 @@ func TestProviderSpecificOverridesGeneric(t *testing.T) {
 		_, isSlice := genericResult.([]string)
 		require.True(t, isSlice, "generic build should return []string")
 	}
+}
+
+func TestNpmInstallDependenciesHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	handler, found := reg.GetHandler("install dependencies", "npm")
+	require.True(t, found)
+
+	result := handler(registry.StepContext{})
+	require.NotNil(t, result)
+
+	cmd, ok := result.([]string)
+	require.True(t, ok)
+	require.Equal(t, []string{"npm", "ci"}, cmd)
+}
+
+func TestNpmSetVersionHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Tag: "v2.1.0",
+	}
+
+	handler, found := reg.GetHandler("set version", "npm")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.NotNil(t, result)
+
+	cmd, ok := result.([]string)
+	require.True(t, ok)
+	require.Equal(t, "npm", cmd[0])
+	require.Equal(t, "version", cmd[1])
+	require.Equal(t, "2.1.0", cmd[2]) // v prefix stripped
+}
+
+func TestNpmBuildPackageHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			BuildConfig: serviceinfo.BuildConfig{
+				Cmd: "npm run build",
+			},
+		},
+	}
+
+	handler, found := reg.GetHandler("build package", "npm")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.NotNil(t, result)
+
+	cmd, ok := result.([]string)
+	require.True(t, ok)
+	require.Equal(t, "/bin/sh", cmd[0])
+	require.Equal(t, "-c", cmd[1])
+	require.Equal(t, "npm run build", cmd[2])
+}
+
+func TestNpmBuildPackageHandlerSkipsWhenNoBuildCmd(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{},
+	}
+
+	handler, found := reg.GetHandler("build package", "npm")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.Nil(t, result) // No build cmd → nil
+}
+
+func TestNpmPublishPackageHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Config: map[string]any{
+				"npm": map[string]any{
+					"scope":     "@sid-technologies",
+					"token_env": "NODE_AUTH_TOKEN",
+				},
+			},
+		},
+	}
+
+	handler, found := reg.GetHandler("publish package", "npm")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.NotNil(t, result)
+
+	cmd, ok := result.(string)
+	require.True(t, ok)
+	require.Contains(t, cmd, "npm publish")
+	require.Contains(t, cmd, "NODE_AUTH_TOKEN")
+	require.Contains(t, cmd, "@sid-technologies")
 }

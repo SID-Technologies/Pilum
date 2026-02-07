@@ -21,6 +21,9 @@ providers:
   homebrew:
     name: Homebrew
     services: []
+  npm:
+    name: npm
+    services: []
   # Test providers for unit tests
   test:
     name: Test Provider
