@@ -164,6 +164,33 @@ func (o *OutputManager) PrintDryRun(serviceName, stepName string, command any) {
 	}
 }
 
+// PrintWaveHeader prints a wave sub-header within a step.
+func (o *OutputManager) PrintWaveHeader(waveNum, totalWaves int) {
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	fmt.Printf("  %sWave %d/%d:%s\n", colorMuted, waveNum, totalWaves, colorReset)
+}
+
+// PrintSkippedDependency prints a message when a service is skipped due to a failed dependency.
+func (o *OutputManager) PrintSkippedDependency(serviceName, failedDep string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	o.serviceState[serviceName] = "skipped"
+	if output.IsQuiet() || output.IsJSON() {
+		return
+	}
+	padded := o.padName(serviceName)
+	fmt.Printf("  %s%s%s %s %s(dependency %s failed)%s\n",
+		colorWarning, symbolSkipped, colorReset,
+		padded,
+		colorMuted, failedDep, colorReset)
+}
+
 // PrintInfo prints an info message.
 func (o *OutputManager) PrintInfo(message string) {
 	if output.IsQuiet() || output.IsJSON() {

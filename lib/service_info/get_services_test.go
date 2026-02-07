@@ -309,6 +309,163 @@ func TestListServicesNil(t *testing.T) {
 	})
 }
 
+func TestCalculateWaves(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		services   []serviceinfo.ServiceInfo
+		wantWaves  int // 0 means nil return (flat parallel)
+		wantErr    bool
+		checkWaves func(t *testing.T, waves [][]serviceinfo.ServiceInfo)
+	}{
+		{
+			name: "no dependencies returns nil",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "a", Provider: "gcp"},
+				{Name: "b", Provider: "gcp"},
+			},
+			wantWaves: 0,
+		},
+		{
+			name:      "empty services returns nil",
+			services:  nil,
+			wantWaves: 0,
+		},
+		{
+			name: "single dependency creates two waves",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "db", Provider: "gcp"},
+				{Name: "api", Provider: "gcp", DependsOn: []string{"db"}},
+			},
+			wantWaves: 2,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				require.Len(t, waves[0], 1)
+				require.Equal(t, "db", waves[0][0].Name)
+				require.Len(t, waves[1], 1)
+				require.Equal(t, "api", waves[1][0].Name)
+			},
+		},
+		{
+			name: "diamond creates three waves",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "base", Provider: "gcp"},
+				{Name: "auth", Provider: "gcp", DependsOn: []string{"base"}},
+				{Name: "users", Provider: "gcp", DependsOn: []string{"base"}},
+				{Name: "gateway", Provider: "gcp", DependsOn: []string{"auth", "users"}},
+			},
+			wantWaves: 3,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				require.Len(t, waves[0], 1)
+				require.Equal(t, "base", waves[0][0].Name)
+				require.Len(t, waves[1], 2) // auth and users
+				require.Len(t, waves[2], 1)
+				require.Equal(t, "gateway", waves[2][0].Name)
+			},
+		},
+		{
+			name: "linear chain creates N waves",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "a", Provider: "gcp"},
+				{Name: "b", Provider: "gcp", DependsOn: []string{"a"}},
+				{Name: "c", Provider: "gcp", DependsOn: []string{"b"}},
+				{Name: "d", Provider: "gcp", DependsOn: []string{"c"}},
+			},
+			wantWaves: 4,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				require.Len(t, waves[0], 1)
+				require.Equal(t, "a", waves[0][0].Name)
+				require.Len(t, waves[3], 1)
+				require.Equal(t, "d", waves[3][0].Name)
+			},
+		},
+		{
+			name: "all depend on one root creates two waves",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "root", Provider: "gcp"},
+				{Name: "svc1", Provider: "gcp", DependsOn: []string{"root"}},
+				{Name: "svc2", Provider: "gcp", DependsOn: []string{"root"}},
+				{Name: "svc3", Provider: "gcp", DependsOn: []string{"root"}},
+			},
+			wantWaves: 2,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				require.Len(t, waves[0], 1)
+				require.Equal(t, "root", waves[0][0].Name)
+				require.Len(t, waves[1], 3)
+			},
+		},
+		{
+			name: "mixed deps and no-deps",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "independent", Provider: "gcp"},
+				{Name: "base", Provider: "gcp"},
+				{Name: "dependent", Provider: "gcp", DependsOn: []string{"base"}},
+			},
+			wantWaves: 2,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				// Wave 0: independent + base (both depth 0)
+				require.Len(t, waves[0], 2)
+				// Wave 1: dependent
+				require.Len(t, waves[1], 1)
+				require.Equal(t, "dependent", waves[1][0].Name)
+			},
+		},
+		{
+			name: "services with external deps not in set go to wave 0",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "svc", Provider: "gcp", DependsOn: []string{"external-not-in-set"}},
+				{Name: "other", Provider: "gcp", DependsOn: []string{"svc"}},
+			},
+			wantWaves: 2,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				// svc depends only on external (not in graph) → depth 0
+				require.Len(t, waves[0], 1)
+				require.Equal(t, "svc", waves[0][0].Name)
+				require.Len(t, waves[1], 1)
+				require.Equal(t, "other", waves[1][0].Name)
+			},
+		},
+		{
+			name: "multi-region services in same wave",
+			services: []serviceinfo.ServiceInfo{
+				{Name: "db", Provider: "gcp", Region: "us-central1"},
+				{Name: "api", Provider: "gcp", Region: "us-central1", DependsOn: []string{"db"}, IsMultiRegion: true},
+				{Name: "api", Provider: "gcp", Region: "us-east1", DependsOn: []string{"db"}, IsMultiRegion: true},
+			},
+			wantWaves: 2,
+			checkWaves: func(t *testing.T, waves [][]serviceinfo.ServiceInfo) {
+				require.Len(t, waves[0], 1) // db
+				require.Len(t, waves[1], 2) // both api regions
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			waves, err := serviceinfo.CalculateWaves(tt.services)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			if tt.wantWaves == 0 {
+				require.Nil(t, waves)
+				return
+			}
+
+			require.Len(t, waves, tt.wantWaves)
+			if tt.checkWaves != nil {
+				tt.checkWaves(t, waves)
+			}
+		})
+	}
+}
+
 func TestFindServicesWithBuildConfig(t *testing.T) {
 	t.Parallel()
 

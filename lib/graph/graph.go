@@ -161,6 +161,61 @@ func (g *Graph) ValidateDependencies() error {
 	return nil
 }
 
+// CalculateDepths returns the dependency depth of each node.
+// Depth 0 = no in-graph dependencies.
+// Depth N = max(dependency depths) + 1.
+// Dependencies outside the graph are ignored (treated as satisfied).
+// Returns an error if a circular dependency is detected.
+func (g *Graph) CalculateDepths() (map[string]int, error) {
+	depths := make(map[string]int, len(g.nodes))
+	inProgress := make(map[string]bool)
+
+	for name := range g.nodes {
+		if _, err := g.calculateNodeDepth(name, depths, inProgress); err != nil {
+			return nil, err
+		}
+	}
+	return depths, nil
+}
+
+func (g *Graph) calculateNodeDepth(name string, cache map[string]int, inProgress map[string]bool) (int, error) {
+	if d, ok := cache[name]; ok {
+		return d, nil
+	}
+	if inProgress[name] {
+		return 0, errors.New("circular dependency detected involving: %s", name)
+	}
+
+	node, exists := g.nodes[name]
+	if !exists {
+		cache[name] = 0
+		return 0, nil
+	}
+
+	inProgress[name] = true
+	maxDep := -1
+	for _, dep := range node.DependsOn {
+		if _, inGraph := g.nodes[dep]; !inGraph {
+			continue // External dep, treat as already satisfied
+		}
+		depDepth, err := g.calculateNodeDepth(dep, cache, inProgress)
+		if err != nil {
+			return 0, err
+		}
+		if depDepth > maxDep {
+			maxDep = depDepth
+		}
+	}
+	delete(inProgress, name)
+
+	depth := 0
+	if maxDep >= 0 {
+		depth = maxDep + 1
+	}
+	cache[name] = depth
+	return depth, nil
+}
+
 // HasNode returns true if the graph contains a node with the given name.
 func (g *Graph) HasNode(name string) bool {
 	_, exists := g.nodes[name]

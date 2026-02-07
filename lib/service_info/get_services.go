@@ -471,6 +471,59 @@ func BuildDependencyGraph(services []ServiceInfo) *graph.Graph {
 	return g
 }
 
+// CalculateWaves groups services into deployment waves based on dependency depth.
+// Wave 0 contains services with no in-set dependencies, wave 1 contains services
+// whose dependencies are all in wave 0, etc.
+// Returns nil, nil if no services have dependencies (caller should use flat parallel).
+func CalculateWaves(services []ServiceInfo) ([][]ServiceInfo, error) {
+	if len(services) == 0 {
+		return nil, nil
+	}
+
+	// Check if any service has dependencies - if not, return nil (flat parallel)
+	hasDeps := false
+	for _, svc := range services {
+		if len(svc.DependsOn) > 0 {
+			hasDeps = true
+			break
+		}
+	}
+	if !hasDeps {
+		return nil, nil
+	}
+
+	// Build graph using unique names only
+	g := graph.New()
+	for _, svc := range services {
+		if !g.HasNode(svc.Name) {
+			g.AddNode(svc.Name, svc.DependsOn)
+		}
+	}
+
+	// Calculate depths
+	depths, err := g.CalculateDepths()
+	if err != nil {
+		return nil, err
+	}
+
+	// Find max depth to size the waves slice
+	maxDepth := 0
+	for _, d := range depths {
+		if d > maxDepth {
+			maxDepth = d
+		}
+	}
+
+	// Group services by depth
+	waves := make([][]ServiceInfo, maxDepth+1)
+	for _, svc := range services {
+		d := depths[svc.Name]
+		waves[d] = append(waves[d], svc)
+	}
+
+	return waves, nil
+}
+
 func ListServices(services []*ServiceInfo) {
 	output.Header("Found %d services:", len(services))
 	for _, svc := range services {
