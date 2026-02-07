@@ -88,6 +88,18 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		"homebrew.token_env": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "homebrew", "token_env")
 		},
+		"npm.scope": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "npm", "scope")
+		},
+		"npm.registry": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "npm", "registry")
+		},
+		"npm.token_env": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "npm", "token_env")
+		},
+		"npm.access": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "npm", "access")
+		},
 	}
 
 	if getter, exists := fieldMap[fieldName]; exists {

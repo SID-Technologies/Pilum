@@ -1,0 +1,54 @@
+name: npm
+description: Build and publish npm package to a registry
+provider: npm
+service: package
+
+required_fields:
+  - name: name
+    description: Package name
+    type: string
+  - name: npm.scope
+    description: npm scope (e.g., @sid-technologies)
+    type: string
+  - name: npm.token_env
+    description: Environment variable name containing the auth token
+    type: string
+
+optional_fields:
+  - name: npm.registry
+    description: npm registry URL
+    type: string
+    default: "https://npm.pkg.github.com"
+  - name: npm.access
+    description: Package access level (restricted or public)
+    type: string
+    default: "restricted"
+
+steps:
+  # Step 1: Install dependencies from lockfile
+  - name: install dependencies
+    execution_mode: service_dir
+    timeout: 120
+    tags:
+      - build
+
+  # Step 2: Set package version from release tag
+  - name: set version
+    execution_mode: service_dir
+    timeout: 30
+    tags:
+      - build
+
+  # Step 3: Build package (optional, skipped if no build cmd)
+  - name: build package
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # Step 4: Publish to npm registry
+  - name: publish package
+    execution_mode: service_dir
+    timeout: 120
+    tags:
+      - deploy

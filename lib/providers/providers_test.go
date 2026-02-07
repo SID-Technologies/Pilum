@@ -19,6 +19,7 @@ func TestIsValidProvider(t *testing.T) {
 		{"aws", true},
 		{"azure", true},
 		{"homebrew", true},
+		{"npm", true},
 		{"invalid", false},
 		{"", false},
 	}
@@ -48,6 +49,8 @@ func TestIsValidService(t *testing.T) {
 		{"aws ecs", "aws", "ecs", true},
 		{"homebrew empty", "homebrew", "", true},
 		{"homebrew with service", "homebrew", "something", false},
+		{"npm empty", "npm", "", true},
+		{"npm with service", "npm", "something", false},
 		{"invalid provider", "invalid", "cloud-run", false},
 	}
 
@@ -68,6 +71,7 @@ func TestGetProviders(t *testing.T) {
 	require.Contains(t, providerList, "aws")
 	require.Contains(t, providerList, "azure")
 	require.Contains(t, providerList, "homebrew")
+	require.Contains(t, providerList, "npm")
 }
 
 func TestGetServices(t *testing.T) {
@@ -85,6 +89,9 @@ func TestGetServices(t *testing.T) {
 	homebrewServices := providers.GetServices("homebrew")
 	require.Empty(t, homebrewServices)
 
+	npmServices := providers.GetServices("npm")
+	require.Empty(t, npmServices)
+
 	invalidServices := providers.GetServices("invalid")
 	require.Nil(t, invalidServices)
 }
@@ -99,6 +106,7 @@ func TestGetAllRecipeKeys(t *testing.T) {
 	require.Contains(t, keys, "gcp-gke")
 	require.Contains(t, keys, "aws-lambda")
 	require.Contains(t, keys, "homebrew")
+	require.Contains(t, keys, "npm")
 }
 
 func TestGetProviderName(t *testing.T) {

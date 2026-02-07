@@ -134,6 +134,8 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 			provider = "azure"
 		case "homebrew":
 			provider = "homebrew"
+		case "npm":
+			provider = "npm"
 		default:
 			// Unknown template type, leave provider empty
 		}
