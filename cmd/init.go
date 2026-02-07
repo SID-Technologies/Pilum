@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recepie"
@@ -21,35 +23,175 @@ import (
 func InitCmd() *cobra.Command {
 	var provider string
 	var service string
+	var name string
+	var language string
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new service configuration",
-		Long:  "Interactively create a pilum.yaml file for a new service.",
+		Long: `Interactively create a pilum.yaml file for a new service.
+
+Non-interactive mode: provide --provider, --name, and --language flags
+to skip all prompts and generate directly. Useful for CI/CD and AI agents.
+
+  pilum init --provider=gcp --service=cloud-run --name=my-api --language=go
+  pilum init -p cloudflare -s pages -n my-site -l node --force`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runInit(provider, service)
+			return runInit(initOptions{
+				provider: provider,
+				service:  service,
+				name:     name,
+				language: language,
+				force:    force,
+			})
 		},
 	}
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, azure, homebrew)")
-	cmd.Flags().StringVarP(&service, "service", "s", "", "Deployment service (cloud-run, lambda, etc.)")
+	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, azure, cloudflare, homebrew, npm)")
+	cmd.Flags().StringVarP(&service, "service", "s", "", "Deployment service (cloud-run, lambda, pages, etc.)")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Service name (non-interactive mode)")
+	cmd.Flags().StringVarP(&language, "language", "l", "", "Build language (non-interactive mode)")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing pilum.yaml without prompting")
 
 	return cmd
 }
 
-func runInit(providerFlag, serviceFlag string) error {
+// initOptions holds all flags for the init command.
+type initOptions struct {
+	provider string
+	service  string
+	name     string
+	language string
+	force    bool
+}
+
+// isNonInteractive returns true when enough flags are provided to skip all prompts.
+func (o initOptions) isNonInteractive() bool {
+	return o.provider != "" && o.name != "" && o.language != ""
+}
+
+func runInit(opts initOptions) error {
+	// Non-interactive mode: skip all prompts
+	if opts.isNonInteractive() {
+		return runInitNonInteractive(opts)
+	}
+
+	return runInitInteractive(opts)
+}
+
+func runInitNonInteractive(opts initOptions) error {
+	// Validate provider
+	if !providers.IsValidProvider(opts.provider) {
+		suggestion := suggest.FormatSuggestion(opts.provider, providers.GetProviders())
+		if suggestion != "" {
+			return exitcodes.WithCode(exitcodes.InvalidArgs,
+				errors.New("unknown provider '%s' - %s", opts.provider, suggestion))
+		}
+		return exitcodes.WithCode(exitcodes.InvalidArgs,
+			errors.New("unknown provider '%s'", opts.provider))
+	}
+
+	// Validate service if provider has services and one was given
+	availableServices := providers.GetServices(opts.provider)
+	if len(availableServices) > 0 && opts.service == "" {
+		return exitcodes.WithCode(exitcodes.InvalidArgs,
+			errors.New("provider '%s' requires --service flag (options: %s)",
+				opts.provider, strings.Join(availableServices, ", ")))
+	}
+	if opts.service != "" && !providers.IsValidService(opts.provider, opts.service) {
+		suggestion := suggest.FormatSuggestion(opts.service, availableServices)
+		if suggestion != "" {
+			return exitcodes.WithCode(exitcodes.InvalidArgs,
+				errors.New("unknown service '%s' for provider '%s' - %s", opts.service, opts.provider, suggestion))
+		}
+		return exitcodes.WithCode(exitcodes.InvalidArgs,
+			errors.New("unknown service '%s' for provider '%s'", opts.service, opts.provider))
+	}
+
+	// Validate language
+	languageList := templates.GetAvailableLanguages()
+	if !slices.Contains(languageList, opts.language) {
+		suggestion := suggest.FormatSuggestion(opts.language, languageList)
+		if suggestion != "" {
+			return exitcodes.WithCode(exitcodes.InvalidArgs,
+				errors.New("unknown language '%s' - %s", opts.language, suggestion))
+		}
+		return exitcodes.WithCode(exitcodes.InvalidArgs,
+			errors.New("unknown language '%s' (available: %s)", opts.language, strings.Join(languageList, ", ")))
+	}
+
+	// Check for existing file
+	if !opts.force {
+		if _, err := os.Stat("pilum.yaml"); err == nil {
+			return exitcodes.WithCode(exitcodes.IO,
+				errors.New("pilum.yaml already exists (use --force to overwrite)"))
+		}
+	}
+
+	// Load recipes and find match
+	recipes, err := recepie.LoadEmbeddedRecipes()
+	if err != nil {
+		return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "failed to load recipes"))
+	}
+
+	recipe := findRecipeByKey(recipes, opts.provider, opts.service)
+
+	// Build values from recipe defaults
+	values := map[string]string{"name": opts.name}
+	if recipe != nil {
+		// Apply defaults from required fields
+		for _, field := range recipe.GetRequiredFields() {
+			if field.Default != "" {
+				if _, exists := values[field.Name]; !exists {
+					values[field.Name] = field.Default
+				}
+			}
+		}
+		// Apply defaults from optional fields
+		for _, field := range recipe.GetOptionalFields() {
+			if field.Default != "" {
+				values[field.Name] = field.Default
+			}
+		}
+	}
+
+	// Load build template
+	buildConfig, err := templates.GetBuildConfig(opts.language)
+	if err != nil {
+		return errors.Wrap(err, "failed to load build template for %s", opts.language)
+	}
+
+	// Generate and write
+	yaml := generateServiceYAML(opts.provider, opts.service, values, buildConfig)
+
+	if err := os.WriteFile("pilum.yaml", []byte(yaml), 0600); err != nil {
+		return exitcodes.WithCode(exitcodes.IO, errors.Wrap(err, "failed to write pilum.yaml"))
+	}
+
+	output.Success("Created pilum.yaml")
+	output.Dimmed("Run 'pilum check' to validate your configuration")
+
+	return nil
+}
+
+func runInitInteractive(opts initOptions) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Check if pilum.yaml already exists
 	if _, err := os.Stat("pilum.yaml"); err == nil {
-		output.Warning("pilum.yaml already exists in this directory")
-		overwrite, err := prompt(reader, "Overwrite? (y/N)", "n")
-		if err != nil {
-			return err
-		}
-		if strings.ToLower(overwrite) != "y" && strings.ToLower(overwrite) != "yes" {
-			output.Info("Init canceled")
-			return nil
+		if opts.force {
+			output.Warning("Overwriting existing pilum.yaml")
+		} else {
+			output.Warning("pilum.yaml already exists in this directory")
+			overwrite, promptErr := prompt(reader, "Overwrite? (y/N)", "n")
+			if promptErr != nil {
+				return promptErr
+			}
+			if strings.ToLower(overwrite) != "y" && strings.ToLower(overwrite) != "yes" {
+				output.Info("Init canceled")
+				return nil
+			}
 		}
 	}
 
@@ -64,13 +206,13 @@ func runInit(providerFlag, serviceFlag string) error {
 	}
 
 	// Step 1: Select provider
-	provider, err := selectProvider(reader, providerFlag)
+	provider, err := selectProvider(reader, opts.provider)
 	if err != nil {
 		return err
 	}
 
 	// Step 2: Select service (if applicable)
-	service, err := selectService(reader, provider, serviceFlag)
+	service, err := selectService(reader, provider, opts.service)
 	if err != nil {
 		return err
 	}
@@ -91,12 +233,16 @@ func runInit(providerFlag, serviceFlag string) error {
 	// Step 4: Collect required field values
 	values := make(map[string]string)
 
-	// Always prompt for service name first
-	name, err := prompt(reader, "Service name", filepath.Base(mustGetwd()))
-	if err != nil {
-		return err
+	// Use --name flag if provided, otherwise prompt
+	if opts.name != "" {
+		values["name"] = opts.name
+	} else {
+		name, promptErr := prompt(reader, "Service name", filepath.Base(mustGetwd()))
+		if promptErr != nil {
+			return promptErr
+		}
+		values["name"] = name
 	}
-	values["name"] = name
 
 	// Prompt for required fields from recipe
 	if recipe != nil {
@@ -115,9 +261,14 @@ func runInit(providerFlag, serviceFlag string) error {
 	}
 
 	// Step 6: Select build language
-	language, err := selectLanguage(reader)
-	if err != nil {
-		return err
+	var language string
+	if opts.language != "" {
+		language = opts.language
+	} else {
+		language, err = selectLanguage(reader)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Step 7: Load build template
@@ -248,10 +399,8 @@ func selectLanguage(reader *bufio.Reader) (string, error) {
 	}
 
 	// Validate language exists
-	for _, l := range languages {
-		if l == language {
-			return language, nil
-		}
+	if slices.Contains(languages, language) {
+		return language, nil
 	}
 
 	suggestion := suggest.FormatSuggestion(language, languages)

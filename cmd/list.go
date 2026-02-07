@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/path"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
@@ -16,7 +17,8 @@ func ListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := path.FindProjectRoot()
 			if err != nil {
-				return errors.Wrap(err, "error finding project root")
+				return exitcodes.WithCode(exitcodes.NoServices,
+					errors.Wrap(err, "error finding project root"))
 			}
 
 			env, _ := cmd.Flags().GetString("env")
@@ -27,7 +29,8 @@ func ListCmd() *cobra.Command {
 
 			services, err := serviceinfo.FindServicesWithOptions(root, opts)
 			if err != nil {
-				return errors.Wrap(err, "error finding services")
+				return exitcodes.WithCode(exitcodes.NoServices,
+					errors.Wrap(err, "error finding services"))
 			}
 
 			// Convert to pointer slice for ListServices

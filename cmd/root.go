@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ func Execute() {
 	if err != nil {
 		output.Error(err.Error())
 		//nolint: revive // standard practice to use os.Exit in main package
-		os.Exit(1)
+		os.Exit(exitcodes.CodeFrom(err))
 	}
 }
 

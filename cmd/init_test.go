@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"os"
 	"strings"
 	"testing"
 
@@ -206,6 +207,218 @@ func TestInitCmdFlags(t *testing.T) {
 	serviceFlag := cmd.Flags().Lookup("service")
 	require.NotNil(t, serviceFlag)
 	require.Equal(t, "s", serviceFlag.Shorthand)
+
+	nameFlag := cmd.Flags().Lookup("name")
+	require.NotNil(t, nameFlag)
+	require.Equal(t, "n", nameFlag.Shorthand)
+
+	languageFlag := cmd.Flags().Lookup("language")
+	require.NotNil(t, languageFlag)
+	require.Equal(t, "l", languageFlag.Shorthand)
+
+	forceFlag := cmd.Flags().Lookup("force")
+	require.NotNil(t, forceFlag)
+	require.Equal(t, "f", forceFlag.Shorthand)
+}
+
+func TestInitOptionsIsNonInteractive(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		opts     initOptions
+		expected bool
+	}{
+		{
+			name:     "all flags set",
+			opts:     initOptions{provider: "gcp", name: "my-api", language: "go"},
+			expected: true,
+		},
+		{
+			name:     "with optional service",
+			opts:     initOptions{provider: "gcp", service: "cloud-run", name: "my-api", language: "go"},
+			expected: true,
+		},
+		{
+			name:     "missing provider",
+			opts:     initOptions{name: "my-api", language: "go"},
+			expected: false,
+		},
+		{
+			name:     "missing name",
+			opts:     initOptions{provider: "gcp", language: "go"},
+			expected: false,
+		},
+		{
+			name:     "missing language",
+			opts:     initOptions{provider: "gcp", name: "my-api"},
+			expected: false,
+		},
+		{
+			name:     "all empty",
+			opts:     initOptions{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.expected, tt.opts.isNonInteractive())
+		})
+	}
+}
+
+func TestRunInitNonInteractiveInvalidProvider(t *testing.T) {
+	t.Parallel()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "nonexistent",
+		name:     "my-service",
+		language: "go",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown provider 'nonexistent'")
+}
+
+func TestRunInitNonInteractiveMissingService(t *testing.T) {
+	t.Parallel()
+
+	// GCP requires a service (cloud-run, cloud-run-job, etc.)
+	err := runInitNonInteractive(initOptions{
+		provider: "gcp",
+		name:     "my-service",
+		language: "go",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires --service flag")
+}
+
+func TestRunInitNonInteractiveInvalidService(t *testing.T) {
+	t.Parallel()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "gcp",
+		service:  "nonexistent",
+		name:     "my-service",
+		language: "go",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown service 'nonexistent'")
+}
+
+func TestRunInitNonInteractiveInvalidLanguage(t *testing.T) {
+	t.Parallel()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "homebrew",
+		name:     "my-cli",
+		language: "cobol",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown language 'cobol'")
+}
+
+func TestRunInitNonInteractiveExistingFile(t *testing.T) {
+	// Not parallel: uses os.Chdir which is process-global
+
+	// Create a temp directory with a pilum.yaml
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(dir+"/pilum.yaml", []byte("name: existing"), 0600))
+
+	// Change to temp dir for test
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "homebrew",
+		name:     "my-cli",
+		language: "go",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already exists")
+}
+
+func TestRunInitNonInteractiveForceOverwrite(t *testing.T) {
+	// Not parallel: uses os.Chdir which is process-global
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(dir+"/pilum.yaml", []byte("name: existing"), 0600))
+
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "homebrew",
+		name:     "my-cli",
+		language: "go",
+		force:    true,
+	})
+
+	require.NoError(t, err)
+
+	// Verify file was overwritten
+	content, readErr := os.ReadFile(dir + "/pilum.yaml")
+	require.NoError(t, readErr)
+	require.Contains(t, string(content), "name: my-cli")
+	require.Contains(t, string(content), "provider: homebrew")
+}
+
+func TestRunInitNonInteractiveGeneratesYAML(t *testing.T) {
+	// Not parallel: uses os.Chdir which is process-global
+
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err := runInitNonInteractive(initOptions{
+		provider: "gcp",
+		service:  "cloud-run",
+		name:     "my-api",
+		language: "go",
+	})
+
+	require.NoError(t, err)
+
+	content, readErr := os.ReadFile(dir + "/pilum.yaml")
+	require.NoError(t, readErr)
+
+	yaml := string(content)
+	require.Contains(t, yaml, "name: my-api")
+	require.Contains(t, yaml, "provider: gcp")
+	require.Contains(t, yaml, "type: gcp-cloud-run")
+	require.Contains(t, yaml, "build:")
+	require.Contains(t, yaml, "language: go")
+}
+
+func TestRunInitDispatchesCorrectly(t *testing.T) {
+	// Not parallel: uses os.Chdir which is process-global
+
+	// Non-interactive: all required flags → should not need stdin
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err := runInit(initOptions{
+		provider: "homebrew",
+		name:     "my-tool",
+		language: "go",
+	})
+
+	require.NoError(t, err)
+
+	content, readErr := os.ReadFile(dir + "/pilum.yaml")
+	require.NoError(t, readErr)
+	require.Contains(t, string(content), "name: my-tool")
 }
 
 func TestGetBuildTemplates(t *testing.T) {
