@@ -100,6 +100,18 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		"npm.access": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "npm", "access")
 		},
+		"cloudflare.account_id": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "cloudflare", "account_id")
+		},
+		"cloudflare.token_env": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "cloudflare", "token_env")
+		},
+		"cloudflare.production_branch": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "cloudflare", "production_branch")
+		},
+		"cloudflare.package_manager": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "cloudflare", "package_manager")
+		},
 	}
 
 	if getter, exists := fieldMap[fieldName]; exists {

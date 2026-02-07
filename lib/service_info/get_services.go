@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/git"
 	"github.com/sid-technologies/pilum/lib/graph"
@@ -22,6 +24,7 @@ type FilterOptions struct {
 	OnlyChanged bool     // Only include services with git changes
 	Since       string   // Git ref to compare against (default: main/master)
 	NoGitIgnore bool     // Skip reading .gitignore patterns
+	Env         string   // Environment name to apply (merges overrides from environments block)
 }
 
 func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) {
@@ -31,6 +34,7 @@ func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) 
 func FindAndFilterServicesWithOptions(root string, opts FilterOptions) ([]ServiceInfo, error) {
 	discoveryOpts := DefaultDiscoveryOptions()
 	discoveryOpts.NoGitIgnore = opts.NoGitIgnore
+	discoveryOpts.Env = opts.Env
 
 	services, err := FindServicesWithOptions(root, discoveryOpts)
 	if err != nil {
@@ -143,8 +147,9 @@ const DefaultMaxDepth = 4
 
 // DiscoveryOptions configures service discovery behavior.
 type DiscoveryOptions struct {
-	MaxDepth    int  // Maximum directory depth (-1 for unlimited)
-	NoGitIgnore bool // Skip reading .gitignore patterns
+	MaxDepth    int    // Maximum directory depth (-1 for unlimited)
+	NoGitIgnore bool   // Skip reading .gitignore patterns
+	Env         string // Environment name to apply (merges overrides from environments block)
 }
 
 // DefaultDiscoveryOptions returns the default discovery options.
@@ -233,6 +238,18 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 			return errors.Wrap(err, "error parsing %s", path)
 		}
 
+		// Apply environment overrides if --env is specified
+		if opts.Env != "" {
+			mergedConfig, envErr := applyEnvironment(config, opts.Env, path)
+			if envErr != nil {
+				return envErr
+			}
+			config = mergedConfig
+		} else {
+			// Strip environments key even when no --env, so it doesn't leak into Config
+			delete(config, "environments")
+		}
+
 		svcRelPath, _ := filepath.Rel(root, filepath.Dir(path))
 		svc := NewServiceInfo(config, svcRelPath)
 
@@ -248,6 +265,42 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 	}
 
 	return services, nil
+}
+
+// applyEnvironment merges the named environment's overrides onto the base config.
+// If the service has no environments block, the config is returned unchanged (env-agnostic service).
+// If the environments block exists but the requested env is missing, an error is returned.
+// The "environments" key is always stripped from the returned config.
+func applyEnvironment(config map[string]any, envName string, yamlPath string) (map[string]any, error) {
+	envsRaw, hasEnvs := config["environments"]
+	if !hasEnvs {
+		// Service is env-agnostic — return as-is
+		return config, nil
+	}
+
+	envsMap := configutil.MapFromAny(envsRaw)
+	if len(envsMap) == 0 {
+		return nil, fmt.Errorf("error in %s: 'environments' block is empty or invalid", yamlPath)
+	}
+
+	envRaw, hasEnv := envsMap[envName]
+	if !hasEnv {
+		available := make([]string, 0, len(envsMap))
+		for k := range envsMap {
+			available = append(available, k)
+		}
+		sort.Strings(available)
+		return nil, fmt.Errorf(
+			"error in %s: environment %q not found (available: %v)",
+			yamlPath, envName, available,
+		)
+	}
+
+	envOverrides := configutil.MapFromAny(envRaw)
+	merged := configutil.DeepMerge(config, envOverrides)
+	delete(merged, "environments")
+
+	return merged, nil
 }
 
 // fallbackIgnorePatterns are used when neither .gitignore nor .pilumignore exist.

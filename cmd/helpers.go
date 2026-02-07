@@ -26,6 +26,7 @@ type deploymentOptions struct {
 	OnlyChanged bool
 	Since       string
 	NoDeps      bool
+	Env         string
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
@@ -42,6 +43,7 @@ func getDeploymentOptions() deploymentOptions {
 		OnlyChanged: viper.GetBool("only-changed"),
 		Since:       viper.GetString("since"),
 		NoDeps:      viper.GetBool("no-deps"),
+		Env:         viper.GetString("env"),
 	}
 }
 
@@ -73,6 +75,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"only-changed",
 		"since",
 		"no-deps",
+		"env",
 	}
 
 	for _, flag := range flagBindings {
@@ -99,6 +102,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
 	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
 	cmd.Flags().Bool("no-deps", false, "Disable dependency-based deployment ordering")
+	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 
 	if includeDryRun {
 		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
@@ -113,6 +117,7 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 		OnlyChanged: opts.OnlyChanged,
 		Since:       opts.Since,
 		NoGitIgnore: NoGitIgnore(),
+		Env:         opts.Env,
 	}
 
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)

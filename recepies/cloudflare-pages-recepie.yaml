@@ -1,0 +1,56 @@
+name: cloudflare-pages
+description: Build and deploy static site to Cloudflare Pages
+provider: cloudflare
+service: pages
+
+required_fields:
+  - name: name
+    description: Project name (must match Cloudflare Pages project name)
+    type: string
+  - name: cloudflare.account_id
+    description: Cloudflare account ID
+    type: string
+
+optional_fields:
+  - name: cloudflare.token_env
+    description: Environment variable name containing the Cloudflare API token
+    type: string
+    default: "CLOUDFLARE_API_TOKEN"
+  - name: cloudflare.production_branch
+    description: Branch name that triggers production deployment
+    type: string
+    default: "main"
+  - name: cloudflare.package_manager
+    description: Package manager to use (npm or pnpm)
+    type: string
+    default: "npm"
+  - name: build.output_dir
+    description: Directory containing the built static files
+    type: string
+    default: "dist"
+  - name: build.cmd
+    description: Build command to run
+    type: string
+    default: "npm run build"
+
+steps:
+  # Step 1: Install dependencies from lockfile
+  - name: install dependencies
+    execution_mode: service_dir
+    timeout: 120
+    tags:
+      - build
+
+  # Step 2: Build the static site
+  - name: build site
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # Step 3: Deploy to Cloudflare Pages
+  - name: deploy to pages
+    execution_mode: service_dir
+    timeout: 120
+    tags:
+      - deploy

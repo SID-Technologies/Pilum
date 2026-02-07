@@ -725,6 +725,242 @@ func TestFindServicesFallbackIgnorePatterns(t *testing.T) {
 	require.Equal(t, "normal-svc", services[0].Name)
 }
 
+func TestFindServicesWithEnv_ScalarOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+project: acme-dev
+region: us-central1
+environments:
+  prod:
+    project: acme-prod
+    region: us-east1
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "api", services[0].Name)
+	require.Equal(t, "acme-prod", services[0].Project)
+	require.Equal(t, "us-east1", services[0].Region)
+}
+
+func TestFindServicesWithEnv_NestedMapMerge(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+project: acme-dev
+cloud_run:
+  min_instances: 0
+  max_instances: 10
+environments:
+  prod:
+    cloud_run:
+      min_instances: 2
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	// Verify the nested map was deep-merged: min_instances overridden, max_instances preserved
+	cloudRun, ok := services[0].Config["cloud_run"].(map[string]any)
+	require.True(t, ok, "cloud_run should be map[string]any")
+	require.Equal(t, 2, cloudRun["min_instances"])
+	require.Equal(t, 10, cloudRun["max_instances"])
+}
+
+func TestFindServicesWithEnv_MissingEnvError(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+environments:
+  staging:
+    project: acme-staging
+  prod:
+    project: acme-prod
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "qa",
+	}
+	_, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `environment "qa" not found`)
+	require.Contains(t, err.Error(), "prod")
+	require.Contains(t, err.Error(), "staging")
+}
+
+func TestFindServicesWithEnv_NoEnvironmentsBlockSkipped(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "worker")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	// Service with no environments block — env-agnostic
+	content := `name: worker
+provider: gcp
+project: acme-dev
+region: us-central1
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "worker", services[0].Name)
+	require.Equal(t, "acme-dev", services[0].Project)
+}
+
+func TestFindServicesWithEnv_EnvironmentsStripped(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+project: acme-dev
+environments:
+  prod:
+    project: acme-prod
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	// With --env: environments key should be stripped from Config
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	_, hasEnvs := services[0].Config["environments"]
+	require.False(t, hasEnvs, "environments key should be stripped when --env is used")
+
+	// Without --env: environments key should also be stripped
+	optsNoEnv := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+	}
+	services2, err := serviceinfo.FindServicesWithOptions(tmpDir, optsNoEnv)
+	require.NoError(t, err)
+	require.Len(t, services2, 1)
+	_, hasEnvs2 := services2[0].Config["environments"]
+	require.False(t, hasEnvs2, "environments key should be stripped even without --env")
+}
+
+func TestFindServicesWithEnv_RegionOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "global-api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: global-api
+provider: gcp
+project: acme-dev
+regions:
+  - us-central1
+  - us-east1
+environments:
+  prod:
+    project: acme-prod
+    regions:
+      - eu-west1
+      - ap-southeast1
+      - us-central1
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	// Multi-region expansion should create 3 instances (prod regions replace base regions)
+	require.Len(t, services, 3)
+	require.Equal(t, "acme-prod", services[0].Project)
+	regions := make(map[string]bool)
+	for _, svc := range services {
+		regions[svc.Region] = true
+	}
+	require.True(t, regions["eu-west1"])
+	require.True(t, regions["ap-southeast1"])
+	require.True(t, regions["us-central1"])
+}
+
+func TestFindServicesWithEnv_DependsOnOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+project: acme-dev
+depends_on:
+  - db
+  - cache
+environments:
+  prod:
+    depends_on:
+      - db
+      - cache
+      - auth
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	opts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	// Arrays are replaced entirely, so depends_on should be the prod override
+	require.Equal(t, []string{"db", "cache", "auth"}, services[0].DependsOn)
+}
+
 func TestFilterOptionsNoGitIgnore(t *testing.T) {
 	t.Parallel()
 
