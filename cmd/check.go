@@ -42,14 +42,10 @@ func CheckCmd() *cobra.Command {
 				return nil
 			}
 
-			// Index recipes by provider-service key (e.g., "gcp-cloud-run")
+			// Index recipes by composite key (e.g., "gcp-cloud-run")
 			recipeMap := make(map[string]*recepie.Recipe)
 			for i := range recipes {
-				key := recipes[i].Provider
-				if recipes[i].Service != "" {
-					key = recipes[i].Provider + "-" + recipes[i].Service
-				}
-				recipeMap[key] = &recipes[i].Recipe
+				recipeMap[recipes[i].RecipeKey()] = &recipes[i].Recipe
 			}
 
 			// Validate each service

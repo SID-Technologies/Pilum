@@ -496,7 +496,7 @@ func TestRunnerRunNoRecipeSteps(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no recipe found for that provider")
+	require.Contains(t, err.Error(), "has no matching recipe")
 }
 
 func TestRunnerGenerateCommand(t *testing.T) {
@@ -897,7 +897,7 @@ func TestRunnerServiceWithoutRecipe(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no recipe found for that provider")
+	require.Contains(t, err.Error(), "has no matching recipe")
 }
 
 func TestRunnerExecuteTaskNilCommand(t *testing.T) {

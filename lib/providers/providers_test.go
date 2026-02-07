@@ -41,6 +41,7 @@ func TestIsValidService(t *testing.T) {
 		valid    bool
 	}{
 		{"gcp cloud-run", "gcp", "cloud-run", true},
+		{"gcp cloud-run-job", "gcp", "cloud-run-job", true},
 		{"gcp gke", "gcp", "gke", true},
 		{"gcp invalid", "gcp", "invalid", false},
 		{"aws lambda", "aws", "lambda", true},
@@ -74,6 +75,7 @@ func TestGetServices(t *testing.T) {
 
 	gcpServices := providers.GetServices("gcp")
 	require.Contains(t, gcpServices, "cloud-run")
+	require.Contains(t, gcpServices, "cloud-run-job")
 	require.Contains(t, gcpServices, "gke")
 
 	awsServices := providers.GetServices("aws")
@@ -93,6 +95,7 @@ func TestGetAllRecipeKeys(t *testing.T) {
 	keys := providers.GetAllRecipeKeys()
 
 	require.Contains(t, keys, "gcp-cloud-run")
+	require.Contains(t, keys, "gcp-cloud-run-job")
 	require.Contains(t, keys, "gcp-gke")
 	require.Contains(t, keys, "aws-lambda")
 	require.Contains(t, keys, "homebrew")

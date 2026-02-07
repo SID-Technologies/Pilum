@@ -83,9 +83,12 @@ func NewRunner(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo,
 		registry:   cmdRegistry,
 	}
 
-	// Index recipes by provider
+	// Index recipes by composite key (e.g., "gcp-cloud-run") and provider-only fallback
 	for _, rec := range recipes {
-		r.recipes[rec.Provider] = rec.Recipe
+		r.recipes[rec.RecipeKey()] = rec.Recipe
+		if _, exists := r.recipes[rec.Provider]; !exists {
+			r.recipes[rec.Provider] = rec.Recipe
+		}
 	}
 
 	// Calculate max name length for output alignment (use DisplayName for multi-region)
@@ -150,9 +153,9 @@ func (r *Runner) validateServices() error {
 		}
 
 		// Check for matching recipe
-		if _, exists := r.recipes[svc.Provider]; !exists {
-			return errors.New("service '%s' has provider '%s' but no recipe found for that provider",
-				svc.Name, svc.Provider)
+		if _, exists := r.getRecipeForService(svc); !exists {
+			return errors.New("service '%s' (recipe key '%s') has no matching recipe",
+				svc.Name, svc.RecipeKey())
 		}
 	}
 	return nil
@@ -162,7 +165,7 @@ func (r *Runner) validateServices() error {
 func (r *Runner) findMaxSteps() int {
 	maxSteps := 0
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.Provider]
+		recipe, exists := r.getRecipeForService(svc)
 		if !exists {
 			continue
 		}
@@ -216,7 +219,7 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 	stepNames := make(map[string]bool)
 
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.Provider]
+		recipe, exists := r.getRecipeForService(svc)
 		if !exists {
 			continue
 		}
@@ -242,7 +245,7 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 
 	// Show skipped services
 	for _, svc := range r.services {
-		recipe, exists := r.recipes[svc.Provider]
+		recipe, exists := r.getRecipeForService(svc)
 		if !exists {
 			r.output.PrintSkipped(svc.DisplayName(), "no recipe")
 		} else if stepIdx >= len(recipe.Steps) {
@@ -472,6 +475,17 @@ func (r *Runner) getWorkerCount() int {
 		return len(r.services)
 	}
 	return 4
+}
+
+// getRecipeForService finds the recipe for a service using composite key with provider-only fallback.
+func (r *Runner) getRecipeForService(svc serviceinfo.ServiceInfo) (recepie.Recipe, bool) {
+	if recipe, ok := r.recipes[svc.RecipeKey()]; ok {
+		return recipe, true
+	}
+	if recipe, ok := r.recipes[svc.Provider]; ok {
+		return recipe, true
+	}
+	return recepie.Recipe{}, false
 }
 
 // hasDependencies returns true if any service has dependencies.

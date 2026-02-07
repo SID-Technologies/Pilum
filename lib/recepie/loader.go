@@ -20,6 +20,17 @@ type RecipeInfo struct {
 	Recipe   Recipe
 }
 
+// RecipeKey returns the composite lookup key for this recipe.
+// Matches the format used by ServiceInfo.RecipeKey().
+// If Service is non-empty: "provider-service" (e.g., "gcp-cloud-run")
+// If Service is empty: "provider" (e.g., "homebrew")
+func (ri RecipeInfo) RecipeKey() string {
+	if ri.Service != "" {
+		return ri.Provider + "-" + ri.Service
+	}
+	return ri.Provider
+}
+
 // LoadRecipesFromDirectory loads all recipe YAML files from the specified directory
 // Returns a slice of RecipeInfo structs, ordered by the files' names.
 func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {

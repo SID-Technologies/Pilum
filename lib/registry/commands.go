@@ -13,6 +13,7 @@ import (
 // Handlers are registered with exact step names matching recipe definitions.
 func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerGCPCloudRunHandlers(reg)
+	registerGCPCloudRunJobHandlers(reg)
 	registerHomebrewHandlers(reg)
 }
 
@@ -39,6 +40,21 @@ func registerGCPCloudRunHandlers(reg *CommandRegistry) {
 	// Step 4: Deploy to Cloud Run (GCP-specific)
 	reg.Register("deploy to cloud run", "gcp", func(ctx StepContext) any {
 		return gcp.GenerateGCPDeployCommand(ctx.Service, ctx.ImageName)
+	})
+}
+
+// registerGCPCloudRunJobHandlers registers handlers for GCP Cloud Run Job recipe steps.
+// Step names must match exactly: "deploy job", "execute job".
+// Build/push steps are handled by generic handlers registered in registerGCPCloudRunHandlers.
+func registerGCPCloudRunJobHandlers(reg *CommandRegistry) {
+	// Step 4: Deploy job (create/update the Cloud Run Job definition)
+	reg.Register("deploy job", "gcp", func(ctx StepContext) any {
+		return gcp.GenerateDeployJobCommand(ctx.Service, ctx.ImageName)
+	})
+
+	// Step 5: Execute job (conditionally run the job after deploy)
+	reg.Register("execute job", "gcp", func(ctx StepContext) any {
+		return gcp.GenerateExecuteJobCommand(ctx.Service)
 	})
 }
 
