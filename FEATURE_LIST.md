@@ -30,6 +30,10 @@
 - [x] `--json` - JSON output for scripting/automation
 - [x] Environment variable substitution in recipes (`${VAR}`)
 - [x] Better error messages with suggestions ("did you mean X?")
+- [x] **Wave-based deployment ordering** - Deploy/execute steps respect `depends_on`, build/push remain flat parallel
+- [x] **npm recipe** - Build and publish npm packages to any registry
+- [x] **GCP Cloud Run Jobs** - Recipe + handlers for batch/migration workloads
+- [x] **Cloudflare Pages recipe** - Build and deploy static sites via wrangler
 
 ---
 
@@ -44,7 +48,6 @@
 - [x] `--only-changed` flag - Detect git changes, deploy only affected services
 - [x] `--since` flag - Specify git ref to compare against (default: main/master)
 - [x] Dependency graph between services (`depends_on` in pilum.yaml)
-- [ ] **Wave-based deployment ordering** - Deploy steps respect `depends_on` (build/push remain parallel)
 
 ### Deployment Safety
 - [ ] `pilum rollback [service]` - Rollback to previous revision
@@ -60,7 +63,18 @@
 
 ---
 
-## Phase 3: CI/CD & Automation
+## Phase 3: AI & Automation Friendliness
+
+### Structured Output
+- [ ] **Complete JSON output for all commands** - Audit and ensure `--json` returns structured results for every command (service name, status, duration, error message). Currently `--json` flag exists but coverage may be incomplete.
+- [ ] **Distinct exit codes** - Config error = 2, auth error = 3, deploy error = 4, etc. Agents and scripts can branch on exit code without parsing stderr.
+
+### Machine-Readable Config
+- [ ] **JSON Schema for `pilum.yaml`** - Publish a schema that editors and AI tools can validate against before running `pilum check`. Free validation at the editor layer.
+- [ ] **Non-interactive `pilum init`** - `pilum init --provider=cloudflare --service=pages --name=my-site` generates a complete `pilum.yaml` with all required/optional fields without prompting. Currently `init` requires interactive input.
+
+### Agent Integration
+- [ ] **MCP server** - Model Context Protocol server for Pilum. AI agents interact natively: list services, check configs, deploy, read results — all as structured tool calls instead of shell commands.
 
 ### CI/CD Integration
 - [ ] GitHub Actions (official action: `uses: pilum/deploy@v1`)
@@ -84,7 +98,6 @@
 - [ ] Kubernetes (generic manifests)
 - [ ] Azure Container Apps
 - [ ] Fly.io
-- [x] **GCP Cloud Run Jobs** (batch/migration workloads) - Recipe created, handlers pending
 
 ### Release Targets
 - [ ] GitHub Releases (with assets)
@@ -101,7 +114,6 @@
 ## Phase 5: Package Managers & Registries
 
 ### Language-Specific Registries
-- [ ] npm registry
 - [ ] PyPI
 - [ ] crates.io
 - [ ] NuGet

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/orchestrator"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
@@ -122,7 +123,7 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 	if err != nil {
-		return errors.Wrap(err, "error finding services")
+		return exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
 	}
 
 	if len(services) == 0 {
@@ -132,7 +133,7 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 
 	recipes, err := recepie.LoadEmbeddedRecipes()
 	if err != nil {
-		return errors.Wrap(err, "error loading recipes")
+		return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
 	}
 
 	if len(recipes) == 0 {
@@ -141,7 +142,10 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 	}
 
 	runner := orchestrator.NewRunner(services, recipes, opts.toRunnerOptions())
-	return runner.Run()
+	if err := runner.Run(); err != nil {
+		return exitcodes.WithCode(exitcodes.Deploy, err)
+	}
+	return nil
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.

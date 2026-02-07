@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recepie"
@@ -30,7 +31,7 @@ func CheckCmd() *cobra.Command {
 			}
 			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
-				return errors.Wrap(err, "error finding services")
+				return exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
 			}
 
 			if len(services) == 0 {
@@ -41,7 +42,7 @@ func CheckCmd() *cobra.Command {
 			// Load recipes
 			recipes, err := recepie.LoadEmbeddedRecipes()
 			if err != nil {
-				return errors.Wrap(err, "error loading recipes")
+				return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
 			}
 
 			if len(recipes) == 0 {
@@ -62,7 +63,8 @@ func CheckCmd() *cobra.Command {
 
 				// Base validation
 				if err := service.Validate(); err != nil {
-					return errors.Wrap(err, "error checking service %s", service.Name)
+					return exitcodes.WithCode(exitcodes.Config,
+						errors.Wrap(err, "error checking service %s", service.Name))
 				}
 
 				// Recipe-specific validation
@@ -79,7 +81,8 @@ func CheckCmd() *cobra.Command {
 				}
 
 				if err := recipe.ValidateService(&service); err != nil {
-					return errors.Wrap(err, "error checking service %s", service.Name)
+					return exitcodes.WithCode(exitcodes.Config,
+						errors.Wrap(err, "error checking service %s", service.Name))
 				}
 
 				output.Success("    %s: valid", service.Name)

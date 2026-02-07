@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
@@ -20,7 +21,8 @@ func DeleteBuildsCmd() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			services, err := serviceinfo.FindAndFilterServices(".", args)
 			if err != nil {
-				return errors.Wrap(err, "error finding services")
+				return exitcodes.WithCode(exitcodes.NoServices,
+					errors.Wrap(err, "error finding services"))
 			}
 
 			if len(services) == 0 {
@@ -30,7 +32,7 @@ func DeleteBuildsCmd() *cobra.Command {
 
 			output.Info("Deleting builds for %d service(s)...", len(services))
 			if err := deleteBuildsForServices(services); err != nil {
-				return errors.Wrap(err, "error deleting builds")
+				return exitcodes.WithCode(exitcodes.IO, errors.Wrap(err, "error deleting builds"))
 			}
 
 			output.Success("Builds deleted successfully.")
@@ -50,7 +52,7 @@ func deleteBuildsForServices(services []serviceinfo.ServiceInfo) error {
 		}
 		output.Dimmed("Removing: %s", distPath)
 		if err := os.RemoveAll(distPath); err != nil {
-			return errors.Wrap(err, "error removing %s", distPath)
+			return exitcodes.WithCode(exitcodes.IO, errors.Wrap(err, "error removing %s", distPath))
 		}
 	}
 	return nil
