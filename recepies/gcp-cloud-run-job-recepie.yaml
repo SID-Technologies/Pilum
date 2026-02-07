@@ -1,0 +1,102 @@
+# GCP Cloud Run Jobs Recipe
+# For batch workloads, migrations, and tasks that run to completion
+
+name: gcp-cloud-run-job
+description: Deploy batch jobs to Google Cloud Run Jobs
+provider: gcp
+service: cloud-run-job
+
+required_fields:
+  - name: project
+    description: GCP project ID
+    type: string
+
+  - name: region
+    description: GCP region to deploy to
+    type: string
+    default: us-central1
+
+  - name: name
+    description: Job name (used for Cloud Run job naming)
+    type: string
+
+  - name: registry_name
+    description: Docker registry prefix (e.g., us-docker.pkg.dev/my-project/repo)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
+optional_fields:
+  - name: job.timeout
+    description: Maximum execution time per task (e.g., 300s, 10m)
+    type: string
+    default: "600s"
+
+  - name: job.max_retries
+    description: Number of retries on task failure
+    type: int
+    default: "0"
+
+  - name: job.parallelism
+    description: Maximum concurrent tasks
+    type: int
+    default: "1"
+
+  - name: job.task_count
+    description: Total number of tasks to run
+    type: int
+    default: "1"
+
+  - name: job.cpu
+    description: CPUs per task
+    type: string
+    default: "1"
+
+  - name: job.memory
+    description: Memory per task (e.g., 512Mi, 2Gi)
+    type: string
+    default: "512Mi"
+
+  - name: job.execute_on_deploy
+    description: Automatically execute job after deployment
+    type: bool
+    default: "false"
+
+  - name: job.service_account
+    description: Custom service account email for job execution
+    type: string
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push
+
+  - name: deploy job
+    execution_mode: root
+    timeout: 180
+    default_retries: 2
+    tags:
+      - deploy
+
+  - name: execute job
+    execution_mode: root
+    timeout: 600
+    tags:
+      - execute
+    # Only runs if job.execute_on_deploy is true or --execute flag is passed

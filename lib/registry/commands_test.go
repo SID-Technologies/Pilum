@@ -27,6 +27,10 @@ func TestRegisterDefaultHandlers(t *testing.T) {
 		{"publish to registry", "", true},
 		{"deploy to cloud run", "gcp", true},
 
+		// GCP Cloud Run Job handlers (exact step names from recipe)
+		{"deploy job", "gcp", true},
+		{"execute job", "gcp", true},
+
 		// Homebrew handlers (exact step names from recipe)
 		{"build binaries", "homebrew", true},
 		{"create archives", "homebrew", true},
@@ -283,6 +287,88 @@ func TestHomebrewPushToTapHandlerExecution(t *testing.T) {
 	require.True(t, ok)
 	require.Contains(t, cmd, "git clone")
 	require.Contains(t, cmd, "git push")
+}
+
+func TestDeployJobHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Name:   "migrations",
+			Region: "us-central1",
+			Config: map[string]any{},
+		},
+		ImageName: "us-docker.pkg.dev/project/repo/migrations:latest",
+	}
+
+	handler, found := reg.GetHandler("deploy job", "gcp")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.NotNil(t, result)
+
+	cmd, ok := result.([]string)
+	require.True(t, ok)
+	require.Equal(t, "gcloud", cmd[0])
+	require.Equal(t, "run", cmd[1])
+	require.Equal(t, "jobs", cmd[2])
+	require.Equal(t, "deploy", cmd[3])
+	require.Equal(t, "migrations", cmd[4])
+}
+
+func TestExecuteJobHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Name:   "migrations",
+			Region: "us-central1",
+			Config: map[string]any{
+				"job": map[string]any{
+					"execute_on_deploy": true,
+				},
+			},
+		},
+	}
+
+	handler, found := reg.GetHandler("execute job", "gcp")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.NotNil(t, result)
+
+	cmd, ok := result.([]string)
+	require.True(t, ok)
+	require.Equal(t, "gcloud", cmd[0])
+	require.Equal(t, "execute", cmd[3])
+	require.Contains(t, cmd, "--wait")
+}
+
+func TestExecuteJobHandlerSkipsWhenDisabled(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	ctx := registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Name:   "migrations",
+			Region: "us-central1",
+			Config: map[string]any{},
+		},
+	}
+
+	handler, found := reg.GetHandler("execute job", "gcp")
+	require.True(t, found)
+
+	result := handler(ctx)
+	require.Nil(t, result) // Should return nil when execute_on_deploy is false
 }
 
 func TestProviderSpecificOverridesGeneric(t *testing.T) {

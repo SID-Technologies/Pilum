@@ -4,6 +4,7 @@ providers:
     name: Google Cloud Platform
     services:
       - cloud-run
+      - cloud-run-job
       - gke
       - cloud-functions
   aws:

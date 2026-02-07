@@ -47,9 +47,10 @@ func TestRecipeStepsHaveValidTags(t *testing.T) {
 	}
 
 	validTags := map[string]bool{
-		"build":  true,
-		"push":   true,
-		"deploy": true,
+		"build":   true,
+		"push":    true,
+		"deploy":  true,
+		"execute": true,
 	}
 
 	for _, info := range recipeInfos {

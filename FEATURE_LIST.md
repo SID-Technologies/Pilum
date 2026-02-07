@@ -44,6 +44,7 @@
 - [x] `--only-changed` flag - Detect git changes, deploy only affected services
 - [x] `--since` flag - Specify git ref to compare against (default: main/master)
 - [x] Dependency graph between services (`depends_on` in pilum.yaml)
+- [ ] **Wave-based deployment ordering** - Deploy steps respect `depends_on` (build/push remain parallel)
 
 ### Deployment Safety
 - [ ] `pilum rollback [service]` - Rollback to previous revision
@@ -83,7 +84,7 @@
 - [ ] Kubernetes (generic manifests)
 - [ ] Azure Container Apps
 - [ ] Fly.io
-- [ ] GCP Cloud Run Jobs (batch/migration workloads)
+- [x] **GCP Cloud Run Jobs** (batch/migration workloads) - Recipe created, handlers pending
 
 ### Release Targets
 - [ ] GitHub Releases (with assets)

@@ -126,7 +126,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	if provider == "" {
 		// Derive provider from type if not explicitly set
 		switch template {
-		case "gcp-cloud-run", "gcp":
+		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp":
 			provider = "gcp"
 		case "aws-lambda", "aws-ecs", "aws":
 			provider = "aws"
