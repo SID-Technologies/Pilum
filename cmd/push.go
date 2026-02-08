@@ -21,7 +21,7 @@ func PushCmd() *cobra.Command {
 				opts.OnlyTags = []string{"push"}
 			}
 
-			return runPipeline(args, opts, "No services found to push")
+			return runPipeline("push", args, opts, "No services found to push")
 		},
 	}
 

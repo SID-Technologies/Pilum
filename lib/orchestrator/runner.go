@@ -693,6 +693,11 @@ func (r *Runner) getRecipeForService(svc serviceinfo.ServiceInfo) (recepie.Recip
 	return recepie.Recipe{}, false
 }
 
+// Results returns the collected task results after a run.
+func (r *Runner) Results() []TaskResult {
+	return r.results
+}
+
 // hasDependencies returns true if any service has dependencies.
 func hasDependencies(services []serviceinfo.ServiceInfo) bool {
 	for _, svc := range services {

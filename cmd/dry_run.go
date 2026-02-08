@@ -17,7 +17,7 @@ func DryRunCmd() *cobra.Command {
 			opts := getDeploymentOptions()
 			opts.DryRun = true // Always dry-run for this command
 
-			return runPipeline(args, opts, "No services found")
+			return runPipeline("dry-run", args, opts, "No services found")
 		},
 	}
 

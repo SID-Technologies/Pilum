@@ -15,7 +15,7 @@ func DeployCmd() *cobra.Command {
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
 			opts := getDeploymentOptions()
-			return runPipeline(args, opts, "No services found to deploy")
+			return runPipeline("deploy", args, opts, "No services found to deploy")
 		},
 	}
 
