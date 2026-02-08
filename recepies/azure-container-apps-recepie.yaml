@@ -1,0 +1,86 @@
+# azure-container-apps-recepie.yaml
+name: azure-container-apps
+description: Deploy to Azure Container Apps
+provider: azure
+service: container-apps
+
+required_fields:
+  - name: project
+    description: Azure resource group name
+    type: string
+    default: my-resource-group
+
+  - name: region
+    description: Azure region to deploy to
+    type: string
+    default: eastus
+
+  - name: name
+    description: Container App name
+    type: string
+
+  - name: registry_name
+    description: Azure Container Registry name (e.g., myregistry.azurecr.io)
+    type: string
+
+optional_fields:
+  - name: container_app.environment
+    description: Container Apps environment name
+    type: string
+    default: ""
+
+  - name: container_app.min_replicas
+    description: Minimum number of replicas (0 for scale to zero)
+    type: int
+    default: "0"
+
+  - name: container_app.max_replicas
+    description: Maximum number of replicas
+    type: int
+    default: "10"
+
+  - name: container_app.cpu
+    description: CPU cores per instance (e.g., 0.25, 0.5, 1)
+    type: string
+    default: "0.25"
+
+  - name: container_app.memory
+    description: Memory per instance (e.g., 0.5Gi, 1Gi)
+    type: string
+    default: "0.5Gi"
+
+  - name: container_app.ingress_port
+    description: Container port for ingress
+    type: int
+    default: "8080"
+
+  - name: container_app.ingress_external
+    description: Whether ingress is externally accessible
+    type: bool
+    default: "true"
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push
+
+  - name: deploy to container app
+    execution_mode: root
+    timeout: 180
+    default_retries: 2
+    tags:
+      - deploy
