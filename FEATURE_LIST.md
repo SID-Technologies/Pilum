@@ -84,8 +84,8 @@
 ### Advanced Monorepo
 - [x] Parallel builds with dependency ordering (wave-based execution)
 - [ ] Build caching (hash-based skip)
-- [ ] Pattern matching for service selection (`pilum deploy "api-*"`)
-- [ ] Filter services by provider (`--provider=gcp`)
+- [x] Pattern matching for service selection (`pilum deploy "api-*"`)
+- [x] Filter services by provider (`--provider=gcp`)
 - [x] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
 
 ---

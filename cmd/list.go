@@ -22,6 +22,7 @@ func ListCmd() *cobra.Command {
 			}
 
 			env, _ := cmd.Flags().GetString("env")
+			provider, _ := cmd.Flags().GetString("provider")
 
 			opts := serviceinfo.DefaultDiscoveryOptions()
 			opts.NoGitIgnore = NoGitIgnore()
@@ -31,6 +32,10 @@ func ListCmd() *cobra.Command {
 			if err != nil {
 				return nil, exitcodes.WithCode(exitcodes.NoServices,
 					errors.Wrap(err, "error finding services"))
+			}
+
+			if provider != "" {
+				services = serviceinfo.FilterByProvider(services, provider)
 			}
 
 			// Convert to pointer slice for ListServices
@@ -67,6 +72,7 @@ func ListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
+	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
 
 	return cmd
 }
