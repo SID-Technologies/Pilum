@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 
+	"github.com/sid-technologies/pilum/ingredients/azure"
 	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/ingredients/cloudflare"
 	"github.com/sid-technologies/pilum/ingredients/docker"
@@ -16,6 +17,7 @@ import (
 func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerGCPCloudRunHandlers(reg)
 	registerGCPCloudRunJobHandlers(reg)
+	registerAzureContainerAppsHandlers(reg)
 	registerHomebrewHandlers(reg)
 	registerNpmHandlers(reg)
 	registerCloudflareHandlers(reg)
@@ -116,6 +118,15 @@ func registerNpmHandlers(reg *CommandRegistry) {
 	// Step 4: Publish to npm registry
 	reg.Register("publish package", "npm", func(ctx StepContext) any {
 		return npm.GeneratePublishCommand(ctx.Service)
+	})
+}
+
+// registerAzureContainerAppsHandlers registers handlers for Azure Container Apps recipe steps.
+// Build/push steps are handled by generic handlers registered in registerGCPCloudRunHandlers.
+func registerAzureContainerAppsHandlers(reg *CommandRegistry) {
+	// Step 4: Deploy to Azure Container Apps
+	reg.Register("deploy to container app", "azure", func(ctx StepContext) any {
+		return azure.GenerateDeployCommand(ctx.Service, ctx.ImageName)
 	})
 }
 
