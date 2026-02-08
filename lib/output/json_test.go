@@ -11,8 +11,6 @@ import (
 )
 
 func TestJSON(t *testing.T) {
-	t.Parallel()
-
 	// Capture stdout
 	old := os.Stdout
 	r, w, _ := os.Pipe()
@@ -32,8 +30,6 @@ func TestJSON(t *testing.T) {
 }
 
 func TestJSONNil(t *testing.T) {
-	t.Parallel()
-
 	// Should not panic on nil
 	old := os.Stdout
 	r, w, _ := os.Pipe()
@@ -52,8 +48,6 @@ func TestJSONNil(t *testing.T) {
 }
 
 func TestJSONStruct(t *testing.T) {
-	t.Parallel()
-
 	type result struct {
 		Name    string `json:"name"`
 		Success bool   `json:"success"`

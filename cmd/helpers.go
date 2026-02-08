@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"strings"
+	"time"
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
+	"github.com/sid-technologies/pilum/lib/history"
 	"github.com/sid-technologies/pilum/lib/orchestrator"
 	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/path"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
@@ -111,8 +114,9 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 }
 
 // runPipeline executes the common deployment pipeline: find services → load recipes → run.
+// cmdName identifies the command (e.g. "deploy", "build") for history recording.
 // The noServicesMsg is shown as a warning if no services are found.
-func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) error {
+func runPipeline(cmdName string, args []string, opts deploymentOptions, noServicesMsg string) error {
 	filterOpts := serviceinfo.FilterOptions{
 		Names:       args,
 		OnlyChanged: opts.OnlyChanged,
@@ -142,10 +146,45 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 	}
 
 	runner := orchestrator.NewRunner(services, recipes, opts.toRunnerOptions())
-	if err := runner.Run(); err != nil {
-		return exitcodes.WithCode(exitcodes.Deploy, err)
+	startTime := time.Now()
+	runErr := runner.Run()
+
+	// Record history (skip dry-runs)
+	if !opts.DryRun {
+		recordHistory(cmdName, opts.Tag, runner, time.Since(startTime), runErr)
+	}
+
+	if runErr != nil {
+		return exitcodes.WithCode(exitcodes.Deploy, runErr)
 	}
 	return nil
+}
+
+// recordHistory saves a pipeline run to the history file.
+func recordHistory(cmdName, tag string, runner *orchestrator.Runner, duration time.Duration, runErr error) {
+	root, err := path.FindProjectRoot()
+	if err != nil || root == "" {
+		return
+	}
+
+	results := runner.Results()
+	services := make([]history.ServiceResult, len(results))
+	allSuccess := runErr == nil
+	for i, r := range results {
+		sr := history.ServiceResult{
+			Name:     r.ServiceName,
+			Step:     r.StepName,
+			Success:  r.Success,
+			Duration: r.Duration.Round(time.Millisecond).String(),
+		}
+		if r.Error != nil {
+			sr.Error = r.Error.Error()
+		}
+		services[i] = sr
+	}
+
+	entry := history.NewEntry(cmdName, tag, allSuccess, duration, services)
+	_ = history.Record(root, entry)
 }
 
 // withJSON wraps a command function that returns structured data.

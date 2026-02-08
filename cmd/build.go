@@ -21,7 +21,7 @@ func BuildCmd() *cobra.Command {
 				opts.OnlyTags = []string{"build"}
 			}
 
-			return runPipeline(args, opts, "No services found to build")
+			return runPipeline("build", args, opts, "No services found to build")
 		},
 	}
 

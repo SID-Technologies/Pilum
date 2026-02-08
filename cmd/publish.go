@@ -21,7 +21,7 @@ func PublishCmd() *cobra.Command {
 				opts.ExcludeTags = []string{"deploy"}
 			}
 
-			return runPipeline(args, opts, "No services found to publish")
+			return runPipeline("publish", args, opts, "No services found to publish")
 		},
 	}
 

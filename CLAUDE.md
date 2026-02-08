@@ -33,6 +33,7 @@ pilum publish [services]       # Build + push images (alias: p)
 pilum push [services]          # Push images to registry (alias: ps)
 pilum deploy [services]        # Full deploy pipeline (alias: up)
 pilum dry-run [services]       # Preview what would execute (alias: dr)
+pilum history                  # Show deployment history (alias: hist)
 pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 
 # Common Flags
@@ -56,6 +57,7 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 | `lib/recepie/` | Recipe loading and validation |
 | `lib/registry/` | Step handler registration |
 | `lib/service_info/` | Service configuration parsing |
+| `lib/history/` | Deployment history (JSONL append-only log) |
 | `lib/worker_queue/` | Parallel execution worker pool |
 | `ingredients/` | Cloud provider command generators (gcp, docker, homebrew) |
 | `recepies/` | Deployment recipe YAML files |
