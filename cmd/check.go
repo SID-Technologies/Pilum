@@ -18,7 +18,7 @@ func CheckCmd() *cobra.Command {
 		Aliases: []string{"validate"},
 		Short:   "Check the configuration of the services",
 		Long:    "Check the configuration of the services against their recipe requirements. Optionally specify service names to check only those services.",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: withJSON(func(cmd *cobra.Command, args []string) (any, error) {
 			output.Info("Checking configuration of the services")
 
 			env, _ := cmd.Flags().GetString("env")
@@ -31,23 +31,23 @@ func CheckCmd() *cobra.Command {
 			}
 			services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 			if err != nil {
-				return exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
+				return nil, exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
 			}
 
 			if len(services) == 0 {
 				output.Warning("No services found")
-				return nil
+				return nil, nil
 			}
 
 			// Load recipes
 			recipes, err := recepie.LoadEmbeddedRecipes()
 			if err != nil {
-				return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
+				return nil, exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
 			}
 
 			if len(recipes) == 0 {
 				output.Warning("No recipes found")
-				return nil
+				return nil, nil
 			}
 
 			// Index recipes by composite key (e.g., "gcp-cloud-run")
@@ -56,15 +56,39 @@ func CheckCmd() *cobra.Command {
 				recipeMap[recipes[i].RecipeKey()] = &recipes[i].Recipe
 			}
 
-			// Validate each service
+			// Validate each service, collecting results for JSON
+			type checkResult struct {
+				Service string `json:"service"`
+				Recipe  string `json:"recipe"`
+				Valid   bool   `json:"valid"`
+				Error   string `json:"error,omitempty"`
+			}
+			var results []checkResult
+			allValid := true
+			var firstErr error
+
 			for _, service := range services {
 				recipeKey := service.RecipeKey()
 				output.Dimmed("  Checking service %s (recipe: %s)", service.Name, recipeKey)
 
 				// Base validation
 				if err := service.Validate(); err != nil {
-					return exitcodes.WithCode(exitcodes.Config,
+					allValid = false
+					validationErr := exitcodes.WithCode(exitcodes.Config,
 						errors.Wrap(err, "error checking service %s", service.Name))
+					results = append(results, checkResult{
+						Service: service.Name,
+						Recipe:  recipeKey,
+						Valid:   false,
+						Error:   err.Error(),
+					})
+					if firstErr == nil {
+						firstErr = validationErr
+					}
+					if !output.IsJSON() {
+						return nil, validationErr
+					}
+					continue
 				}
 
 				// Recipe-specific validation
@@ -77,20 +101,50 @@ func CheckCmd() *cobra.Command {
 					} else {
 						output.Warning("    No recipe found for '%s'", recipeKey)
 					}
+					results = append(results, checkResult{
+						Service: service.Name,
+						Recipe:  recipeKey,
+						Valid:   true,
+					})
 					continue
 				}
 
 				if err := recipe.ValidateService(&service); err != nil {
-					return exitcodes.WithCode(exitcodes.Config,
+					allValid = false
+					validationErr := exitcodes.WithCode(exitcodes.Config,
 						errors.Wrap(err, "error checking service %s", service.Name))
+					results = append(results, checkResult{
+						Service: service.Name,
+						Recipe:  recipeKey,
+						Valid:   false,
+						Error:   err.Error(),
+					})
+					if firstErr == nil {
+						firstErr = validationErr
+					}
+					if !output.IsJSON() {
+						return nil, validationErr
+					}
+					continue
 				}
 
 				output.Success("    %s: valid", service.Name)
+				results = append(results, checkResult{
+					Service: service.Name,
+					Recipe:  recipeKey,
+					Valid:   true,
+				})
 			}
 
 			output.Success("All services are valid")
-			return nil
-		},
+
+			jsonResult := struct {
+				Success bool          `json:"success"`
+				Results []checkResult `json:"results"`
+			}{allValid, results}
+
+			return jsonResult, firstErr
+		}),
 	}
 
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")

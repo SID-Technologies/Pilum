@@ -58,26 +58,26 @@
 - [ ] Options: multiple `pilum.yaml` files or `targets:` array in config
 
 ### Environment Management
-- [ ] Environment configs (`--env prod` / `--env staging`)
-- [ ] Per-environment overrides in pilum.yaml
+- [x] Environment configs (`--env prod` / `--env staging`)
+- [x] Per-environment overrides in pilum.yaml
 
 ---
 
 ## Phase 3: AI & Automation Friendliness
 
 ### Structured Output
-- [ ] **Complete JSON output for all commands** - Audit and ensure `--json` returns structured results for every command (service name, status, duration, error message). Currently `--json` flag exists but coverage may be incomplete.
-- [ ] **Distinct exit codes** - Config error = 2, auth error = 3, deploy error = 4, etc. Agents and scripts can branch on exit code without parsing stderr.
+- [x] **Complete JSON output for all commands** - All commands (`list`, `check`, `init`, `delete-builds`, `dry-run`) return structured JSON via `--json`. Centralized `withJSON` wrapper pattern.
+- [x] **Distinct exit codes** - Config=2, NoServices=3, Deploy=4, IO=5, InvalidArgs=6. Defined in `lib/exitcodes/`.
 
 ### Machine-Readable Config
 - [ ] **JSON Schema for `pilum.yaml`** - Publish a schema that editors and AI tools can validate against before running `pilum check`. Free validation at the editor layer.
-- [ ] **Non-interactive `pilum init`** - `pilum init --provider=cloudflare --service=pages --name=my-site` generates a complete `pilum.yaml` with all required/optional fields without prompting. Currently `init` requires interactive input.
+- [x] **Non-interactive `pilum init`** - `pilum init --provider=cloudflare --service=pages --name=my-site --language=node` generates a complete `pilum.yaml` without prompting.
 
 ### Agent Integration
 - [ ] **MCP server** - Model Context Protocol server for Pilum. AI agents interact natively: list services, check configs, deploy, read results — all as structured tool calls instead of shell commands.
 
 ### CI/CD Integration
-- [ ] GitHub Actions (official action: `uses: pilum/deploy@v1`)
+- [x] GitHub Actions (official action: `pilum-action`)
 - [ ] `pilum ci detect` - Auto-detect CI environment and set defaults
 - [ ] GitHub commit status updates
 - [ ] GitHub deployment environments
@@ -101,10 +101,11 @@
 
 ### Release Targets
 - [ ] GitHub Releases (with assets)
-- [ ] Docker Hub
-- [ ] AWS ECR
-- [ ] GCP Artifact Registry (current: gcr.io)
-- [ ] Azure Container Registry
+- [x] Docker Hub (`dockerhub` provider)
+- [x] AWS ECR (`aws` provider → `*.dkr.ecr.*.amazonaws.com`)
+- [x] GCP Artifact Registry (`gcp` provider → `*-docker.pkg.dev`)
+- [x] Azure Container Registry (`azure` provider → `*.azurecr.io`)
+- [x] GitHub Container Registry (`github` provider → `ghcr.io`)
 
 ### Notifications
 - [ ] Generic webhook (POST JSON on deploy start/complete/fail)

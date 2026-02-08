@@ -24,16 +24,25 @@ type TaskResult struct {
 	Error       error
 }
 
+// DryRunEntry represents a single dry-run step for JSON output.
+type DryRunEntry struct {
+	Service string `json:"service"`
+	Step    string `json:"step"`
+	Command string `json:"command"`
+	Wave    int    `json:"wave,omitempty"`
+}
+
 // Runner executes deployment pipelines for multiple services.
 type Runner struct {
-	services   []serviceinfo.ServiceInfo
-	recipes    map[string]recepie.Recipe
-	imageNames map[string]string // service name -> image name
-	options    RunnerOptions
-	output     *OutputManager
-	results    []TaskResult
-	resultsMu  sync.Mutex
-	registry   *registry.CommandRegistry
+	services      []serviceinfo.ServiceInfo
+	recipes       map[string]recepie.Recipe
+	imageNames    map[string]string // service name -> image name
+	options       RunnerOptions
+	output        *OutputManager
+	results       []TaskResult
+	resultsMu     sync.Mutex
+	registry      *registry.CommandRegistry
+	dryRunResults []DryRunEntry
 }
 
 // stepTask represents a task for a specific service at a specific step.
@@ -138,6 +147,15 @@ func (r *Runner) Run() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	// Dry-run JSON: emit collected entries instead of the normal summary
+	if r.options.DryRun && output.IsJSON() {
+		output.JSON(struct {
+			DryRun bool          `json:"dry_run"`
+			Steps  []DryRunEntry `json:"steps"`
+		}{true, r.dryRunResults})
+		return nil
 	}
 
 	r.output.PrintComplete(r.results)
@@ -261,6 +279,11 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 		for _, t := range tasks {
 			cmd := r.generateCommand(t.service, t.step)
 			r.output.PrintDryRun(t.service.DisplayName(), t.step.Name, cmd)
+			r.dryRunResults = append(r.dryRunResults, DryRunEntry{
+				Service: t.service.DisplayName(),
+				Step:    t.step.Name,
+				Command: formatCommand(cmd),
+			})
 		}
 		return nil
 	}
@@ -614,6 +637,11 @@ func (r *Runner) dryRunWithWaves(tasks []stepTask) error {
 		for _, t := range tasks {
 			cmd := r.generateCommand(t.service, t.step)
 			r.output.PrintDryRun(t.service.DisplayName(), t.step.Name, cmd)
+			r.dryRunResults = append(r.dryRunResults, DryRunEntry{
+				Service: t.service.DisplayName(),
+				Step:    t.step.Name,
+				Command: formatCommand(cmd),
+			})
 		}
 		return nil
 	}
@@ -629,6 +657,12 @@ func (r *Runner) dryRunWithWaves(tasks []stepTask) error {
 			if t, ok := taskByDisplay[svc.DisplayName()]; ok {
 				cmd := r.generateCommand(t.service, t.step)
 				r.output.PrintDryRun(t.service.DisplayName(), t.step.Name, cmd)
+				r.dryRunResults = append(r.dryRunResults, DryRunEntry{
+					Service: t.service.DisplayName(),
+					Step:    t.step.Name,
+					Command: formatCommand(cmd),
+					Wave:    waveIdx + 1,
+				})
 			}
 		}
 	}

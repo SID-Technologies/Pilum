@@ -148,6 +148,24 @@ func runPipeline(args []string, opts deploymentOptions, noServicesMsg string) er
 	return nil
 }
 
+// withJSON wraps a command function that returns structured data.
+// In JSON mode: emits the returned value as JSON, suppresses text output.
+// In normal mode: ignores the returned value, text output works as usual.
+func withJSON(fn func(*cobra.Command, []string) (any, error)) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		result, err := fn(cmd, args)
+		if output.IsJSON() {
+			if err != nil {
+				output.JSON(map[string]any{"success": false, "error": err.Error()})
+			} else if result != nil {
+				output.JSON(result)
+			}
+			return err
+		}
+		return err
+	}
+}
+
 // parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.
 func parseCommaSeparated(s string) []string {
 	if s == "" {

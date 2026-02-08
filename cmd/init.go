@@ -37,15 +37,24 @@ to skip all prompts and generate directly. Useful for CI/CD and AI agents.
 
   pilum init --provider=gcp --service=cloud-run --name=my-api --language=go
   pilum init -p cloudflare -s pages -n my-site -l node --force`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runInit(initOptions{
+		RunE: withJSON(func(_ *cobra.Command, _ []string) (any, error) {
+			opts := initOptions{
 				provider: provider,
 				service:  service,
 				name:     name,
 				language: language,
 				force:    force,
-			})
-		},
+			}
+			if err := runInit(opts); err != nil {
+				return nil, err
+			}
+			return struct {
+				Success  bool   `json:"success"`
+				File     string `json:"file"`
+				Provider string `json:"provider"`
+				Name     string `json:"name"`
+			}{true, "pilum.yaml", opts.provider, opts.name}, nil
+		}),
 	}
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Cloud provider (gcp, aws, azure, cloudflare, homebrew, npm)")
