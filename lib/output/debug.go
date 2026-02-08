@@ -3,19 +3,25 @@ package output
 import (
 	"fmt"
 	"os"
+	"sync/atomic"
 )
 
-// Debug controls whether debug messages are printed.
-var Debug bool
+// debug controls whether debug messages are printed.
+var debug atomic.Bool
 
 // SetDebug enables or disables debug output.
 func SetDebug(enabled bool) {
-	Debug = enabled
+	debug.Store(enabled)
+}
+
+// IsDebug returns true if debug mode is enabled.
+func IsDebug() bool {
+	return debug.Load()
 }
 
 // Debugf prints a debug message if debug mode is enabled.
 func Debugf(msg string, args ...any) {
-	if !Debug {
+	if !debug.Load() {
 		return
 	}
 	formatted := fmt.Sprintf(msg, args...)

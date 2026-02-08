@@ -10,41 +10,20 @@ import (
 
 func TestSetDebug(t *testing.T) {
 	// Not parallel - modifies global state
-
-	// Save original state
-	originalDebug := output.Debug
-	defer func() { output.Debug = originalDebug }()
+	defer output.SetDebug(false)
 
 	// Test enabling debug
 	output.SetDebug(true)
-	require.True(t, output.Debug)
+	require.True(t, output.IsDebug())
 
 	// Test disabling debug
 	output.SetDebug(false)
-	require.False(t, output.Debug)
-}
-
-func TestDebugVariable(t *testing.T) {
-	// Not parallel - modifies global state
-
-	// Save original state
-	originalDebug := output.Debug
-	defer func() { output.Debug = originalDebug }()
-
-	// Test direct assignment
-	output.Debug = true
-	require.True(t, output.Debug)
-
-	output.Debug = false
-	require.False(t, output.Debug)
+	require.False(t, output.IsDebug())
 }
 
 func TestDebugfWhenDisabled(t *testing.T) {
 	// Not parallel - modifies global state
-
-	// Save original state
-	originalDebug := output.Debug
-	defer func() { output.Debug = originalDebug }()
+	defer output.SetDebug(false)
 
 	// Ensure debug is disabled
 	output.SetDebug(false)
@@ -55,10 +34,7 @@ func TestDebugfWhenDisabled(t *testing.T) {
 
 func TestDebugfWhenEnabled(t *testing.T) {
 	// Not parallel - modifies global state
-
-	// Save original state
-	originalDebug := output.Debug
-	defer func() { output.Debug = originalDebug }()
+	defer output.SetDebug(false)
 
 	// Enable debug
 	output.SetDebug(true)

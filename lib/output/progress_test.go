@@ -10,8 +10,6 @@ import (
 )
 
 func TestNewProgressBar(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name          string
 		total         int
@@ -40,8 +38,6 @@ func TestNewProgressBar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			pb := output.NewProgressBar(tt.total, tt.width)
 			require.NotNil(t, pb)
 		})
@@ -49,7 +45,6 @@ func TestNewProgressBar(t *testing.T) {
 }
 
 func TestProgressBarSetMessage(t *testing.T) {
-	t.Parallel()
 
 	pb := output.NewProgressBar(10, 30)
 	require.NotNil(t, pb)
@@ -96,7 +91,6 @@ func TestProgressBarComplete(t *testing.T) {
 }
 
 func TestNewStepProgress(t *testing.T) {
-	t.Parallel()
 
 	sp := output.NewStepProgress(5)
 	require.NotNil(t, sp)
@@ -170,7 +164,6 @@ func TestStepProgressCIModeDetection(t *testing.T) {
 }
 
 func TestProgressBarConcurrentAccess(t *testing.T) {
-	t.Parallel()
 
 	pb := output.NewProgressBar(100, 30)
 
@@ -193,7 +186,6 @@ func TestProgressBarConcurrentAccess(t *testing.T) {
 }
 
 func TestStepProgressConcurrentAccess(t *testing.T) {
-	t.Parallel()
 
 	sp := output.NewStepProgress(100)
 

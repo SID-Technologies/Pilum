@@ -1,7 +1,9 @@
 package output
 
+import "sync/atomic"
+
 // Mode defines the output verbosity level.
-type Mode int
+type Mode int32
 
 const (
 	// ModeNormal is the default output with spinners and formatted text.
@@ -15,29 +17,29 @@ const (
 )
 
 // currentMode holds the global output mode.
-var currentMode = ModeNormal
+var currentMode atomic.Int32
 
 // SetMode sets the global output mode.
 func SetMode(mode Mode) {
-	currentMode = mode
+	currentMode.Store(int32(mode))
 }
 
 // GetMode returns the current output mode.
 func GetMode() Mode {
-	return currentMode
+	return Mode(currentMode.Load())
 }
 
 // IsVerbose returns true if verbose mode is enabled.
 func IsVerbose() bool {
-	return currentMode == ModeVerbose
+	return GetMode() == ModeVerbose
 }
 
 // IsQuiet returns true if quiet mode is enabled.
 func IsQuiet() bool {
-	return currentMode == ModeQuiet
+	return GetMode() == ModeQuiet
 }
 
 // IsJSON returns true if JSON mode is enabled.
 func IsJSON() bool {
-	return currentMode == ModeJSON
+	return GetMode() == ModeJSON
 }
