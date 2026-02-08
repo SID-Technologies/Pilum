@@ -41,8 +41,8 @@
 
 ### Status & Observability
 - [ ] `pilum status` - Show deployed service versions, health, and last deploy time
-- [ ] `pilum logs [service]` - Tail logs from deployed services (wraps `gcloud logs`)
-- [ ] `pilum history` - View deployment history (local cache)
+- [ ] `pilum logs [service]` - Tail logs from deployed services (wraps provider-specific log commands)
+- [x] `pilum history` - View deployment history (JSONL, project-local)
 
 ### Monorepo Support
 - [x] `--only-changed` flag - Detect git changes, deploy only affected services
@@ -50,7 +50,6 @@
 - [x] Dependency graph between services (`depends_on` in pilum.yaml)
 
 ### Deployment Safety
-- [ ] `pilum rollback [service]` - Rollback to previous revision
 - [ ] Deployment locks (prevent concurrent deploys to same service)
 
 ### Multi-Target Deployments
@@ -83,11 +82,11 @@
 - [ ] GitHub deployment environments
 
 ### Advanced Monorepo
-- [ ] Parallel builds with dependency ordering
+- [x] Parallel builds with dependency ordering (wave-based execution)
 - [ ] Build caching (hash-based skip)
 - [ ] Pattern matching for service selection (`pilum deploy "api-*"`)
 - [ ] Filter services by provider (`--provider=gcp`)
-- [ ] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
+- [x] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
 
 ---
 
@@ -96,7 +95,7 @@
 ### Cloud Platforms (Priority Order)
 - [ ] AWS ECS (Fargate)
 - [ ] Kubernetes (generic manifests)
-- [ ] Azure Container Apps
+- [x] Azure Container Apps
 - [ ] Fly.io
 
 ### Release Targets
@@ -161,4 +160,5 @@ These were considered but intentionally not prioritized:
 | Secrets management | Cloud providers handle this (Secret Manager, SSM) |
 | Canary / Blue-green deploys | Cloud Run has traffic splitting built-in |
 | Terraform/Pulumi integration | Out of scope - Pilum deploys code, not infra |
+| `pilum rollback` | Dangerous as CLI command; `pilum deploy --tag=<old>` already covers the use case |
 | Self-hosted Pilum Cloud | Too early to consider |
