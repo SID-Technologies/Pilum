@@ -9,7 +9,7 @@ import (
 
 func TestFilePath(t *testing.T) {
 	got := FilePath("/project")
-	want := filepath.Join("/project", ".pilum", "history.json")
+	want := filepath.Join("/project", ".pilum", "history.jsonl")
 	if got != want {
 		t.Errorf("FilePath = %q, want %q", got, want)
 	}
@@ -61,7 +61,7 @@ func TestRecordAndLoad(t *testing.T) {
 	}
 }
 
-func TestRecordPrepends(t *testing.T) {
+func TestRecordMostRecentFirst(t *testing.T) {
 	dir := t.TempDir()
 
 	first := NewEntry("build", "v1", true, time.Second, nil)
@@ -82,31 +82,23 @@ func TestRecordPrepends(t *testing.T) {
 	}
 }
 
-func TestRecordCapsAt100(t *testing.T) {
+func TestRecordAppendsToFile(t *testing.T) {
 	dir := t.TempDir()
 
-	// Write 100 entries
-	for i := range 100 {
-		entry := NewEntry("build", "v"+string(rune('0'+i%10)), true, time.Second, nil)
+	for i := range 5 {
+		entry := NewEntry("build", "v"+string(rune('0'+i)), true, time.Second, nil)
 		if err := Record(dir, entry); err != nil {
 			t.Fatalf("Record #%d failed: %v", i, err)
 		}
 	}
 
 	entries, _ := Load(dir)
-	if len(entries) != 100 {
-		t.Fatalf("expected 100 entries, got %d", len(entries))
+	if len(entries) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(entries))
 	}
 
-	// Adding one more should still be 100
-	entry := NewEntry("deploy", "overflow", true, time.Second, nil)
-	_ = Record(dir, entry)
-
-	entries, _ = Load(dir)
-	if len(entries) != 100 {
-		t.Errorf("expected 100 entries after cap, got %d", len(entries))
-	}
-	if entries[0].Tag != "overflow" {
+	// Most recent (last written) should be first in slice
+	if entries[0].Tag != "v4" {
 		t.Errorf("newest entry should be first, got tag=%q", entries[0].Tag)
 	}
 }
@@ -160,5 +152,33 @@ func TestNewEntry(t *testing.T) {
 	}
 	if entry.Services[0].Error != "timeout" {
 		t.Errorf("Service error = %q, want %q", entry.Services[0].Error, "timeout")
+	}
+}
+
+func TestLoadSkipsMalformedLines(t *testing.T) {
+	dir := t.TempDir()
+	pilumDir := filepath.Join(dir, ".pilum")
+	_ = os.MkdirAll(pilumDir, 0o755)
+
+	// Write a file with one good line and one bad line
+	content := `{"id":"abc","timestamp":"2025-01-01T00:00:00Z","command":"build","tag":"v1","success":true,"duration":"1s","services":[]}
+not valid json
+{"id":"def","timestamp":"2025-01-02T00:00:00Z","command":"deploy","tag":"v2","success":true,"duration":"2s","services":[]}
+`
+	fp := FilePath(dir)
+	if err := os.WriteFile(fp, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 valid entries (skipping malformed), got %d", len(entries))
+	}
+	// Most recent first (reversed from file order)
+	if entries[0].ID != "def" {
+		t.Errorf("expected most recent entry first, got ID=%q", entries[0].ID)
 	}
 }

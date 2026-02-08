@@ -1,6 +1,7 @@
 package history
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -13,8 +14,7 @@ import (
 
 const (
 	historyDir  = ".pilum"
-	historyFile = "history.json"
-	maxEntries  = 100
+	historyFile = "history.jsonl"
 )
 
 // Entry represents a single pipeline run.
@@ -42,51 +42,67 @@ func FilePath(projectRoot string) string {
 	return filepath.Join(projectRoot, historyDir, historyFile)
 }
 
-// Load reads history entries from disk. Returns an empty slice if the file doesn't exist.
+// Load reads history entries from disk, returning most recent first.
+// Returns nil if the file doesn't exist.
 func Load(projectRoot string) ([]Entry, error) {
 	fp := FilePath(projectRoot)
 
-	data, err := os.ReadFile(fp)
+	f, err := os.Open(fp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, errors.Wrap(err, "reading history file")
 	}
+	defer f.Close()
 
 	var entries []Entry
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, errors.Wrap(err, "parsing history file")
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var e Entry
+		if err := json.Unmarshal(line, &e); err != nil {
+			continue // skip malformed lines
+		}
+		entries = append(entries, e)
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, errors.Wrap(err, "scanning history file")
+	}
+
+	// Reverse so most recent is first (file is append-order)
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
+	}
+
 	return entries, nil
 }
 
-// Record prepends an entry to the history file, capping at maxEntries.
+// Record appends an entry as a single JSON line to the history file.
 func Record(projectRoot string, entry Entry) error {
-	existing, err := Load(projectRoot)
-	if err != nil {
-		// If we can't load, start fresh
-		existing = nil
-	}
-
-	entries := append([]Entry{entry}, existing...)
-	if len(entries) > maxEntries {
-		entries = entries[:maxEntries]
-	}
-
 	dir := filepath.Join(projectRoot, historyDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return errors.Wrap(err, "creating %s directory", historyDir)
 	}
 
-	data, err := json.MarshalIndent(entries, "", "  ")
+	data, err := json.Marshal(entry)
 	if err != nil {
-		return errors.Wrap(err, "marshaling history")
+		return errors.Wrap(err, "marshaling history entry")
 	}
+	data = append(data, '\n')
 
 	fp := FilePath(projectRoot)
-	if err := os.WriteFile(fp, data, 0o644); err != nil {
-		return errors.Wrap(err, "writing history file")
+	f, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return errors.Wrap(err, "opening history file")
+	}
+	defer f.Close()
+
+	if _, err := f.Write(data); err != nil {
+		return errors.Wrap(err, "writing history entry")
 	}
 
 	return nil
@@ -99,7 +115,7 @@ func generateID() string {
 	return hex.EncodeToString(b)
 }
 
-// NewEntry creates a Entry with a generated ID and current timestamp.
+// NewEntry creates an Entry with a generated ID and current timestamp.
 func NewEntry(command, tag string, success bool, duration time.Duration, services []ServiceResult) Entry {
 	return Entry{
 		ID:        generateID(),
