@@ -14,10 +14,10 @@ func ListCmd() *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List all discovered services",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: withJSON(func(cmd *cobra.Command, _ []string) (any, error) {
 			root, err := path.FindProjectRoot()
 			if err != nil {
-				return exitcodes.WithCode(exitcodes.NoServices,
+				return nil, exitcodes.WithCode(exitcodes.NoServices,
 					errors.Wrap(err, "error finding project root"))
 			}
 
@@ -29,7 +29,7 @@ func ListCmd() *cobra.Command {
 
 			services, err := serviceinfo.FindServicesWithOptions(root, opts)
 			if err != nil {
-				return exitcodes.WithCode(exitcodes.NoServices,
+				return nil, exitcodes.WithCode(exitcodes.NoServices,
 					errors.Wrap(err, "error finding services"))
 			}
 
@@ -39,9 +39,31 @@ func ListCmd() *cobra.Command {
 				svcPtrs[i] = &services[i]
 			}
 
+			// Text output (suppressed in JSON mode)
 			serviceinfo.ListServices(svcPtrs)
-			return nil
-		},
+
+			// Build structured data for JSON
+			type jsonService struct {
+				Name     string `json:"name"`
+				Provider string `json:"provider"`
+				Project  string `json:"project"`
+				Region   string `json:"region,omitempty"`
+				Type     string `json:"type,omitempty"`
+				Path     string `json:"path"`
+			}
+			result := make([]jsonService, len(services))
+			for i, s := range services {
+				result[i] = jsonService{
+					Name:     s.Name,
+					Provider: s.Provider,
+					Project:  s.Project,
+					Region:   s.Region,
+					Type:     s.Template,
+					Path:     s.Path,
+				}
+			}
+			return result, nil
+		}),
 	}
 
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
