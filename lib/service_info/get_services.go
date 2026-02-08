@@ -20,11 +20,12 @@ import (
 
 // FilterOptions configures how services are filtered.
 type FilterOptions struct {
-	Names       []string // Service names to filter by
+	Names       []string // Service names to filter by (supports glob patterns like "api-*")
 	OnlyChanged bool     // Only include services with git changes
 	Since       string   // Git ref to compare against (default: main/master)
 	NoGitIgnore bool     // Skip reading .gitignore patterns
 	Env         string   // Environment name to apply (merges overrides from environments block)
+	Provider    string   // Filter by provider (e.g., "gcp", "aws")
 }
 
 func FindAndFilterServices(root string, filter []string) ([]ServiceInfo, error) {
@@ -47,6 +48,12 @@ func FindAndFilterServicesWithOptions(root string, opts FilterOptions) ([]Servic
 	if len(opts.Names) > 0 {
 		services = FilterServices(opts.Names, services)
 		output.Debugf("Filtered by name to %d services", len(services))
+	}
+
+	// Filter by provider if specified
+	if opts.Provider != "" {
+		services = FilterByProvider(services, opts.Provider)
+		output.Debugf("Filtered by provider to %d services", len(services))
 	}
 
 	// Filter by git changes if requested
@@ -403,6 +410,11 @@ func shouldIgnore(path string, patterns []string) bool {
 	return false
 }
 
+// isGlobPattern returns true if the string contains glob metacharacters.
+func isGlobPattern(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
 func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {
 	// Build lookup structures:
 	// - byDisplayName: exact match for "service (region)" format
@@ -427,6 +439,31 @@ func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {
 
 	for _, name := range names {
 		foundMatch := false
+
+		// Check if this is a glob pattern
+		if isGlobPattern(name) {
+			for i := range found {
+				svc := &found[i]
+				key := svc.DisplayName()
+				if matched[key] {
+					continue
+				}
+				// Match against both base name and display name
+				if ok, _ := filepath.Match(name, svc.Name); ok {
+					services = append(services, *svc)
+					matched[key] = true
+					foundMatch = true
+				} else if ok, _ := filepath.Match(name, key); ok {
+					services = append(services, *svc)
+					matched[key] = true
+					foundMatch = true
+				}
+			}
+			if !foundMatch {
+				output.Warning("No services match pattern '%s'", name)
+			}
+			continue
+		}
 
 		// First, try exact display name match (e.g., "global-api (us-central1)")
 		if svc, ok := byDisplayName[name]; ok {
@@ -461,6 +498,17 @@ func FilterServices(names []string, found []ServiceInfo) []ServiceInfo {
 	}
 
 	return services
+}
+
+// FilterByProvider returns only services matching the given provider.
+func FilterByProvider(services []ServiceInfo, provider string) []ServiceInfo {
+	var filtered []ServiceInfo
+	for _, svc := range services {
+		if strings.EqualFold(svc.Provider, provider) {
+			filtered = append(filtered, svc)
+		}
+	}
+	return filtered
 }
 
 // SortByDependencies sorts services in topological order (dependencies first).

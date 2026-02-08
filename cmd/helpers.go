@@ -31,6 +31,7 @@ type deploymentOptions struct {
 	Since       string
 	NoDeps      bool
 	Env         string
+	Provider    string
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
@@ -48,6 +49,7 @@ func getDeploymentOptions() deploymentOptions {
 		Since:       viper.GetString("since"),
 		NoDeps:      viper.GetBool("no-deps"),
 		Env:         viper.GetString("env"),
+		Provider:    viper.GetString("provider"),
 	}
 }
 
@@ -80,6 +82,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"since",
 		"no-deps",
 		"env",
+		"provider",
 	}
 
 	for _, flag := range flagBindings {
@@ -107,6 +110,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
 	cmd.Flags().Bool("no-deps", false, "Disable dependency-based deployment ordering")
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
+	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
 
 	if includeDryRun {
 		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
@@ -123,6 +127,7 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		Since:       opts.Since,
 		NoGitIgnore: NoGitIgnore(),
 		Env:         opts.Env,
+		Provider:    opts.Provider,
 	}
 
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)

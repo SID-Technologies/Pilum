@@ -987,3 +987,171 @@ func TestFilterOptionsNoGitIgnore(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, services, 2)
 }
+
+func TestFilterServicesGlobPattern(t *testing.T) {
+	t.Parallel()
+
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api-gateway", Provider: "gcp"},
+		{Name: "api-users", Provider: "gcp"},
+		{Name: "api-payments", Provider: "aws"},
+		{Name: "worker-queue", Provider: "gcp"},
+		{Name: "frontend", Provider: "cloudflare"},
+	}
+
+	tests := []struct {
+		name     string
+		filter   []string
+		expected []string
+	}{
+		{
+			name:     "glob matches prefix",
+			filter:   []string{"api-*"},
+			expected: []string{"api-gateway", "api-users", "api-payments"},
+		},
+		{
+			name:     "glob matches suffix",
+			filter:   []string{"*-queue"},
+			expected: []string{"worker-queue"},
+		},
+		{
+			name:     "glob matches all",
+			filter:   []string{"*"},
+			expected: []string{"api-gateway", "api-users", "api-payments", "worker-queue", "frontend"},
+		},
+		{
+			name:     "glob with question mark",
+			filter:   []string{"api-????s"},
+			expected: []string{"api-users"},
+		},
+		{
+			name:     "glob no match",
+			filter:   []string{"nonexistent-*"},
+			expected: []string{},
+		},
+		{
+			name:     "mix of glob and exact",
+			filter:   []string{"api-*", "frontend"},
+			expected: []string{"api-gateway", "api-users", "api-payments", "frontend"},
+		},
+		{
+			name:     "glob deduplicates with exact",
+			filter:   []string{"api-*", "api-gateway"},
+			expected: []string{"api-gateway", "api-users", "api-payments"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := serviceinfo.FilterServices(tt.filter, services)
+
+			require.Len(t, result, len(tt.expected))
+			names := make([]string, len(result))
+			for i, svc := range result {
+				names[i] = svc.Name
+			}
+			require.ElementsMatch(t, tt.expected, names)
+		})
+	}
+}
+
+func TestFilterServicesGlobMultiRegion(t *testing.T) {
+	t.Parallel()
+
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api", Provider: "gcp", Region: "us-central1", IsMultiRegion: true},
+		{Name: "api", Provider: "gcp", Region: "us-east1", IsMultiRegion: true},
+		{Name: "worker", Provider: "gcp"},
+	}
+
+	result := serviceinfo.FilterServices([]string{"api*"}, services)
+
+	// Should match both multi-region instances
+	require.Len(t, result, 2)
+}
+
+func TestFilterByProvider(t *testing.T) {
+	t.Parallel()
+
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api-gateway", Provider: "gcp"},
+		{Name: "api-users", Provider: "gcp"},
+		{Name: "lambda-func", Provider: "aws"},
+		{Name: "web-app", Provider: "azure"},
+		{Name: "site", Provider: "cloudflare"},
+	}
+
+	tests := []struct {
+		name     string
+		provider string
+		expected int
+	}{
+		{name: "filter gcp", provider: "gcp", expected: 2},
+		{name: "filter aws", provider: "aws", expected: 1},
+		{name: "filter azure", provider: "azure", expected: 1},
+		{name: "filter cloudflare", provider: "cloudflare", expected: 1},
+		{name: "filter nonexistent", provider: "fly", expected: 0},
+		{name: "case insensitive", provider: "GCP", expected: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := serviceinfo.FilterByProvider(services, tt.provider)
+
+			require.Len(t, result, tt.expected)
+		})
+	}
+}
+
+func TestFindAndFilterServicesWithProvider(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create GCP service
+	gcpDir := filepath.Join(tmpDir, "gcp-svc")
+	require.NoError(t, os.MkdirAll(gcpDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(gcpDir, "pilum.yaml"), []byte("name: gcp-svc\nprovider: gcp\n"), 0644))
+
+	// Create AWS service
+	awsDir := filepath.Join(tmpDir, "aws-svc")
+	require.NoError(t, os.MkdirAll(awsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "pilum.yaml"), []byte("name: aws-svc\nprovider: aws\n"), 0644))
+
+	// Filter by provider
+	opts := serviceinfo.FilterOptions{Provider: "gcp"}
+	services, err := serviceinfo.FindAndFilterServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Equal(t, "gcp-svc", services[0].Name)
+}
+
+func TestFindAndFilterServicesWithGlobPattern(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	for _, name := range []string{"api-gateway", "api-users", "worker"} {
+		svcDir := filepath.Join(tmpDir, name)
+		require.NoError(t, os.MkdirAll(svcDir, 0755))
+		content := "name: " + name + "\nprovider: gcp\n"
+		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+	}
+
+	opts := serviceinfo.FilterOptions{Names: []string{"api-*"}}
+	services, err := serviceinfo.FindAndFilterServicesWithOptions(tmpDir, opts)
+
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+	names := make(map[string]bool)
+	for _, svc := range services {
+		names[svc.Name] = true
+	}
+	require.True(t, names["api-gateway"])
+	require.True(t, names["api-users"])
+}

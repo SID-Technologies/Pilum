@@ -22,7 +22,7 @@ func StatusCmd() *cobra.Command {
 		Short:   "Show status of deployed services",
 		Long:    "Query the status of one or more deployed cloud services. Non-cloud providers (npm, homebrew) are skipped automatically.",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			for _, flag := range []string{"timeout", "debug", "env"} {
+			for _, flag := range []string{"timeout", "debug", "env", "provider"} {
 				if f := cmd.Flags().Lookup(flag); f != nil {
 					if err := viper.BindPFlag(flag, f); err != nil {
 						return errors.Wrap(err, "error binding %s flag", flag)
@@ -39,6 +39,7 @@ func StatusCmd() *cobra.Command {
 	cmd.Flags().IntP("timeout", "T", 30, "Query timeout in seconds")
 	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
+	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
 
 	return cmd
 }
@@ -47,11 +48,13 @@ func runStatus(args []string) (any, error) {
 	timeout := viper.GetInt("timeout")
 	debug := viper.GetBool("debug")
 	env := viper.GetString("env")
+	provider := viper.GetString("provider")
 
 	filterOpts := serviceinfo.FilterOptions{
 		Names:       args,
 		NoGitIgnore: NoGitIgnore(),
 		Env:         env,
+		Provider:    provider,
 	}
 
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
