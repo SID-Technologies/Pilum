@@ -40,8 +40,8 @@
 ## Phase 2: Visibility & Safety
 
 ### Status & Observability
-- [ ] `pilum status` - Show deployed service versions, health, and last deploy time
-- [ ] `pilum logs [service]` - Tail logs from deployed services (wraps provider-specific log commands)
+- [x] `pilum status` - Show deployed service versions, health, and last deploy time
+- [x] `pilum logs [service]` - Tail logs from deployed services (wraps provider-specific log commands)
 - [x] `pilum history` - View deployment history (JSONL, project-local)
 
 ### Monorepo Support

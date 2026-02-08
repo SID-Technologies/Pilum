@@ -33,6 +33,8 @@ pilum publish [services]       # Build + push images (alias: p)
 pilum push [services]          # Push images to registry (alias: ps)
 pilum deploy [services]        # Full deploy pipeline (alias: up)
 pilum dry-run [services]       # Preview what would execute (alias: dr)
+pilum status [services]        # Show status of deployed services (alias: st)
+pilum logs <service>           # Show logs for a deployed service (alias: log)
 pilum history                  # Show deployment history (alias: hist)
 pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 
@@ -59,7 +61,8 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 | `lib/service_info/` | Service configuration parsing |
 | `lib/history/` | Deployment history (JSONL append-only log) |
 | `lib/worker_queue/` | Parallel execution worker pool |
-| `ingredients/` | Cloud provider command generators (gcp, docker, homebrew) |
+| `lib/query/` | Status/logs query types, dispatch, and response parsing |
+| `ingredients/` | Cloud provider command generators (gcp, aws, azure, cloudflare, docker, homebrew) |
 | `recepies/` | Deployment recipe YAML files |
 
 ## Architecture
