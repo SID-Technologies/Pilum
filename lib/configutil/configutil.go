@@ -166,8 +166,8 @@ func GetNestedString(config map[string]any, keys ...string) string {
 		}
 
 		// Otherwise, navigate deeper into the map
-		nested, ok := val.(map[string]any)
-		if !ok {
+		nested := MapFromAny(val)
+		if len(nested) == 0 {
 			return ""
 		}
 		current = nested

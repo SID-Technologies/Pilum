@@ -529,6 +529,29 @@ func TestGetNestedString(t *testing.T) {
 			keys:     []string{},
 			expected: "",
 		},
+		{
+			name: "yaml.v2 nested map (map[interface{}]interface{})",
+			config: map[string]any{
+				"cloudflare": map[any]any{
+					"account_id": "abc123",
+					"token_env":  "CF_TOKEN",
+				},
+			},
+			keys:     []string{"cloudflare", "account_id"},
+			expected: "abc123",
+		},
+		{
+			name: "yaml.v2 deeply nested map",
+			config: map[string]any{
+				"level1": map[any]any{
+					"level2": map[any]any{
+						"value": "deep",
+					},
+				},
+			},
+			keys:     []string{"level1", "level2", "value"},
+			expected: "deep",
+		},
 	}
 
 	for _, tt := range tests {
