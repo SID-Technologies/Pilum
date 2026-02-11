@@ -13,10 +13,11 @@ const (
 
 // Config holds npm-specific configuration.
 type Config struct {
-	Scope    string // npm scope (e.g., "@sid-technologies")
-	Registry string // npm registry URL (e.g., "https://npm.pkg.github.com")
-	TokenEnv string // Environment variable name for auth token
-	Access   string // Package access level: "restricted" or "public"
+	Scope          string // npm scope (e.g., "@sid-technologies")
+	Registry       string // npm registry URL (e.g., "https://npm.pkg.github.com")
+	TokenEnv       string // Environment variable name for auth token
+	Access         string // Package access level: "restricted" or "public"
+	PackageManager string // Package manager: "npm" (default) or "pnpm"
 }
 
 // ParseConfig extracts npm configuration from the raw service config.
@@ -27,9 +28,10 @@ func ParseConfig(config map[string]any) Config {
 	access := configutil.GetString(npmMap, "access", DefaultAccess)
 
 	return Config{
-		Scope:    configutil.GetString(npmMap, "scope", ""),
-		Registry: registry,
-		TokenEnv: configutil.GetString(npmMap, "token_env", ""),
-		Access:   access,
+		Scope:          configutil.GetString(npmMap, "scope", ""),
+		Registry:       registry,
+		TokenEnv:       configutil.GetString(npmMap, "token_env", ""),
+		Access:         access,
+		PackageManager: configutil.GetString(npmMap, "package_manager", "npm"),
 	}
 }

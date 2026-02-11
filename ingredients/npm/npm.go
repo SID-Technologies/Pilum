@@ -7,9 +7,20 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-// GenerateInstallCommand creates the npm ci command for clean dependency installation.
-func GenerateInstallCommand() []string {
-	return []string{"npm", "ci"}
+// GenerateInstallCommand creates the dependency install command based on package_manager config.
+func GenerateInstallCommand(svc serviceinfo.ServiceInfo) []string {
+	cfg := ParseConfig(svc.Config)
+
+	switch cfg.PackageManager {
+	case "pnpm":
+		return []string{"pnpm", "install", "--frozen-lockfile"}
+	case "yarn":
+		return []string{"yarn", "install", "--frozen-lockfile"}
+	case "bun":
+		return []string{"bun", "install", "--frozen-lockfile"}
+	default:
+		return []string{"npm", "ci"}
+	}
 }
 
 // GenerateSetVersionCommand creates the npm version command to sync package.json with the release tag.
