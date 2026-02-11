@@ -8,12 +8,78 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateInstallCommand(t *testing.T) {
+func TestGenerateInstallCommand_DefaultNpm(t *testing.T) {
 	t.Parallel()
 
-	cmd := GenerateInstallCommand()
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{},
+		},
+	}
+
+	cmd := GenerateInstallCommand(svc)
 
 	require.Equal(t, []string{"npm", "ci"}, cmd)
+}
+
+func TestGenerateInstallCommand_Pnpm(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{
+				"package_manager": "pnpm",
+			},
+		},
+	}
+
+	cmd := GenerateInstallCommand(svc)
+
+	require.Equal(t, []string{"pnpm", "install", "--frozen-lockfile"}, cmd)
+}
+
+func TestGenerateInstallCommand_Yarn(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{
+				"package_manager": "yarn",
+			},
+		},
+	}
+
+	cmd := GenerateInstallCommand(svc)
+
+	require.Equal(t, []string{"yarn", "install", "--frozen-lockfile"}, cmd)
+}
+
+func TestGenerateInstallCommand_Bun(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{
+				"package_manager": "bun",
+			},
+		},
+	}
+
+	cmd := GenerateInstallCommand(svc)
+
+	require.Equal(t, []string{"bun", "install", "--frozen-lockfile"}, cmd)
+}
+
+func TestGenerateInstallCommand_EmptyConfig(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{},
+	}
+
+	cmd := GenerateInstallCommand(svc)
+
+	require.Equal(t, []string{"npm", "ci"}, cmd, "should default to npm when no config")
 }
 
 func TestGenerateSetVersionCommand_StripsVPrefix(t *testing.T) {

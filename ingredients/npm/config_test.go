@@ -13,6 +13,7 @@ func TestParseConfigEmpty(t *testing.T) {
 
 	require.Equal(t, DefaultRegistry, cfg.Registry)
 	require.Equal(t, DefaultAccess, cfg.Access)
+	require.Equal(t, "npm", cfg.PackageManager)
 	require.Empty(t, cfg.Scope)
 	require.Empty(t, cfg.TokenEnv)
 }
@@ -22,10 +23,11 @@ func TestParseConfigFull(t *testing.T) {
 
 	config := map[string]any{
 		"npm": map[string]any{
-			"scope":     "@myorg",
-			"registry":  "https://registry.npmjs.org",
-			"token_env": "NPM_TOKEN",
-			"access":    "public",
+			"scope":           "@myorg",
+			"registry":        "https://registry.npmjs.org",
+			"token_env":       "NPM_TOKEN",
+			"access":          "public",
+			"package_manager": "pnpm",
 		},
 	}
 
@@ -35,6 +37,7 @@ func TestParseConfigFull(t *testing.T) {
 	require.Equal(t, "https://registry.npmjs.org", cfg.Registry)
 	require.Equal(t, "NPM_TOKEN", cfg.TokenEnv)
 	require.Equal(t, "public", cfg.Access)
+	require.Equal(t, "pnpm", cfg.PackageManager)
 }
 
 func TestParseConfigPartial(t *testing.T) {

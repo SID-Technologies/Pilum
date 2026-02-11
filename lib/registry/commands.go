@@ -101,8 +101,8 @@ func registerHomebrewHandlers(reg *CommandRegistry) {
 // Step names must match exactly: "install dependencies", "set version", etc.
 func registerNpmHandlers(reg *CommandRegistry) {
 	// Step 1: Install dependencies
-	reg.Register("install dependencies", "npm", func(_ StepContext) any {
-		return npm.GenerateInstallCommand()
+	reg.Register("install dependencies", "npm", func(ctx StepContext) any {
+		return npm.GenerateInstallCommand(ctx.Service)
 	})
 
 	// Step 2: Set version from tag
