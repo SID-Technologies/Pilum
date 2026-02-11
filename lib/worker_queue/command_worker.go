@@ -2,11 +2,14 @@ package workerqueue
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/sid-technologies/pilum/lib/errors"
@@ -23,6 +26,8 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		output.Debugf("Timeout: %d", taskInfo.Timeout)
 		output.Debugf("Environment variables: %v", taskInfo.EnvVars)
 	}
+
+	var lastError string
 
 	for attempt := 0; attempt <= taskInfo.Retries; attempt++ {
 		var cmd *exec.Cmd
@@ -102,11 +107,32 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			return false, errors.Wrap(err, "error starting command for %s", taskInfo.ServiceName)
 		}
 
-		// Stream output in verbose mode
-		if output.IsVerbose() {
-			go streamOutput(stdout, taskInfo.ServiceName, false)
-			go streamOutput(stderr, taskInfo.ServiceName, true)
-		}
+		// Always capture stderr into a buffer.
+		// In verbose mode, also stream it to the terminal via TeeReader.
+		var stderrBuf bytes.Buffer
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if output.IsVerbose() {
+				tee := io.TeeReader(stderr, &stderrBuf)
+				streamOutput(tee, taskInfo.ServiceName, true)
+			} else {
+				_, _ = io.Copy(&stderrBuf, stderr)
+			}
+		}()
+
+		// Drain stdout (stream in verbose mode, discard otherwise)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if output.IsVerbose() {
+				streamOutput(stdout, taskInfo.ServiceName, false)
+			} else {
+				_, _ = io.Copy(io.Discard, stdout)
+			}
+		}()
 
 		// Set up timeout context
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(taskInfo.Timeout)*time.Second)
@@ -128,18 +154,19 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 
 			return false, errors.New("command timed out")
 		case err := <-done:
+			// Wait for output goroutines to finish draining pipes
+			wg.Wait()
+
 			// Command completed
 			if err == nil {
 				return true, nil
 			}
 
-			// Read error output
-			stderrBytes := make([]byte, 1024)
-			n, _ := stderr.Read(stderrBytes)
-			errorOutput := string(stderrBytes[:n])
+			// Capture stderr for error reporting
+			lastError = strings.TrimSpace(stderrBuf.String())
 
 			output.Debugf("Command failed for %s", taskInfo.ServiceName)
-			output.Debugf("Error output: %s", errorOutput)
+			output.Debugf("Error output: %s", lastError)
 
 			// Retry if not the last attempt
 			if attempt < taskInfo.Retries {
@@ -150,7 +177,12 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		}
 	}
 
-	return false, nil
+	// All retries exhausted — return the error with stderr output
+	if lastError != "" {
+		return false, errors.New("command failed for %s:\n%s", taskInfo.ServiceName, lastError)
+	}
+
+	return false, errors.New("command failed for %s", taskInfo.ServiceName)
 }
 
 // streamOutput reads from a pipe and prints lines with service name prefix.

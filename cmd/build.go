@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/sid-technologies/pilum/lib/output"
+
 	"github.com/spf13/cobra"
 )
 
@@ -9,7 +13,7 @@ func BuildCmd() *cobra.Command {
 		Use:     "build [services...]",
 		Aliases: []string{"b", "make"},
 		Short:   "Build services",
-		Long:    "Build one or more services or all services if none specified. Runs all recipe steps tagged with 'build'.",
+		Long:    "Build one or more services, or all services if none specified. Runs all recipe steps tagged with 'build'.",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			return bindFlagsForDeploymentCommands(cmd)
 		},
@@ -24,6 +28,14 @@ func BuildCmd() *cobra.Command {
 			return runPipeline("build", args, opts, "No services found to build")
 		},
 	}
+
+	// Override help to show styled build reference before standard flags
+	defaultHelp := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		output.PrintBuildHelp()
+		fmt.Println()
+		defaultHelp(cmd, args)
+	})
 
 	addCommandFlags(cmd, true)
 

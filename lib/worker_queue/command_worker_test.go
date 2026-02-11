@@ -224,7 +224,30 @@ func TestCommandWorkerFailingCommand(t *testing.T) {
 	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "command failed for test-service")
+}
+
+func TestCommandWorkerFailingCommandCapturesStderr(t *testing.T) {
+	t.Parallel()
+
+	taskInfo := workerqueue.NewTaskInfo(
+		"echo 'something went wrong' >&2 && exit 1",
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		10,
+		false,
+		0, // No retries
+	)
+
+	success, err := workerqueue.CommandWorker(taskInfo)
+
+	require.False(t, success)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "something went wrong")
 }
 
 func TestCommandWorkerTimeout(t *testing.T) {
@@ -314,9 +337,10 @@ func TestCommandWorkerNonExistentCommand(t *testing.T) {
 		0,
 	)
 
-	success, _ := workerqueue.CommandWorker(taskInfo)
+	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
+	require.Error(t, err)
 }
 
 func TestCommandWorkerMultipleCommands(t *testing.T) {
