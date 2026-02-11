@@ -35,7 +35,26 @@ A cloud-agnostic deployment CLI that lets you define a service once
 and deploy it to any cloud provider (AWS, GCP, Azure).
 
 Define your service in a pilum.yaml file, specify the target provider,
-and Pilum handles the build, containerization, and deployment.`,
+and Pilum handles the build, containerization, and deployment.
+
+Getting started:
+
+  pilum init                       Create a pilum.yaml for your service
+  pilum check                      Validate your configuration
+  pilum deploy --tag=v1.0.0        Build, push, and deploy
+
+Explore:
+
+  pilum recipes                    List all supported providers
+  pilum recipes <name>             Show required fields, options, and steps
+  pilum build --help               Build examples by language (Go, Node, Python, Rust)
+
+Pipeline commands:
+
+  deploy    Full pipeline: build → push → deploy (use this by default)
+  build     Build step only
+  publish   Build + push (no deploy)
+  push      Push images to registry only`,
 }
 
 func Execute() {
