@@ -1,6 +1,8 @@
 package gcp
 
 import (
+	"strings"
+
 	"github.com/sid-technologies/pilum/lib/configutil"
 )
 
@@ -38,4 +40,26 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		Concurrency:    configutil.GetInt(cloudRunMap, "concurrency", -1),
 		TimeoutSeconds: configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
 	}
+}
+
+// toGcloudSecretRef converts a secret reference to gcloud --set-secrets format.
+// Accepts either:
+//   - Full resource path: "projects/my-project/secrets/my-secret/versions/latest" → "my-secret:latest"
+//   - Already formatted:  "my-secret:latest" → "my-secret:latest" (pass-through)
+func toGcloudSecretRef(value string) string {
+	// Already in gcloud format (contains colon, no slash path)
+	if strings.Contains(value, ":") && !strings.Contains(value, "/") {
+		return value
+	}
+
+	// Parse full resource path: projects/{project}/secrets/{name}/versions/{version}
+	parts := strings.Split(value, "/")
+	if len(parts) >= 6 && parts[2] == "secrets" && parts[4] == "versions" {
+		secretName := parts[3]
+		version := parts[5]
+		return secretName + ":" + version
+	}
+
+	// Unrecognized format — pass through as-is
+	return value
 }
