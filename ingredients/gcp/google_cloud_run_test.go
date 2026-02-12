@@ -219,11 +219,37 @@ func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
 
-	// Should have --set-secrets flag with single secret
+	// Should have --set-secrets flag — already in gcloud format, pass through
 	for i, arg := range cmd {
 		if arg == "--set-secrets" && i+1 < len(cmd) {
 			secretsValue := cmd[i+1]
 			require.Equal(t, "API_KEY=projects/123/secrets/key:latest", secretsValue)
+			return
+		}
+	}
+	t.Fatal("--set-secrets flag not found")
+}
+
+func TestGenerateGCPDeployCommandSecretResourcePath(t *testing.T) {
+	t.Parallel()
+
+	// Full resource path format from pilum.yaml (projects/PROJECT/secrets/NAME/versions/VERSION)
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		Secrets: []serviceinfo.Secrets{
+			{Name: "DATABASE_URL", Value: "projects/romans-dev/secrets/platform-database-url/versions/latest"},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Should convert to gcloud format: SECRET_NAME:VERSION
+	for i, arg := range cmd {
+		if arg == "--set-secrets" && i+1 < len(cmd) {
+			secretsValue := cmd[i+1]
+			require.Equal(t, "DATABASE_URL=platform-database-url:latest", secretsValue)
 			return
 		}
 	}

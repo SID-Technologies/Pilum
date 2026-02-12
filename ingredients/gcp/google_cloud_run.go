@@ -61,10 +61,9 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 	if len(svc.Secrets) > 0 {
 		var secretsStrs []string
 		for _, secret := range svc.Secrets {
-			secretStr := fmt.Sprintf("%s=%s", secret.Name, secret.Value)
+			secretStr := fmt.Sprintf("%s=%s", secret.Name, toGcloudSecretRef(secret.Value))
 			secretsStrs = append(secretsStrs, secretStr)
 		}
-		// Join the secrets into a single string
 		secretsJoined := strings.Join(secretsStrs, ",")
 		cmd = append(cmd, "--set-secrets", secretsJoined)
 	}
