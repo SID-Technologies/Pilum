@@ -35,15 +35,17 @@ optional_fields:
 
 steps:
   # Step 1: Install dependencies from lockfile
+  # Runs from root so monorepo lockfiles and workspace configs are found
   - name: install dependencies
-    execution_mode: service_dir
+    execution_mode: root
     timeout: 120
     tags:
       - build
 
   # Step 2: Build the static site
+  # Runs from root so monorepo filter commands (pnpm --filter) work
   - name: build site
-    execution_mode: service_dir
+    execution_mode: root
     timeout: 300
     tags:
       - build
