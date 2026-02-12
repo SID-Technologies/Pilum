@@ -13,7 +13,7 @@ import (
 
 // GenerateStatusCommand returns the CLI command to query a service's status.
 func GenerateStatusCommand(svc serviceinfo.ServiceInfo) ([]string, error) {
-	switch svc.Template {
+	switch svc.Type {
 	case "gcp-cloud-run":
 		return gcp.GenerateStatusCommand(svc), nil
 	case "gcp-cloud-run-job":
@@ -36,13 +36,13 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) ([]string, error) {
 		case "cloudflare":
 			return cloudflare.GenerateStatusCommand(svc), nil
 		}
-		return nil, errors.New("unsupported template for status: %s", svc.Template)
+		return nil, errors.New("unsupported template for status: %s", svc.Type)
 	}
 }
 
 // GenerateLogsCommand returns the CLI command to query a service's logs.
 func GenerateLogsCommand(svc serviceinfo.ServiceInfo, lines int, follow bool) ([]string, error) {
-	switch svc.Template {
+	switch svc.Type {
 	case "gcp-cloud-run":
 		return gcp.GenerateLogsCommand(svc, lines, follow), nil
 	case "gcp-cloud-run-job":
@@ -64,13 +64,13 @@ func GenerateLogsCommand(svc serviceinfo.ServiceInfo, lines int, follow bool) ([
 		case "cloudflare":
 			return cloudflare.GenerateLogsCommand(svc), nil
 		}
-		return nil, errors.New("unsupported template for logs: %s", svc.Template)
+		return nil, errors.New("unsupported template for logs: %s", svc.Type)
 	}
 }
 
 // ParseStatusResponse parses provider-specific JSON output into a ServiceStatus.
 func ParseStatusResponse(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatus {
-	switch svc.Template {
+	switch svc.Type {
 	case "gcp-cloud-run", "gcp-cloud-run-job":
 		return parseGCPStatus(jsonOutput, svc)
 	case "azure-container-apps":

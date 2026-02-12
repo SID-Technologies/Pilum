@@ -63,7 +63,7 @@ func ListCmd() *cobra.Command {
 					Provider: s.Provider,
 					Project:  s.Project,
 					Region:   s.Region,
-					Type:     s.Template,
+					Type:     s.Type,
 					Path:     s.Path,
 				}
 			}
