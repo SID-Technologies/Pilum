@@ -459,7 +459,25 @@ func (r *Runner) generateCommand(svc serviceinfo.ServiceInfo, step *recepie.Reci
 		TemplatePath: templatePath,
 	}
 
-	return handler(ctx)
+	result := handler(ctx)
+
+	// Guard against Go's nil interface trap: a typed nil (e.g., nil []string)
+	// wrapped in an any interface is NOT == nil. Check concrete types explicitly.
+	if result == nil {
+		return nil
+	}
+	switch v := result.(type) {
+	case []string:
+		if v == nil {
+			return nil
+		}
+	case []any:
+		if v == nil {
+			return nil
+		}
+	}
+
+	return result
 }
 
 // substituteVars replaces ${var} patterns in commands.

@@ -28,6 +28,7 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 	}
 
 	var lastError string
+	var lastOutput string
 
 	for attempt := 0; attempt <= taskInfo.Retries; attempt++ {
 		var cmd *exec.Cmd
@@ -39,14 +40,12 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			var err error
 			workingDir, err = os.Getwd()
 			if err != nil {
-				output.Debugf("Error getting current working directory: %v", err)
-				return false, nil
+				return false, errors.Wrap(err, "error getting current working directory for %s", taskInfo.ServiceName)
 			}
 		case "service_dir":
 			workingDir = taskInfo.Cwd
 		default:
-			output.Debugf("Invalid execution mode: %s", taskInfo.ExecutionMode)
-			return false, nil
+			return false, errors.New("invalid execution mode '%s' for %s", taskInfo.ExecutionMode, taskInfo.ServiceName)
 		}
 
 		// Prepare command
@@ -55,15 +54,13 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			cmd = exec.Command("sh", "-c", v)
 		case []string:
 			if len(v) < 1 {
-				output.Debugf("Empty command array for %s", taskInfo.ServiceName)
-				return false, nil
+				return false, errors.New("empty command array for %s", taskInfo.ServiceName)
 			}
 			cmd = exec.Command(v[0], v[1:]...) //nolint:gosec // Command comes from trusted recipe config
 		case []any:
 			// Handle YAML parsed arrays ([]interface{})
 			if len(v) < 1 {
-				output.Debugf("Empty command array for %s", taskInfo.ServiceName)
-				return false, nil
+				return false, errors.New("empty command array for %s", taskInfo.ServiceName)
 			}
 			args := make([]string, len(v))
 			for i, arg := range v {
@@ -71,8 +68,7 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			}
 			cmd = exec.Command(args[0], args[1:]...) //nolint:gosec // Command comes from trusted recipe config
 		default:
-			output.Debugf("Invalid command type for %s: %T", taskInfo.ServiceName, taskInfo.Command)
-			return false, nil
+			return false, errors.New("invalid command type for %s: %T", taskInfo.ServiceName, taskInfo.Command)
 		}
 
 		// Set working directory
@@ -107,9 +103,10 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			return false, errors.Wrap(err, "error starting command for %s", taskInfo.ServiceName)
 		}
 
-		// Always capture stderr into a buffer.
-		// In verbose mode, also stream it to the terminal via TeeReader.
-		var stderrBuf bytes.Buffer
+		// Always capture stderr and stdout into buffers so we can report
+		// meaningful errors when a command fails.
+		// In verbose mode, also stream to the terminal via TeeReader.
+		var stderrBuf, stdoutBuf bytes.Buffer
 		var wg sync.WaitGroup
 
 		wg.Add(1)
@@ -123,14 +120,14 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 			}
 		}()
 
-		// Drain stdout (stream in verbose mode, discard otherwise)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			if output.IsVerbose() {
-				streamOutput(stdout, taskInfo.ServiceName, false)
+				tee := io.TeeReader(stdout, &stdoutBuf)
+				streamOutput(tee, taskInfo.ServiceName, false)
 			} else {
-				_, _ = io.Copy(io.Discard, stdout)
+				_, _ = io.Copy(&stdoutBuf, stdout)
 			}
 		}()
 
@@ -162,8 +159,9 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 				return true, nil
 			}
 
-			// Capture stderr for error reporting
+			// Capture output for error reporting
 			lastError = strings.TrimSpace(stderrBuf.String())
+			lastOutput = strings.TrimSpace(stdoutBuf.String())
 
 			output.Debugf("Command failed for %s", taskInfo.ServiceName)
 			output.Debugf("Error output: %s", lastError)
@@ -177,9 +175,13 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		}
 	}
 
-	// All retries exhausted — return the error with stderr output
+	// All retries exhausted — return the error with captured output
 	if lastError != "" {
 		return false, errors.New("command failed for %s:\n%s", taskInfo.ServiceName, lastError)
+	}
+
+	if lastOutput != "" {
+		return false, errors.New("command failed for %s:\n%s", taskInfo.ServiceName, lastOutput)
 	}
 
 	return false, errors.New("command failed for %s", taskInfo.ServiceName)

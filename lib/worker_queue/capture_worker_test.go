@@ -239,3 +239,49 @@ func TestCaptureWorkerInvalidExecutionMode(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+// Regression: when a command fails and only writes to stdout (not stderr),
+// the error message should include the stdout output as a fallback.
+func TestCaptureWorkerFailingCommandCapturesStdout(t *testing.T) {
+	t.Parallel()
+
+	// Write error info to stdout (not stderr) then exit with failure
+	taskInfo := workerqueue.NewTaskInfo(
+		"echo 'error details on stdout' && exit 1",
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		10,
+		false,
+		0,
+	)
+
+	_, err := workerqueue.CaptureWorker(taskInfo)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error details on stdout")
+}
+
+// Regression: when stderr has content, it should be preferred over stdout.
+func TestCaptureWorkerFailingCommandPrefersStderr(t *testing.T) {
+	t.Parallel()
+
+	taskInfo := workerqueue.NewTaskInfo(
+		"echo 'stdout info' && echo 'stderr info' >&2 && exit 1",
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		10,
+		false,
+		0,
+	)
+
+	_, err := workerqueue.CaptureWorker(taskInfo)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "stderr info")
+}

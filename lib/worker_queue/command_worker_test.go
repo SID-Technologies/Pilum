@@ -91,7 +91,8 @@ func TestCommandWorkerEmptyStringSlice(t *testing.T) {
 	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty command array")
 }
 
 func TestCommandWorkerEmptyAnySlice(t *testing.T) {
@@ -112,7 +113,8 @@ func TestCommandWorkerEmptyAnySlice(t *testing.T) {
 	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty command array")
 }
 
 func TestCommandWorkerInvalidCommandType(t *testing.T) {
@@ -133,7 +135,8 @@ func TestCommandWorkerInvalidCommandType(t *testing.T) {
 	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid command type")
 }
 
 func TestCommandWorkerInvalidExecutionMode(t *testing.T) {
@@ -154,7 +157,59 @@ func TestCommandWorkerInvalidExecutionMode(t *testing.T) {
 	success, err := workerqueue.CommandWorker(taskInfo)
 
 	require.False(t, success)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid execution mode")
+}
+
+// Regression: nil []string command (typed nil) should return an error, not silently fail.
+// This was the root cause of the "execute job" step showing "failed:" with no message.
+func TestCommandWorkerNilStringSlice(t *testing.T) {
+	t.Parallel()
+
+	var nilSlice []string // typed nil
+
+	taskInfo := workerqueue.NewTaskInfo(
+		nilSlice,
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		10,
+		false,
+		0,
+	)
+
+	success, err := workerqueue.CommandWorker(taskInfo)
+
+	require.False(t, success)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "empty command array")
+}
+
+// Regression: when a command fails and only writes to stdout (not stderr),
+// the error message should include the stdout output.
+func TestCommandWorkerFailingCommandCapturesStdout(t *testing.T) {
+	t.Parallel()
+
+	// Write error info to stdout (not stderr) then exit with failure
+	taskInfo := workerqueue.NewTaskInfo(
+		"echo 'error details on stdout' && exit 1",
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		10,
+		false,
+		0,
+	)
+
+	success, err := workerqueue.CommandWorker(taskInfo)
+
+	require.False(t, success)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error details on stdout")
 }
 
 func TestCommandWorkerServiceDirMode(t *testing.T) {
