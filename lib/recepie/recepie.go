@@ -49,6 +49,12 @@ func (r *Recipe) ValidateService(svc *serviceinfo.ServiceInfo) error {
 	for _, field := range r.RequiredFields {
 		value := getServiceField(svc, field.Name)
 		if value == "" && field.Default == "" {
+			if field.Name == "template" {
+				return errors.New(
+					"recipe '%s' requires field '%s': %s\n"+
+						"  See available templates: https://github.com/sid-technologies/pilum/tree/main/_templates",
+					r.Name, field.Name, field.Description)
+			}
 			return errors.New("recipe '%s' requires field '%s': %s",
 				r.Name, field.Name, field.Description)
 		}
@@ -73,6 +79,7 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 	fieldMap := map[string]func(*serviceinfo.ServiceInfo) string{
 		"name":          func(s *serviceinfo.ServiceInfo) string { return s.Name },
 		"description":   func(s *serviceinfo.ServiceInfo) string { return s.Description },
+		"type":          func(s *serviceinfo.ServiceInfo) string { return s.Type },
 		"project":       func(s *serviceinfo.ServiceInfo) string { return s.Project },
 		"license":       func(s *serviceinfo.ServiceInfo) string { return s.License },
 		"region":        func(s *serviceinfo.ServiceInfo) string { return s.Region },

@@ -96,13 +96,14 @@ func TestNewServiceInfo(t *testing.T) {
 			name: "service with template",
 			config: map[string]any{
 				"name":     "myservice",
-				"template": "gcp-cloud-run",
+				"type":     "gcp-cloud-run",
+				"template": "golang-api.v1.dockerfile",
 			},
 			path:         "/path/to/service",
 			expectedName: "myservice",
 		},
 		{
-			name: "service with type fallback",
+			name: "service with type only",
 			config: map[string]any{
 				"name": "myservice",
 				"type": "aws-lambda",
@@ -139,52 +140,52 @@ func TestNewServiceInfoProviderDerivation(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		template         string
+		serviceType      string
 		expectedProvider string
 	}{
 		{
-			name:             "gcp-cloud-run template",
-			template:         "gcp-cloud-run",
+			name:             "gcp-cloud-run type",
+			serviceType:      "gcp-cloud-run",
 			expectedProvider: "gcp",
 		},
 		{
-			name:             "gcp template",
-			template:         "gcp",
+			name:             "gcp type",
+			serviceType:      "gcp",
 			expectedProvider: "gcp",
 		},
 		{
-			name:             "aws-lambda template",
-			template:         "aws-lambda",
+			name:             "aws-lambda type",
+			serviceType:      "aws-lambda",
 			expectedProvider: "aws",
 		},
 		{
-			name:             "aws-ecs template",
-			template:         "aws-ecs",
+			name:             "aws-ecs type",
+			serviceType:      "aws-ecs",
 			expectedProvider: "aws",
 		},
 		{
-			name:             "aws template",
-			template:         "aws",
+			name:             "aws type",
+			serviceType:      "aws",
 			expectedProvider: "aws",
 		},
 		{
-			name:             "azure-container-apps template",
-			template:         "azure-container-apps",
+			name:             "azure-container-apps type",
+			serviceType:      "azure-container-apps",
 			expectedProvider: "azure",
 		},
 		{
-			name:             "azure template",
-			template:         "azure",
+			name:             "azure type",
+			serviceType:      "azure",
 			expectedProvider: "azure",
 		},
 		{
-			name:             "homebrew template",
-			template:         "homebrew",
+			name:             "homebrew type",
+			serviceType:      "homebrew",
 			expectedProvider: "homebrew",
 		},
 		{
-			name:             "unknown template",
-			template:         "unknown",
+			name:             "unknown type",
+			serviceType:      "unknown",
 			expectedProvider: "",
 		},
 	}
@@ -194,8 +195,8 @@ func TestNewServiceInfoProviderDerivation(t *testing.T) {
 			t.Parallel()
 
 			config := map[string]any{
-				"name":     "myservice",
-				"template": tt.template,
+				"name": "myservice",
+				"type": tt.serviceType,
 			}
 
 			svc := serviceinfo.NewServiceInfo(config, "/path")
@@ -210,7 +211,7 @@ func TestNewServiceInfoExplicitProviderOverridesDerivation(t *testing.T) {
 
 	config := map[string]any{
 		"name":     "myservice",
-		"template": "gcp-cloud-run",
+		"type":     "gcp-cloud-run",
 		"provider": "custom",
 	}
 
@@ -371,24 +372,26 @@ func TestNewServiceInfoAllFields(t *testing.T) {
 	config := map[string]any{
 		"name":          "full-service",
 		"description":   "A complete service config",
+		"type":          "gcp-cloud-run",
+		"template":      "golang-api.v1.dockerfile",
 		"provider":      "gcp",
 		"region":        "us-central1",
 		"project":       "my-project",
 		"license":       "MIT",
 		"registry_name": "my-registry",
-		"template":      "gcp-cloud-run",
 	}
 
 	svc := serviceinfo.NewServiceInfo(config, "/service/path")
 
 	require.Equal(t, "full-service", svc.Name)
 	require.Equal(t, "A complete service config", svc.Description)
+	require.Equal(t, "gcp-cloud-run", svc.Type)
+	require.Equal(t, "golang-api.v1.dockerfile", svc.Template)
 	require.Equal(t, "gcp", svc.Provider)
 	require.Equal(t, "us-central1", svc.Region)
 	require.Equal(t, "my-project", svc.Project)
 	require.Equal(t, "MIT", svc.License)
 	require.Equal(t, "my-registry", svc.RegistryName)
-	require.Equal(t, "gcp-cloud-run", svc.Template)
 	require.Equal(t, "/service/path", svc.Path)
 }
 

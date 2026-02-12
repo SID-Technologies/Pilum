@@ -100,11 +100,17 @@ Pilum uses recipes to define deployment workflows. Each recipe defines:
 
 ### Built-in Recipes
 
-| Recipe | Provider | Required Fields |
-|--------|----------|-----------------|
-| `gcp-cloud-run` | `gcp` | `project`, `region`, `name` |
-| `aws-lambda` | `aws` | `region`, `project` |
-| `homebrew` | `homebrew` | `name`, `project` |
+| Recipe | Provider | Description |
+|--------|----------|-------------|
+| `gcp-cloud-run` | `gcp` | Deploy to Google Cloud Run |
+| `gcp-cloud-run-job` | `gcp` | Deploy batch jobs to Google Cloud Run Jobs |
+| `aws-lambda` | `aws` | Deploy to AWS Lambda |
+| `azure-container-apps` | `azure` | Deploy to Azure Container Apps |
+| `cloudflare-pages` | `cloudflare` | Deploy to Cloudflare Pages |
+| `homebrew` | `homebrew` | Publish Homebrew formula |
+| `npm` | `npm` | Publish npm packages |
+
+Use `pilum recipes` to list all recipes, or `pilum recipes <name>` to see required fields, optional fields, and deployment steps for a specific recipe.
 
 ### Custom Recipes
 
@@ -147,21 +153,50 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 
 ## CLI Reference
 
-### Commands
+### Pipeline Commands
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `pilum init` | | Generate a new pilum.yaml interactively |
-| `pilum list` | `ls` | List discovered services |
-| `pilum check [services...]` | `validate` | Validate configs against recipes |
-| `pilum build [services...]` | `b`, `make` | Build services |
-| `pilum publish [services...]` | `p` | Build and push images |
-| `pilum push [services...]` | `ps` | Push images to registry |
-| `pilum deploy [services...]` | `up` | Full deploy pipeline |
-| `pilum dry-run [services...]` | `dr` | Preview what would execute |
-| `pilum delete-builds [services...]` | `clean` | Delete dist/ directories |
+| `pilum deploy [services...]` | `up` | Full pipeline: build, push, and deploy |
+| `pilum build [services...]` | `b`, `make` | Build step only |
+| `pilum publish [services...]` | `p` | Build and push (no deploy) |
+| `pilum push [services...]` | `ps` | Push images to registry only |
 
-### Flags
+### Configuration Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `pilum init` | | Generate a new `pilum.yaml` interactively |
+| `pilum check [services...]` | `validate` | Validate configs against recipe requirements |
+| `pilum list` | `ls` | List all discovered services |
+| `pilum recipes [name]` | `providers` | List recipes or describe a specific one |
+| `pilum dry-run [services...]` | `dr` | Preview commands without executing |
+
+### Observability Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `pilum status [services...]` | `st` | Show status of deployed services |
+| `pilum logs <service>` | `log` | Show logs for a deployed service |
+| `pilum history` | `hist` | Show deployment history |
+
+### Utility Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `pilum delete-builds [services...]` | `clean` | Delete `dist/` directories |
+| `pilum completion` | | Generate shell completion script |
+
+### Global Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--verbose` | `-v` | Stream command output in real-time |
+| `--quiet` | `-q` | Minimal output (CI-friendly) |
+| `--json` | | Output as JSON for scripting |
+| `--no-gitignore` | | Don't read `.gitignore` for ignore patterns |
+
+### Pipeline Flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
@@ -174,12 +209,20 @@ See [recepies/README.md](recepies/README.md) for full documentation.
 | `--max-workers` | | `0` (auto) | Maximum parallel workers |
 | `--only-tags` | | | Only run steps with these tags |
 | `--exclude-tags` | | | Exclude steps with these tags |
+| `--env` | `-e` | | Environment to apply (merges overrides) |
 
 ### Examples
 
 ```bash
 # Initialize a new service (interactive)
 pilum init
+
+# Validate all service configurations
+pilum check
+
+# Explore available recipes and their fields
+pilum recipes
+pilum recipes gcp-cloud-run
 
 # Deploy all services
 pilum deploy --tag=v1.0.0
@@ -197,10 +240,22 @@ pilum publish --tag=v1.0.0
 pilum deploy --only-tags=deploy --tag=v1.0.0
 
 # Preview what would run
-pilum deploy --dry-run --tag=v1.0.0
+pilum dry-run --tag=v1.0.0
 
-# Validate all service configurations
-pilum check
+# Check status of deployed services
+pilum status
+pilum status my-api
+
+# Stream logs
+pilum logs my-api --follow
+
+# View deployment history
+pilum history --limit=20
+
+# JSON output (for scripting / AI agents)
+pilum list --json
+pilum recipes gcp-cloud-run --json
+pilum status --json
 ```
 
 ## Project Structure

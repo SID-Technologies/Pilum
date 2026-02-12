@@ -148,6 +148,84 @@ func TestRecipeValidateService(t *testing.T) {
 	}
 }
 
+func TestRecipeValidateServiceMissingTemplate(t *testing.T) {
+	t.Parallel()
+
+	// Simulates a GCP Cloud Run service that has a type but no explicit template
+	recipe := Recipe{
+		Name:     "gcp-cloud-run",
+		Provider: "gcp",
+		RequiredFields: []RequiredField{
+			{Name: "name", Description: "service name"},
+			{Name: "template", Description: "Dockerfile template name (path relative to _templates directory)"},
+			{Name: "registry_name", Description: "Docker registry prefix"},
+		},
+	}
+
+	svc := &serviceinfo.ServiceInfo{
+		Name:         "platform-service",
+		Type:         "gcp-cloud-run",
+		Template:     "", // No template specified — this should fail
+		RegistryName: "us-docker.pkg.dev/my-project/repo",
+	}
+
+	err := recipe.ValidateService(svc)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires field 'template'")
+	require.Contains(t, err.Error(), "https://github.com/sid-technologies/pilum/tree/main/_templates")
+}
+
+func TestRecipeValidateServiceWithTemplate(t *testing.T) {
+	t.Parallel()
+
+	recipe := Recipe{
+		Name:     "gcp-cloud-run",
+		Provider: "gcp",
+		RequiredFields: []RequiredField{
+			{Name: "name", Description: "service name"},
+			{Name: "template", Description: "Dockerfile template name"},
+			{Name: "registry_name", Description: "Docker registry prefix"},
+		},
+	}
+
+	svc := &serviceinfo.ServiceInfo{
+		Name:         "platform-service",
+		Type:         "gcp-cloud-run",
+		Template:     "golang-api.v1.dockerfile",
+		RegistryName: "us-docker.pkg.dev/my-project/repo",
+	}
+
+	err := recipe.ValidateService(svc)
+
+	require.NoError(t, err)
+}
+
+func TestGetServiceFieldType(t *testing.T) {
+	t.Parallel()
+
+	svc := &serviceinfo.ServiceInfo{
+		Name: "myservice",
+		Type: "gcp-cloud-run",
+	}
+
+	result := getServiceField(svc, "type")
+	require.Equal(t, "gcp-cloud-run", result)
+}
+
+func TestGetServiceFieldTemplateEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Type is set but Template is not — getServiceField("template") should return empty
+	svc := &serviceinfo.ServiceInfo{
+		Name: "myservice",
+		Type: "gcp-cloud-run",
+	}
+
+	result := getServiceField(svc, "template")
+	require.Equal(t, "", result)
+}
+
 func TestRecipeGetRequiredFields(t *testing.T) {
 	t.Parallel()
 

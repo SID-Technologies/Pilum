@@ -14,7 +14,7 @@ func TestGenerateStatusCommandGCP(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "api-gateway",
-		Template: "gcp-cloud-run",
+		Type:     "gcp-cloud-run",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}
@@ -31,7 +31,7 @@ func TestGenerateStatusCommandGCPJob(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "data-processor",
-		Template: "gcp-cloud-run-job",
+		Type:     "gcp-cloud-run-job",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}
@@ -47,7 +47,7 @@ func TestGenerateStatusCommandAzure(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-app",
-		Template: "azure-container-apps",
+		Type:     "azure-container-apps",
 		Provider: "azure",
 		Project:  "my-rg",
 	}
@@ -63,7 +63,7 @@ func TestGenerateStatusCommandAWS(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-function",
-		Template: "aws-lambda",
+		Type:     "aws-lambda",
 		Provider: "aws",
 		Region:   "us-east-1",
 	}
@@ -79,7 +79,7 @@ func TestGenerateStatusCommandCloudflare(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-site",
-		Template: "cloudflare-pages",
+		Type:     "cloudflare-pages",
 		Provider: "cloudflare",
 	}
 
@@ -94,7 +94,7 @@ func TestGenerateStatusCommandUnsupported(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-formula",
-		Template: "homebrew",
+		Type:     "homebrew",
 		Provider: "homebrew",
 	}
 
@@ -108,7 +108,7 @@ func TestGenerateStatusCommandProviderFallback(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-service",
-		Template: "gcp",
+		Type:     "gcp",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}
@@ -124,7 +124,7 @@ func TestGenerateLogsCommandGCP(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "api-gateway",
-		Template: "gcp-cloud-run",
+		Type:     "gcp-cloud-run",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}
@@ -141,7 +141,7 @@ func TestGenerateLogsCommandUnsupported(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-formula",
-		Template: "homebrew",
+		Type:     "homebrew",
 		Provider: "homebrew",
 	}
 
@@ -178,7 +178,7 @@ func TestParseGCPStatusResponse(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "api-gateway",
-		Template: "gcp-cloud-run",
+		Type:     "gcp-cloud-run",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}
@@ -207,7 +207,7 @@ func TestParseGCPStatusResponseNotReady(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "api-gateway",
-		Template: "gcp-cloud-run",
+		Type:     "gcp-cloud-run",
 		Provider: "gcp",
 	}
 
@@ -238,7 +238,7 @@ func TestParseAzureStatusResponse(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-app",
-		Template: "azure-container-apps",
+		Type:     "azure-container-apps",
 		Provider: "azure",
 	}
 
@@ -264,7 +264,7 @@ func TestParseAWSStatusResponse(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-function",
-		Template: "aws-lambda",
+		Type:     "aws-lambda",
 		Provider: "aws",
 		Region:   "us-east-1",
 	}
@@ -282,7 +282,7 @@ func TestParseStatusResponseInvalidJSON(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "api-gateway",
-		Template: "gcp-cloud-run",
+		Type:     "gcp-cloud-run",
 		Provider: "gcp",
 		Region:   "us-central1",
 	}

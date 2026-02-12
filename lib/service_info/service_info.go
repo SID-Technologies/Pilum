@@ -36,6 +36,7 @@ type RuntimeConfig struct {
 type ServiceInfo struct {
 	Name          string         `yaml:"name"`
 	Description   string         `yaml:"description"`
+	Type          string         `yaml:"-"` // Recipe type (e.g., "gcp-cloud-run") — from "type" YAML key
 	Template      string         `yaml:"template"`
 	Path          string         `yaml:"-"`
 	Config        map[string]any `yaml:"-"`
@@ -63,11 +64,10 @@ func (s *ServiceInfo) DisplayName() string {
 
 // RecipeKey returns the recipe lookup key for this service.
 // This matches the format used to index recipes: "provider-service" or just "provider".
-// It uses the Template field (from "type" in config) which contains the full key.
+// It uses the Type field (from "type" in config) which contains the full key.
 func (s *ServiceInfo) RecipeKey() string {
-	// Template contains the type (e.g., "gcp-cloud-run", "homebrew")
-	if s.Template != "" {
-		return s.Template
+	if s.Type != "" {
+		return s.Type
 	}
 	return s.Provider
 }
@@ -115,17 +115,17 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	// Parse build config
 	buildConfig := parseBuildConfig(config)
 
-	// Template can be specified as "template" or "type"
+	// Type is the recipe/deployment type (e.g., "gcp-cloud-run")
+	serviceType := configutil.GetString(config, "type", "")
+
+	// Template is the Dockerfile template name (e.g., "golang-api.v1.dockerfile")
 	template := configutil.GetString(config, "template", "")
-	if template == "" {
-		template = configutil.GetString(config, "type", "")
-	}
 
 	// Provider can be explicit or derived from type
 	provider := configutil.GetString(config, "provider", "")
 	if provider == "" {
 		// Derive provider from type if not explicitly set
-		switch template {
+		switch serviceType {
 		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp":
 			provider = "gcp"
 		case "aws-lambda", "aws-ecs", "aws":
@@ -139,13 +139,14 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		case "cloudflare-pages", "cloudflare":
 			provider = "cloudflare"
 		default:
-			// Unknown template type, leave provider empty
+			// Unknown type, leave provider empty
 		}
 	}
 
 	return &ServiceInfo{
 		Name:         configutil.GetString(config, "name", ""),
 		Description:  configutil.GetString(config, "description", ""),
+		Type:         serviceType,
 		Template:     template,
 		Path:         path,
 		Config:       config,

@@ -72,7 +72,8 @@ func TestBuildDockerImageHandlerExecution(t *testing.T) {
 	ctx := registry.StepContext{
 		Service: serviceinfo.ServiceInfo{
 			Name:     "myservice",
-			Template: "gcp-cloud-run",
+			Type:     "gcp-cloud-run",
+			Template: "golang-api.v1.dockerfile",
 		},
 		ImageName:    "gcr.io/project/myservice:latest",
 		TemplatePath: "./_templates",
