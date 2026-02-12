@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
 	"github.com/stretchr/testify/require"
@@ -1805,6 +1806,129 @@ func findResult(results []TaskResult, namePrefix string) *TaskResult {
 		}
 	}
 	return nil
+}
+
+// Regression: when a handler returns a typed nil (e.g., nil []string),
+// Go wraps it in a non-nil any interface. generateCommand must detect this
+// and return an untyped nil so the caller can properly skip the step.
+// This was the root cause of "execute job" showing "failed:" with no message.
+func TestRunnerGenerateCommandHandlesTypedNilSlice(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "myservice",
+		Provider: "test-nil",
+	}
+
+	runner := NewRunner(nil, nil, RunnerOptions{Tag: "v1.0.0"})
+
+	// Register a handler that returns a typed nil []string (simulates
+	// GenerateExecuteJobCommand when execute_on_deploy is false)
+	runner.registry.Register("typed-nil-step", "test-nil", func(_ registry.StepContext) any {
+		var cmd []string // nil []string
+		return cmd       // Returns typed nil wrapped in any — NOT == nil
+	})
+
+	step := &recepie.RecipeStep{Name: "typed-nil-step"}
+	result := runner.generateCommand(svc, step)
+
+	// Must be actual nil, not a typed nil wrapped in any
+	require.Nil(t, result)
+}
+
+// Regression: same as above but for nil []any slices.
+func TestRunnerGenerateCommandHandlesTypedNilAnySlice(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "myservice",
+		Provider: "test-nil",
+	}
+
+	runner := NewRunner(nil, nil, RunnerOptions{Tag: "v1.0.0"})
+
+	runner.registry.Register("typed-nil-any-step", "test-nil", func(_ registry.StepContext) any {
+		var cmd []any // nil []any
+		return cmd
+	})
+
+	step := &recepie.RecipeStep{Name: "typed-nil-any-step"}
+	result := runner.generateCommand(svc, step)
+
+	require.Nil(t, result)
+}
+
+// Regression: a handler returning untyped nil should still work.
+func TestRunnerGenerateCommandHandlesUntypedNil(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "myservice",
+		Provider: "test-nil",
+	}
+
+	runner := NewRunner(nil, nil, RunnerOptions{Tag: "v1.0.0"})
+
+	runner.registry.Register("untyped-nil-step", "test-nil", func(_ registry.StepContext) any {
+		return nil
+	})
+
+	step := &recepie.RecipeStep{Name: "untyped-nil-step"}
+	result := runner.generateCommand(svc, step)
+
+	require.Nil(t, result)
+}
+
+// Regression: a handler returning a non-nil []string should pass through normally.
+func TestRunnerGenerateCommandPassesThroughNonNilSlice(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "myservice",
+		Provider: "test-nil",
+	}
+
+	runner := NewRunner(nil, nil, RunnerOptions{Tag: "v1.0.0"})
+
+	runner.registry.Register("real-command-step", "test-nil", func(_ registry.StepContext) any {
+		return []string{"echo", "hello"}
+	})
+
+	step := &recepie.RecipeStep{Name: "real-command-step"}
+	result := runner.generateCommand(svc, step)
+
+	require.NotNil(t, result)
+	require.Equal(t, []string{"echo", "hello"}, result)
+}
+
+// Regression: executeTask should treat typed nil commands as success (skip).
+// Before the fix, a typed nil []string from a handler would pass the nil check,
+// reach CommandWorker with a nil slice, and fail silently with (false, nil).
+func TestRunnerExecuteTaskTypedNilCommandIsSuccess(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "myservice",
+		Provider: "test-nil",
+	}
+
+	runner := NewRunner(nil, nil, RunnerOptions{Tag: "v1.0.0", Timeout: 10})
+
+	runner.registry.Register("skip-step", "test-nil", func(_ registry.StepContext) any {
+		var cmd []string // typed nil — simulates execute_on_deploy=false
+		return cmd
+	})
+
+	step := &recepie.RecipeStep{
+		Name:          "skip-step",
+		ExecutionMode: "root",
+		Timeout:       5,
+	}
+
+	result := runner.executeTask(svc, step)
+
+	require.True(t, result.Success, "typed nil command should be treated as skip (success)")
+	require.Nil(t, result.Error)
 }
 
 func TestRunnerExecuteTaskEmptyExecutionMode(t *testing.T) {

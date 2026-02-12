@@ -93,7 +93,12 @@ func CaptureWorker(taskInfo *TaskInfo) (string, error) {
 		return "", errors.New("command timed out for %s", taskInfo.ServiceName)
 	case err := <-done:
 		if err != nil {
-			return "", errors.New("command failed for %s: %s", taskInfo.ServiceName, stderr.String())
+			// Include stderr first, fall back to stdout — some tools write errors to stdout
+			errOutput := stderr.String()
+			if errOutput == "" {
+				errOutput = stdout.String()
+			}
+			return "", errors.New("command failed for %s:\n%s", taskInfo.ServiceName, errOutput)
 		}
 		return stdout.String(), nil
 	}
