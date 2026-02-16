@@ -1,17 +1,24 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/sid-technologies/pilum/lib/ci"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/history"
+	"github.com/sid-technologies/pilum/lib/lock"
 	"github.com/sid-technologies/pilum/lib/orchestrator"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/path"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/webhook"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,37 +26,43 @@ import (
 
 // deploymentOptions holds parsed flag values for deployment commands.
 type deploymentOptions struct {
-	Tag         string
-	Debug       bool
-	Timeout     int
-	Retries     int
-	DryRun      bool
-	MaxWorkers  int
-	OnlyTags    []string
-	ExcludeTags []string
-	OnlyChanged bool
-	Since       string
-	NoDeps      bool
-	Env         string
-	Provider    string
+	Tag          string
+	Debug        bool
+	Timeout      int
+	Retries      int
+	DryRun       bool
+	Force        bool
+	NoCache      bool
+	GitHubStatus bool
+	MaxWorkers   int
+	OnlyTags     []string
+	ExcludeTags  []string
+	OnlyChanged  bool
+	Since        string
+	NoDeps       bool
+	Env          string
+	Provider     string
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
 func getDeploymentOptions() deploymentOptions {
 	return deploymentOptions{
-		Tag:         viper.GetString("tag"),
-		Debug:       viper.GetBool("debug"),
-		Timeout:     viper.GetInt("timeout"),
-		Retries:     viper.GetInt("retries"),
-		DryRun:      viper.GetBool("dry-run"),
-		MaxWorkers:  viper.GetInt("max-workers"),
-		OnlyTags:    parseCommaSeparated(viper.GetString("only-tags")),
-		ExcludeTags: parseCommaSeparated(viper.GetString("exclude-tags")),
-		OnlyChanged: viper.GetBool("only-changed"),
-		Since:       viper.GetString("since"),
-		NoDeps:      viper.GetBool("no-deps"),
-		Env:         viper.GetString("env"),
-		Provider:    viper.GetString("provider"),
+		Tag:          viper.GetString("tag"),
+		Debug:        viper.GetBool("debug"),
+		Timeout:      viper.GetInt("timeout"),
+		Retries:      viper.GetInt("retries"),
+		DryRun:       viper.GetBool("dry-run"),
+		Force:        viper.GetBool("force"),
+		NoCache:      viper.GetBool("no-cache"),
+		GitHubStatus: viper.GetBool("github-status"),
+		MaxWorkers:   viper.GetInt("max-workers"),
+		OnlyTags:     parseCommaSeparated(viper.GetString("only-tags")),
+		ExcludeTags:  parseCommaSeparated(viper.GetString("exclude-tags")),
+		OnlyChanged:  viper.GetBool("only-changed"),
+		Since:        viper.GetString("since"),
+		NoDeps:       viper.GetBool("no-deps"),
+		Env:          viper.GetString("env"),
+		Provider:     viper.GetString("provider"),
 	}
 }
 
@@ -65,6 +78,7 @@ func (o deploymentOptions) toRunnerOptions() orchestrator.RunnerOptions {
 		OnlyTags:    o.OnlyTags,
 		ExcludeTags: o.ExcludeTags,
 		NoDeps:      o.NoDeps,
+		NoCache:     o.NoCache,
 	}
 }
 
@@ -75,6 +89,9 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"timeout",
 		"retries",
 		"dry-run",
+		"force",
+		"no-cache",
+		"github-status",
 		"max-workers",
 		"only-tags",
 		"exclude-tags",
@@ -111,6 +128,9 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().Bool("no-deps", false, "Disable dependency-based deployment ordering")
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
+	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
+	cmd.Flags().Bool("no-cache", false, "Disable build caching (force rebuild)")
+	cmd.Flags().Bool("github-status", false, "Post commit status to GitHub (auto-detected in GitHub Actions)")
 
 	if includeDryRun {
 		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
@@ -150,9 +170,102 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return nil
 	}
 
-	runner := orchestrator.NewRunner(services, recipes, opts.toRunnerOptions())
+	// Find project root for lock and cache
+	projectRoot, _ := path.FindProjectRoot()
+
+	// Acquire deployment lock (skip for dry-runs)
+	if !opts.DryRun && projectRoot != "" {
+		serviceNames := make([]string, len(services))
+		for i, svc := range services {
+			serviceNames[i] = svc.Name
+		}
+		if lockErr := lock.Acquire(projectRoot, cmdName, serviceNames, opts.Force); lockErr != nil {
+			return exitcodes.WithCode(exitcodes.Lock, lockErr)
+		}
+		defer lock.Release(projectRoot)
+
+		// Handle SIGINT/SIGTERM to release the lock on Ctrl+C or kill.
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-sigCh
+			lock.Release(projectRoot)
+			// Re-raise the signal so the process exits with the correct status.
+			signal.Reset(sig)
+			p, _ := os.FindProcess(os.Getpid())
+			_ = p.Signal(sig)
+		}()
+		defer signal.Stop(sigCh)
+	}
+
+	// GitHub commit status (opt-in via flag or auto-detected in CI)
+	var ghEnv *ci.GitHubEnv
+	if opts.GitHubStatus {
+		ghEnv = ci.DetectGitHub()
+	}
+	statusContext := fmt.Sprintf("pilum/%s", cmdName)
+	if ghEnv != nil {
+		_ = ghEnv.PostStatus(ci.StatePending, statusContext,
+			fmt.Sprintf("Deploying %d service(s)...", len(services)), "")
+	}
+
+	// Load webhook configs from .pilum.yml
+	webhookConfigs := loadWebhookConfigs()
+	serviceNames := make([]string, len(services))
+	for i, svc := range services {
+		serviceNames[i] = svc.Name
+	}
+
+	// Fire start webhook
+	if len(webhookConfigs) > 0 {
+		webhook.Send(webhookConfigs, webhook.Payload{
+			Event:    webhook.EventStart,
+			Command:  cmdName,
+			Tag:      opts.Tag,
+			Services: serviceNames,
+			Success:  true,
+			Text:     fmt.Sprintf("Starting %s for %d service(s) with tag %s", cmdName, len(services), opts.Tag),
+		})
+	}
+
+	runnerOpts := opts.toRunnerOptions()
+	runnerOpts.ProjectRoot = projectRoot
+	runner := orchestrator.NewRunner(services, recipes, runnerOpts)
 	startTime := time.Now()
 	runErr := runner.Run()
+	duration := time.Since(startTime).Round(time.Second)
+
+	// Post final GitHub status
+	if ghEnv != nil {
+		if runErr != nil {
+			_ = ghEnv.PostStatus(ci.StateFailure, statusContext,
+				fmt.Sprintf("Failed after %s", duration), "")
+		} else {
+			_ = ghEnv.PostStatus(ci.StateSuccess, statusContext,
+				fmt.Sprintf("Deployed %d service(s) in %s", len(services), duration), "")
+		}
+	}
+
+	// Fire completion webhook
+	if len(webhookConfigs) > 0 {
+		p := webhook.Payload{
+			Command:  cmdName,
+			Tag:      opts.Tag,
+			Services: serviceNames,
+			Duration: duration.String(),
+		}
+		if runErr != nil {
+			p.Event = webhook.EventFailure
+			p.Success = false
+			p.Error = runErr.Error()
+			p.Text = fmt.Sprintf("%s failed after %s: %s", cmdName, duration, runErr.Error())
+		} else {
+			p.Event = webhook.EventSuccess
+			p.Success = true
+			p.Text = fmt.Sprintf("%s completed for %d service(s) in %s", cmdName, len(services), duration)
+		}
+		webhook.Send(webhookConfigs, p)
+	}
 
 	// Record history (skip dry-runs)
 	if !opts.DryRun {
@@ -208,6 +321,49 @@ func withJSON(fn func(*cobra.Command, []string) (any, error)) func(*cobra.Comman
 		}
 		return err
 	}
+}
+
+// loadWebhookConfigs reads the webhooks array from .pilum.yml via Viper.
+func loadWebhookConfigs() []webhook.Config {
+	var configs []webhook.Config
+
+	raw := viper.Get("webhooks")
+	if raw == nil {
+		return nil
+	}
+
+	items, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		cfg := webhook.Config{}
+
+		if u, ok := m["url"].(string); ok {
+			cfg.URL = u
+		}
+		if cfg.URL == "" {
+			continue
+		}
+
+		if events, ok := m["events"].([]any); ok {
+			for _, e := range events {
+				if s, ok := e.(string); ok {
+					cfg.Events = append(cfg.Events, webhook.Event(s))
+				}
+			}
+		}
+
+		configs = append(configs, cfg)
+	}
+
+	return configs
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice, trimming whitespace.

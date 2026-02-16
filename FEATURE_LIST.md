@@ -37,7 +37,7 @@
 
 ---
 
-## Phase 2: Visibility & Safety
+## Phase 2: Visibility & Safety ✅
 
 ### Status & Observability
 - [x] `pilum status` - Show deployed service versions, health, and last deploy time
@@ -50,11 +50,7 @@
 - [x] Dependency graph between services (`depends_on` in pilum.yaml)
 
 ### Deployment Safety
-- [ ] Deployment locks (prevent concurrent deploys to same service)
-
-### Multi-Target Deployments
-- [ ] Deploy same service to multiple targets (e.g., Cloud Run + GKE) from single config
-- [ ] Options: multiple `pilum.yaml` files or `targets:` array in config
+- [x] Deployment locks (prevent concurrent deploys to same service)
 
 ### Environment Management
 - [x] Environment configs (`--env prod` / `--env staging`)
@@ -62,39 +58,47 @@
 
 ---
 
-## Phase 3: AI & Automation Friendliness
+## Phase 3: AI & Automation Friendliness ✅
 
 ### Structured Output
 - [x] **Complete JSON output for all commands** - All commands (`list`, `check`, `init`, `delete-builds`, `dry-run`) return structured JSON via `--json`. Centralized `withJSON` wrapper pattern.
-- [x] **Distinct exit codes** - Config=2, NoServices=3, Deploy=4, IO=5, InvalidArgs=6. Defined in `lib/exitcodes/`.
+- [x] **Distinct exit codes** - Config=2, NoServices=3, Deploy=4, IO=5, InvalidArgs=6, Lock=7. Defined in `lib/exitcodes/`.
 
 ### Machine-Readable Config
-- [ ] **JSON Schema for `pilum.yaml`** - Publish a schema that editors and AI tools can validate against before running `pilum check`. Free validation at the editor layer.
+- [x] **JSON Schema for `pilum.yaml`** - Published schema for editor autocompletion and validation (`schemas/pilum.yaml.schema.json`).
 - [x] **Non-interactive `pilum init`** - `pilum init --provider=cloudflare --service=pages --name=my-site --language=node` generates a complete `pilum.yaml` without prompting.
-
-### Agent Integration
-- [ ] **MCP server** - Model Context Protocol server for Pilum. AI agents interact natively: list services, check configs, deploy, read results — all as structured tool calls instead of shell commands.
 
 ### CI/CD Integration
 - [x] GitHub Actions (official action: `pilum-action`)
-- [ ] `pilum ci detect` - Auto-detect CI environment and set defaults
-- [ ] GitHub commit status updates
-- [ ] GitHub deployment environments
+- [x] GitHub commit status updates (`--github-status` flag, auto-detects in GitHub Actions)
 
 ### Advanced Monorepo
 - [x] Parallel builds with dependency ordering (wave-based execution)
-- [ ] Build caching (hash-based skip)
+- [x] Build caching (hash-based skip via SHA-256 content hashing)
 - [x] Pattern matching for service selection (`pilum deploy "api-*"`)
 - [x] Filter services by provider (`--provider=gcp`)
 - [x] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
 
 ---
 
+## Pre-v1: Polish & Reliability
+
+### Signal Handling
+- [x] SIGINT/SIGTERM handler for clean lock release — signal handler in `runPipeline()` releases the lock immediately on Ctrl+C or `kill`, instead of waiting for stale detection.
+
+### Cache Management
+- [x] `pilum cache status` - Show cached services, hashes, timestamps, and cache file size (alias: `st`)
+- [x] `pilum cache clear` - Delete `.pilum/build-cache.json` (with `--service` flag to clear individual entries, alias: `rm`)
+
+### Webhook Notifications
+- [x] Generic webhook support - POST JSON on deploy start/success/fail. Configured in `.pilum.yml` with per-webhook event filtering. Payload includes service names, tag, duration, success/failure, error details, and a human-readable `text` field (works with Slack/Discord/Teams incoming webhooks out of the box).
+
+---
+
 ## Phase 4: Expanded Providers
 
-### Cloud Platforms (Priority Order)
+### Cloud Platforms
 - [ ] AWS ECS (Fargate)
-- [ ] Kubernetes (generic manifests)
 - [x] Azure Container Apps
 - [ ] Fly.io
 
@@ -105,9 +109,6 @@
 - [x] GCP Artifact Registry (`gcp` provider → `*-docker.pkg.dev`)
 - [x] Azure Container Registry (`azure` provider → `*.azurecr.io`)
 - [x] GitHub Container Registry (`github` provider → `ghcr.io`)
-
-### Notifications
-- [ ] Generic webhook (POST JSON on deploy start/complete/fail)
 
 ---
 
@@ -162,3 +163,8 @@ These were considered but intentionally not prioritized:
 | Terraform/Pulumi integration | Out of scope - Pilum deploys code, not infra |
 | `pilum rollback` | Dangerous as CLI command; `pilum deploy --tag=<old>` already covers the use case |
 | Self-hosted Pilum Cloud | Too early to consider |
+| Multi-target deployments | Two `pilum.yaml` files in separate dirs already handles this cleanly. A `targets:` array would fight the "one config = one deployment" simplicity. |
+| Kubernetes (generic) | Enormous surface area, ecosystem already has Helm/Kustomize/ArgoCD/Flux. Pilum would either be too simple to be useful or replicate those tools. |
+| `pilum ci detect` | YAGNI. Per-CI flags (`--github-status`) with env var auto-detection is simpler and more explicit than a generic CI detection command. |
+| GitHub deployment environments | GitHub-specific, requires environment protection rule API knowledge, small audience vs commit statuses. |
+| MCP server | Separate project, not a CLI feature. Better suited for Pugio (the MCP governance platform) or a standalone repo. |
