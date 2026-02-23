@@ -61,7 +61,7 @@ func PrintBanner(version string) string {
 	}
 
 	coloredBanner := colorGradient(banner)
-	text = fmt.Sprintf("%s\nVersion: %s%s%s\n", coloredBanner, LightCyan, version, Reset)
+	text = fmt.Sprintf("%s\nVersion: %s%s%s\n", coloredBanner, Gold, version, Reset)
 
 	return text
 }

@@ -4,10 +4,9 @@
 
 ## What is Pilum?
 
-Pilum is a **cloud-agnostic deployment CLI** - define a service once, deploy to any cloud provider. Think "GoReleaser for multi-cloud deployments" but faster and more flexible.
+Pilum is a **cloud-agnostic deployment CLI** — define a service once, deploy to any cloud provider.
 
 **Why Pilum exists:**
-- **GoReleaser limitations** - Static folders and relative directories in Docker builds were problematic
 - **Multithreaded execution** - Parallel builds and deploys via worker queues
 - **Provider portability** - Swap between ECS ↔ Cloud Run ↔ Azure Container Apps by changing one line
 - **Declarative deployments** - Terraform defines infrastructure; Pilum defines how code gets deployed to it

@@ -1931,6 +1931,109 @@ func TestRunnerExecuteTaskTypedNilCommandIsSuccess(t *testing.T) {
 	require.Nil(t, result.Error)
 }
 
+// --- Multi-config scenario tests ---
+
+func TestRunnerMultiConfig_SameNameDifferentProviders(t *testing.T) {
+	t.Parallel()
+
+	// Two services with the same name but different providers — both should execute independently
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api", Provider: "gcp-test", Region: "us-central1"},
+		{Name: "api", Provider: "aws-test", Region: "us-east-1"},
+	}
+
+	recipes := []recepie.RecipeInfo{
+		{
+			Provider: "gcp-test",
+			Recipe: recepie.Recipe{
+				Name:     "gcp-test-recipe",
+				Provider: "gcp-test",
+				Steps: []recepie.RecipeStep{
+					{
+						Name:          "deploy",
+						Command:       []string{"echo", "deploying ${name} to gcp"},
+						ExecutionMode: "root",
+						Tags:          []string{"deploy"},
+						Timeout:       5,
+					},
+				},
+			},
+		},
+		{
+			Provider: "aws-test",
+			Recipe: recepie.Recipe{
+				Name:     "aws-test-recipe",
+				Provider: "aws-test",
+				Steps: []recepie.RecipeStep{
+					{
+						Name:          "deploy",
+						Command:       []string{"echo", "deploying ${name} to aws"},
+						ExecutionMode: "root",
+						Tags:          []string{"deploy"},
+						Timeout:       5,
+					},
+				},
+			},
+		},
+	}
+
+	opts := RunnerOptions{Tag: "v1.0.0", Timeout: 10, MaxWorkers: 2}
+	runner := NewRunner(services, recipes, opts)
+	err := runner.Run()
+
+	require.NoError(t, err)
+	require.Len(t, runner.results, 2)
+	for _, r := range runner.results {
+		require.True(t, r.Success, "service %s should succeed", r.ServiceName)
+	}
+}
+
+func TestRunnerMultiConfig_TwoServicesUnderSameParent(t *testing.T) {
+	t.Parallel()
+
+	// Simulates api-cloud-run/ and api-lambda/ under services/
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api-cloud-run", Provider: "test", Path: "services/api-cloud-run"},
+		{Name: "api-lambda", Provider: "test", Path: "services/api-lambda"},
+	}
+
+	recipes := []recepie.RecipeInfo{
+		{
+			Provider: "test",
+			Recipe: recepie.Recipe{
+				Name:     "test-recipe",
+				Provider: "test",
+				Steps: []recepie.RecipeStep{
+					{
+						Name:          "build",
+						Command:       []string{"echo", "building ${name}"},
+						ExecutionMode: "root",
+						Tags:          []string{"build"},
+						Timeout:       5,
+					},
+					{
+						Name:          "deploy",
+						Command:       []string{"echo", "deploying ${name}"},
+						ExecutionMode: "root",
+						Tags:          []string{"deploy"},
+						Timeout:       5,
+					},
+				},
+			},
+		},
+	}
+
+	opts := RunnerOptions{Tag: "v1.0.0", Timeout: 10, MaxWorkers: 2}
+	runner := NewRunner(services, recipes, opts)
+	err := runner.Run()
+
+	require.NoError(t, err)
+	require.Len(t, runner.results, 4) // 2 services * 2 steps
+	for _, r := range runner.results {
+		require.True(t, r.Success, "service %s step %s should succeed", r.ServiceName, r.StepName)
+	}
+}
+
 func TestRunnerExecuteTaskEmptyExecutionMode(t *testing.T) {
 	t.Parallel()
 

@@ -1155,3 +1155,142 @@ func TestFindAndFilterServicesWithGlobPattern(t *testing.T) {
 	require.True(t, names["api-gateway"])
 	require.True(t, names["api-users"])
 }
+
+// --- Multi-config scenario tests ---
+
+func TestFindServices_TwoServiceDirsUnderSameParent(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Two services under the same parent directory (e.g., services/api-cloud-run + services/api-lambda)
+	parentDir := filepath.Join(tmpDir, "services")
+	require.NoError(t, os.MkdirAll(parentDir, 0755))
+
+	cloudRunDir := filepath.Join(parentDir, "api-cloud-run")
+	require.NoError(t, os.MkdirAll(cloudRunDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(cloudRunDir, "pilum.yaml"), []byte(`name: api-cloud-run
+provider: gcp
+project: my-project
+region: us-central1
+registry_name: gcr.io/my-project
+`), 0644))
+
+	lambdaDir := filepath.Join(parentDir, "api-lambda")
+	require.NoError(t, os.MkdirAll(lambdaDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(lambdaDir, "pilum.yaml"), []byte(`name: api-lambda
+provider: aws
+region: us-east-1
+`), 0644))
+
+	services, err := serviceinfo.FindServices(tmpDir)
+
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+
+	names := make(map[string]bool)
+	providers := make(map[string]string)
+	for _, svc := range services {
+		names[svc.Name] = true
+		providers[svc.Name] = svc.Provider
+	}
+	require.True(t, names["api-cloud-run"])
+	require.True(t, names["api-lambda"])
+	require.Equal(t, "gcp", providers["api-cloud-run"])
+	require.Equal(t, "aws", providers["api-lambda"])
+}
+
+func TestFindServicesWithEnv_SameServiceDifferentEnvOverrides(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+
+	content := `name: api
+provider: gcp
+project: acme-dev
+region: us-central1
+registry_name: gcr.io/acme-dev
+environments:
+  staging:
+    project: acme-staging
+    region: us-central1
+    registry_name: gcr.io/acme-staging
+  prod:
+    project: acme-prod
+    region: us-east1
+    registry_name: gcr.io/acme-prod
+`
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
+
+	// Test staging env
+	stagingOpts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "staging",
+	}
+	stagingServices, err := serviceinfo.FindServicesWithOptions(tmpDir, stagingOpts)
+	require.NoError(t, err)
+	require.Len(t, stagingServices, 1)
+	require.Equal(t, "acme-staging", stagingServices[0].Project)
+	require.Equal(t, "us-central1", stagingServices[0].Region)
+	require.Equal(t, "gcr.io/acme-staging", stagingServices[0].RegistryName)
+
+	// Test prod env
+	prodOpts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+		Env:      "prod",
+	}
+	prodServices, err := serviceinfo.FindServicesWithOptions(tmpDir, prodOpts)
+	require.NoError(t, err)
+	require.Len(t, prodServices, 1)
+	require.Equal(t, "acme-prod", prodServices[0].Project)
+	require.Equal(t, "us-east1", prodServices[0].Region)
+	require.Equal(t, "gcr.io/acme-prod", prodServices[0].RegistryName)
+
+	// Test default (no env)
+	defaultOpts := serviceinfo.DiscoveryOptions{
+		MaxDepth: serviceinfo.DefaultMaxDepth,
+	}
+	defaultServices, err := serviceinfo.FindServicesWithOptions(tmpDir, defaultOpts)
+	require.NoError(t, err)
+	require.Len(t, defaultServices, 1)
+	require.Equal(t, "acme-dev", defaultServices[0].Project)
+	require.Equal(t, "us-central1", defaultServices[0].Region)
+}
+
+func TestFindServices_SameSourcePathDifferentProviders(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Two services in separate dirs but conceptually the same app deployed to different providers
+	gcpDir := filepath.Join(tmpDir, "api-gcp")
+	require.NoError(t, os.MkdirAll(gcpDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(gcpDir, "pilum.yaml"), []byte(`name: api
+provider: gcp
+project: my-gcp-project
+region: us-central1
+`), 0644))
+
+	awsDir := filepath.Join(tmpDir, "api-aws")
+	require.NoError(t, os.MkdirAll(awsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(awsDir, "pilum.yaml"), []byte(`name: api
+provider: aws
+region: us-east-1
+`), 0644))
+
+	services, err := serviceinfo.FindServices(tmpDir)
+
+	require.NoError(t, err)
+	require.Len(t, services, 2)
+
+	// Both have name "api" but different providers
+	providers := make(map[string]bool)
+	for _, svc := range services {
+		require.Equal(t, "api", svc.Name)
+		providers[svc.Provider] = true
+	}
+	require.True(t, providers["gcp"])
+	require.True(t, providers["aws"])
+}

@@ -11,6 +11,7 @@ const (
 	Deploy      = 4 // Execution errors (command failures, timeouts, step failures)
 	IO          = 5 // File I/O errors (can't read/write files)
 	InvalidArgs = 6 // Invalid CLI arguments (unknown provider, bad flags)
+	Lock        = 7 // Deployment lock errors (another deploy is running)
 )
 
 // Error is an error that carries a specific exit code.

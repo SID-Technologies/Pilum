@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sid-technologies/pilum/ingredients/build"
+	"github.com/sid-technologies/pilum/lib/cache"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
@@ -43,6 +44,8 @@ type Runner struct {
 	resultsMu     sync.Mutex
 	registry      *registry.CommandRegistry
 	dryRunResults []DryRunEntry
+	buildCache    cache.Cache
+	cacheMu       sync.Mutex
 }
 
 // stepTask represents a task for a specific service at a specific step.
@@ -66,6 +69,8 @@ type RunnerOptions struct {
 	ExcludeTags  []string // Exclude steps with these tags (e.g., "deploy")
 	OnlyTags     []string // Only run steps with these tags (e.g., "deploy")
 	NoDeps       bool     // Disable wave-based deployment ordering
+	NoCache      bool     // Disable build caching (force rebuild)
+	ProjectRoot  string   // Project root for cache file location
 }
 
 // NewRunner creates a new deployment runner.
@@ -133,6 +138,16 @@ func (r *Runner) Run() error {
 		return nil
 	}
 
+	// Load build cache
+	if !r.options.NoCache && r.options.ProjectRoot != "" {
+		bc, err := cache.Load(r.options.ProjectRoot)
+		if err != nil {
+			output.Warning("Could not load build cache: %v", err)
+			bc = make(cache.Cache)
+		}
+		r.buildCache = bc
+	}
+
 	r.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(r.services)))
 
 	// Pre-calculate image names for all services
@@ -145,9 +160,14 @@ func (r *Runner) Run() error {
 	for stepIdx := 0; stepIdx < maxSteps; stepIdx++ {
 		err := r.executeStep(stepIdx, maxSteps)
 		if err != nil {
+			// Save cache even on failure (partial builds may have succeeded)
+			r.saveCache()
 			return err
 		}
 	}
+
+	// Save cache after successful run
+	r.saveCache()
 
 	// Dry-run JSON: emit collected entries instead of the normal summary
 	if r.options.DryRun && output.IsJSON() {
@@ -371,11 +391,33 @@ func (r *Runner) executeTasksParallel(tasks []stepTask) error {
 	return nil
 }
 
+// saveCache persists the build cache to disk if caching is enabled.
+func (r *Runner) saveCache() {
+	if r.buildCache == nil || r.options.ProjectRoot == "" {
+		return
+	}
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+	if err := cache.Save(r.options.ProjectRoot, r.buildCache); err != nil {
+		output.Warning("Could not save build cache: %v", err)
+	}
+}
+
 // executeTask runs a single task.
 func (r *Runner) executeTask(svc serviceinfo.ServiceInfo, step *recepie.RecipeStep) TaskResult {
 	result := TaskResult{
 		ServiceName: svc.DisplayName(),
 		StepName:    step.Name,
+	}
+
+	// Check build cache for steps tagged "build"
+	if r.buildCache != nil && r.stepHasAnyTag(step, []string{"build"}) {
+		hash, hashErr := cache.HashServiceDir(svc.Path, r.options.ProjectRoot)
+		if hashErr == nil && hash != "" && cache.IsCached(r.buildCache, svc.Name, hash, r.options.Tag) {
+			output.Debugf("Cache hit for %s — skipping build", svc.DisplayName())
+			result.Success = true
+			return result
+		}
 	}
 
 	cmd := r.generateCommand(svc, step)
@@ -428,6 +470,17 @@ func (r *Runner) executeTask(svc serviceinfo.ServiceInfo, step *recepie.RecipeSt
 	success, err := workerqueue.CommandWorker(taskInfo)
 	result.Success = success
 	result.Error = err
+
+	// Update build cache on successful build
+	if success && r.buildCache != nil && r.stepHasAnyTag(step, []string{"build"}) {
+		hash, hashErr := cache.HashServiceDir(svc.Path, r.options.ProjectRoot)
+		if hashErr == nil && hash != "" {
+			r.cacheMu.Lock()
+			cache.Update(r.buildCache, svc.Name, hash, r.options.Tag)
+			r.cacheMu.Unlock()
+		}
+	}
+
 	return result
 }
 

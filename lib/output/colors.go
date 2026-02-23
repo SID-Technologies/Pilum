@@ -8,6 +8,7 @@ const (
 )
 
 // Raw color codes - use semantic colors below instead.
+// Roman-themed palette matching the website terminal.
 const (
 	rawRed     = "\033[31m"
 	rawGreen   = "\033[32m"
@@ -17,34 +18,38 @@ const (
 	rawCyan    = "\033[36m"
 	rawGray    = "\033[90m"
 	rawOrange  = "\033[38;5;208m"
+	rawGold    = "\033[38;5;178m" // Imperial gold (#d4af37)
+	rawPurple  = "\033[38;5;141m" // Tyrian purple (#9b6dff)
+	rawBronze  = "\033[38;5;172m" // Roman bronze (#cd7f32)
+	rawLaurel  = "\033[38;5;108m" // Laurel green (#7a9a6d)
 )
 
 // Semantic colors - use these throughout the application
-// To change the color scheme, modify the assignments below.
+// Roman-themed: gold for success, purple for headers, bronze for progress, laurel for muted.
 const (
 	// Primary - main brand/action color (step headers, borders).
-	Primary = rawCyan
+	Primary = rawPurple
 
 	// Secondary - supporting color for less prominent elements.
-	Secondary = rawBlue
+	Secondary = rawBronze
 
 	// Accent - highlights and emphasis.
-	Accent = rawMagenta
+	Accent = rawGold
 
 	// SuccessColor - positive outcomes, completions.
-	SuccessColor = rawGreen
+	SuccessColor = rawGold
 
 	// WarningColor - caution, attention needed, in-progress.
-	WarningColor = rawYellow
+	WarningColor = rawBronze
 
 	// ErrorColor - failures, problems.
 	ErrorColor = rawRed
 
 	// InfoColor - informational messages.
-	InfoColor = rawBlue
+	InfoColor = rawPurple
 
 	// Muted - de-emphasized text, timestamps, metadata.
-	Muted = rawGray
+	Muted = rawLaurel
 )
 
 // Legacy aliases - for backward compatibility
@@ -56,9 +61,11 @@ const (
 	Cyan   = rawCyan
 	Purple = rawMagenta
 	Gray   = rawGray
-	Gold   = rawYellow
+	Gold   = rawGold
 	Yellow = rawYellow
 	Orange = rawOrange
+	Bronze = rawBronze
+	Laurel = rawLaurel
 )
 
 const (

@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SID-Technologies/pilum/main/schemas/pilum.yaml.schema.json",
+  "title": "Pilum Service Configuration",
+  "description": "Configuration schema for pilum.yaml — multi-cloud deployment CLI",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Service name (used in deployment, registry, and output)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable service description"
+    },
+    "type": {
+      "type": "string",
+      "description": "Recipe type override (e.g., 'gcp-cloud-run', 'aws-lambda'). Usually inferred from provider.",
+      "enum": [
+        "gcp-cloud-run",
+        "gcp-cloud-run-job",
+        "aws-lambda",
+        "azure-container-apps",
+        "cloudflare-pages",
+        "homebrew",
+        "npm"
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "description": "Cloud provider for deployment",
+      "enum": ["gcp", "aws", "azure", "cloudflare", "homebrew", "npm"]
+    },
+    "project": {
+      "type": "string",
+      "description": "Cloud project/account ID (GCP project, AWS account, Azure resource group)"
+    },
+    "region": {
+      "type": "string",
+      "description": "Deployment region (e.g., 'us-central1', 'us-east-1', 'eastus')"
+    },
+    "regions": {
+      "type": "array",
+      "description": "Multiple deployment regions — service will be expanded into one instance per region",
+      "items": {
+        "type": "string"
+      }
+    },
+    "template": {
+      "type": "string",
+      "description": "Dockerfile template name (resolved from _templates/ directory)"
+    },
+    "registry_name": {
+      "type": "string",
+      "description": "Docker registry prefix (e.g., 'gcr.io/my-project', 'my-registry.azurecr.io')"
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX license identifier (e.g., 'MIT', 'Apache-2.0', 'BSL-1.1')"
+    },
+    "depends_on": {
+      "type": "array",
+      "description": "Service dependencies — controls wave-based deployment ordering",
+      "items": {
+        "type": "string"
+      }
+    },
+    "env_vars": {
+      "type": "object",
+      "description": "Environment variables passed to the deployed service",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "description": "Secret references for the deployed service",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "build": {
+      "$ref": "#/$defs/build"
+    },
+    "cloud_run": {
+      "$ref": "#/$defs/cloud_run"
+    },
+    "job": {
+      "$ref": "#/$defs/job"
+    },
+    "lambda": {
+      "$ref": "#/$defs/lambda"
+    },
+    "container_app": {
+      "$ref": "#/$defs/container_app"
+    },
+    "homebrew": {
+      "$ref": "#/$defs/homebrew"
+    },
+    "npm": {
+      "$ref": "#/$defs/npm"
+    },
+    "cloudflare": {
+      "$ref": "#/$defs/cloudflare"
+    },
+    "environments": {
+      "type": "object",
+      "description": "Environment-specific overrides (e.g., staging, prod). Each key is an environment name whose values override top-level fields.",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Overrides for this environment — any top-level field can be overridden",
+        "properties": {
+          "project": { "type": "string" },
+          "region": { "type": "string" },
+          "regions": { "type": "array", "items": { "type": "string" } },
+          "registry_name": { "type": "string" },
+          "template": { "type": "string" },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "env_vars": { "type": "object", "additionalProperties": { "type": "string" } },
+          "secrets": { "type": "object", "additionalProperties": { "type": "string" } },
+          "build": { "$ref": "#/$defs/build" },
+          "cloud_run": { "$ref": "#/$defs/cloud_run" },
+          "job": { "$ref": "#/$defs/job" },
+          "lambda": { "$ref": "#/$defs/lambda" },
+          "container_app": { "$ref": "#/$defs/container_app" },
+          "homebrew": { "$ref": "#/$defs/homebrew" },
+          "npm": { "$ref": "#/$defs/npm" },
+          "cloudflare": { "$ref": "#/$defs/cloudflare" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "build": {
+      "type": "object",
+      "description": "Build configuration for the service",
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "Programming language (e.g., 'go', 'nodejs', 'python', 'rust', 'java', 'dotnet')"
+        },
+        "version": {
+          "type": "string",
+          "description": "Language/runtime version (e.g., '1.23', '22', '3.12')"
+        },
+        "cmd": {
+          "type": "string",
+          "description": "Custom build command (overrides default for the language)"
+        },
+        "version_var": {
+          "type": "string",
+          "description": "Go ldflags variable for injecting version at build time"
+        },
+        "output": {
+          "type": "string",
+          "description": "Build output path (e.g., 'dist/server')"
+        },
+        "output_dir": {
+          "type": "string",
+          "description": "Build output directory (e.g., 'dist')"
+        },
+        "env_vars": {
+          "type": "object",
+          "description": "Environment variables for the build process",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "flags": {
+          "type": "object",
+          "description": "Build flags (e.g., ldflags, gcflags)",
+          "additionalProperties": true
+        },
+        "platforms": {
+          "type": "array",
+          "description": "Target platforms for cross-compilation",
+          "items": {
+            "type": "object",
+            "properties": {
+              "os": {
+                "type": "string",
+                "description": "Target OS (e.g., 'darwin', 'linux', 'windows')"
+              },
+              "arch": {
+                "type": "string",
+                "description": "Target architecture (e.g., 'amd64', 'arm64')"
+              }
+            },
+            "required": ["os", "arch"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "cloud_run": {
+      "type": "object",
+      "description": "GCP Cloud Run service configuration",
+      "properties": {
+        "min_instances": {
+          "type": "integer",
+          "description": "Minimum number of instances (0 allows scale-to-zero)",
+          "default": 0
+        },
+        "max_instances": {
+          "type": "integer",
+          "description": "Maximum number of instances",
+          "default": 10
+        },
+        "cpu_throttling": {
+          "type": "boolean",
+          "description": "Whether to throttle CPU outside of request processing",
+          "default": true
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory limit (e.g., '256Mi', '1Gi', '2Gi')",
+          "default": "512Mi"
+        },
+        "cpu": {
+          "type": "string",
+          "description": "CPU allocation (e.g., '1', '2', '4')",
+          "default": "1"
+        },
+        "concurrency": {
+          "type": "integer",
+          "description": "Maximum concurrent requests per instance",
+          "default": 80
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Request timeout in seconds",
+          "default": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "job": {
+      "type": "object",
+      "description": "GCP Cloud Run Job configuration",
+      "properties": {
+        "timeout": {
+          "type": "string",
+          "description": "Job execution timeout (e.g., '600s', '1h')",
+          "default": "600s"
+        },
+        "max_retries": {
+          "type": "integer",
+          "description": "Maximum retry attempts on failure",
+          "default": 0
+        },
+        "parallelism": {
+          "type": "integer",
+          "description": "Number of tasks to run in parallel",
+          "default": 1
+        },
+        "task_count": {
+          "type": "integer",
+          "description": "Total number of tasks to execute",
+          "default": 1
+        },
+        "cpu": {
+          "type": "string",
+          "description": "CPU allocation (e.g., '1', '2')",
+          "default": "1"
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory limit (e.g., '512Mi', '1Gi')",
+          "default": "512Mi"
+        },
+        "execute_on_deploy": {
+          "type": "boolean",
+          "description": "Whether to execute the job immediately after deployment",
+          "default": false
+        },
+        "service_account": {
+          "type": "string",
+          "description": "GCP service account email to run the job as"
+        }
+      },
+      "additionalProperties": false
+    },
+    "lambda": {
+      "type": "object",
+      "description": "AWS Lambda function configuration",
+      "properties": {
+        "memory": {
+          "type": "integer",
+          "description": "Memory allocation in MB",
+          "default": 128
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Function timeout in seconds",
+          "default": 30
+        },
+        "runtime": {
+          "type": "string",
+          "description": "Lambda runtime identifier",
+          "default": "provided.al2023"
+        }
+      },
+      "additionalProperties": false
+    },
+    "container_app": {
+      "type": "object",
+      "description": "Azure Container Apps configuration",
+      "properties": {
+        "environment": {
+          "type": "string",
+          "description": "Container Apps environment name"
+        },
+        "min_replicas": {
+          "type": "integer",
+          "description": "Minimum number of replicas",
+          "default": 0
+        },
+        "max_replicas": {
+          "type": "integer",
+          "description": "Maximum number of replicas",
+          "default": 10
+        },
+        "cpu": {
+          "type": "string",
+          "description": "CPU allocation (e.g., '0.25', '0.5', '1')",
+          "default": "0.25"
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory limit (e.g., '0.5Gi', '1Gi')",
+          "default": "0.5Gi"
+        },
+        "ingress_port": {
+          "type": "integer",
+          "description": "Container port for ingress traffic",
+          "default": 8080
+        },
+        "ingress_external": {
+          "type": "boolean",
+          "description": "Whether to expose the app externally",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "homebrew": {
+      "type": "object",
+      "description": "Homebrew tap/formula configuration",
+      "properties": {
+        "project_url": {
+          "type": "string",
+          "description": "GitHub repository URL for the project",
+          "format": "uri"
+        },
+        "tap_url": {
+          "type": "string",
+          "description": "GitHub repository URL for the Homebrew tap",
+          "format": "uri"
+        },
+        "token_env": {
+          "type": "string",
+          "description": "Environment variable name containing the GitHub token",
+          "default": "GH_TOKEN"
+        }
+      },
+      "required": ["project_url", "tap_url", "token_env"],
+      "additionalProperties": false
+    },
+    "npm": {
+      "type": "object",
+      "description": "npm package publishing configuration",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "description": "npm scope (e.g., '@myorg')"
+        },
+        "registry": {
+          "type": "string",
+          "description": "npm registry URL",
+          "default": "https://npm.pkg.github.com"
+        },
+        "access": {
+          "type": "string",
+          "description": "Package access level",
+          "enum": ["public", "restricted"],
+          "default": "restricted"
+        },
+        "token_env": {
+          "type": "string",
+          "description": "Environment variable name containing the npm token"
+        }
+      },
+      "required": ["scope", "token_env"],
+      "additionalProperties": false
+    },
+    "cloudflare": {
+      "type": "object",
+      "description": "Cloudflare Pages deployment configuration",
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "description": "Cloudflare account ID"
+        },
+        "token_env": {
+          "type": "string",
+          "description": "Environment variable name containing the Cloudflare API token",
+          "default": "CLOUDFLARE_API_TOKEN"
+        },
+        "production_branch": {
+          "type": "string",
+          "description": "Git branch that triggers production deployments",
+          "default": "main"
+        },
+        "package_manager": {
+          "type": "string",
+          "description": "Package manager to use for builds",
+          "enum": ["npm", "yarn", "pnpm"],
+          "default": "npm"
+        }
+      },
+      "required": ["account_id"],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "provider": { "const": "gcp" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["project", "region", "registry_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "provider": { "const": "aws" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["region"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "provider": { "const": "azure" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["project", "region", "registry_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "provider": { "const": "homebrew" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["description", "license", "homebrew"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "provider": { "const": "npm" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["npm"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "provider": { "const": "cloudflare" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["cloudflare"]
+      }
+    }
+  ]
+}
