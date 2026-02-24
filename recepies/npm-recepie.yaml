@@ -46,7 +46,14 @@ steps:
     tags:
       - build
 
-  # Step 4: Publish to npm registry
+  # Step 4: Resolve workspace dependencies (pnpm only, no-op for npm/yarn/bun)
+  - name: resolve workspace dependencies
+    execution_mode: service_dir
+    timeout: 30
+    tags:
+      - build
+
+  # Step 5: Publish to npm registry
   - name: publish package
     execution_mode: service_dir
     timeout: 120
