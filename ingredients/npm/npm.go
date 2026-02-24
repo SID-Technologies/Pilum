@@ -6,7 +6,12 @@ import (
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/shellutil"
+
+	_ "embed"
 )
+
+//go:embed scripts/resolve_workspaces.js
+var resolveWorkspacesScript string
 
 // GenerateInstallCommand creates the dependency install command based on package_manager config.
 func GenerateInstallCommand(svc serviceinfo.ServiceInfo) []string {
@@ -38,6 +43,21 @@ func GenerateBuildCommand(svc serviceinfo.ServiceInfo) []string {
 		return nil
 	}
 	return []string{"/bin/sh", "-c", svc.BuildConfig.Cmd}
+}
+
+// GenerateResolveWorkspacesCommand creates a command that replaces pnpm workspace:*
+// dependency references in package.json with concrete version numbers from sibling packages.
+// This must run before npm publish so the published package has valid dependency specifiers.
+// Uses an embedded Node.js script (guaranteed available in npm publishing contexts).
+// Returns empty string if the package manager is not pnpm (workspace: protocol is pnpm-specific).
+func GenerateResolveWorkspacesCommand(svc serviceinfo.ServiceInfo) string {
+	cfg := ParseConfig(svc.Config)
+
+	if cfg.PackageManager != "pnpm" {
+		return ""
+	}
+
+	return fmt.Sprintf("node -e %s", shellutil.Quote(resolveWorkspacesScript))
 }
 
 // GeneratePublishCommand creates a shell script that configures npm auth and publishes the package.

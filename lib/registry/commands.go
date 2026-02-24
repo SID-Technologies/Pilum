@@ -125,7 +125,12 @@ func registerNpmHandlers(reg *CommandRegistry) {
 		return npm.GenerateBuildCommand(ctx.Service)
 	})
 
-	// Step 4: Publish to npm registry
+	// Step 4: Resolve workspace:* dependencies to concrete versions (pnpm only)
+	reg.Register("resolve workspace dependencies", "npm", func(ctx StepContext) any {
+		return npm.GenerateResolveWorkspacesCommand(ctx.Service)
+	})
+
+	// Step 5: Publish to npm registry
 	reg.Register("publish package", "npm", func(ctx StepContext) any {
 		return npm.GeneratePublishCommand(ctx.Service)
 	})

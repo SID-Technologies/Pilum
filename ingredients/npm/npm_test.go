@@ -122,6 +122,53 @@ func TestGenerateBuildCommand_NoCmd(t *testing.T) {
 	require.Nil(t, cmd)
 }
 
+func TestGenerateResolveWorkspacesCommand_Pnpm(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{
+				"package_manager": "pnpm",
+			},
+		},
+	}
+
+	cmd := GenerateResolveWorkspacesCommand(svc)
+
+	require.NotEmpty(t, cmd, "should generate a script for pnpm")
+	require.Contains(t, cmd, "workspace:")
+	require.Contains(t, cmd, "package.json")
+	require.Contains(t, cmd, "Resolved")
+}
+
+func TestGenerateResolveWorkspacesCommand_NonPnpm(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{
+				"package_manager": "npm",
+			},
+		},
+	}
+
+	cmd := GenerateResolveWorkspacesCommand(svc)
+
+	require.Empty(t, cmd, "should return empty string for non-pnpm")
+}
+
+func TestGenerateResolveWorkspacesCommand_DefaultManager(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{},
+	}
+
+	cmd := GenerateResolveWorkspacesCommand(svc)
+
+	require.Empty(t, cmd, "should return empty string when no package manager specified")
+}
+
 func TestGeneratePublishCommand_FullConfig(t *testing.T) {
 	t.Parallel()
 
