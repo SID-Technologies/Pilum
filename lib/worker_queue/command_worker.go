@@ -16,6 +16,41 @@ import (
 	"github.com/sid-technologies/pilum/lib/output"
 )
 
+// sensitiveEnvSuffixes contains key suffixes that indicate secrets.
+// Values for matching keys are redacted in debug output.
+var sensitiveEnvSuffixes = []string{
+	"_TOKEN",
+	"_SECRET",
+	"_KEY",
+	"_PASSWORD",
+	"_CREDENTIAL",
+	"_API_KEY",
+}
+
+// shouldRedact returns true if the env var key matches a sensitive pattern.
+func shouldRedact(key string) bool {
+	upper := strings.ToUpper(key)
+	for _, suffix := range sensitiveEnvSuffixes {
+		if strings.HasSuffix(upper, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// redactEnvVars returns a copy of the env vars map with sensitive values replaced.
+func redactEnvVars(envVars map[string]string) map[string]string {
+	redacted := make(map[string]string, len(envVars))
+	for k, v := range envVars {
+		if shouldRedact(k) {
+			redacted[k] = "[REDACTED]"
+		} else {
+			redacted[k] = v
+		}
+	}
+	return redacted
+}
+
 // CommandWorker executes commands with configurable execution context.
 func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 	if taskInfo.Debug {
@@ -24,7 +59,7 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		output.Debugf("Working directory: %s", taskInfo.Cwd)
 		output.Debugf("Execution mode: %s", taskInfo.ExecutionMode)
 		output.Debugf("Timeout: %d", taskInfo.Timeout)
-		output.Debugf("Environment variables: %v", taskInfo.EnvVars)
+		output.Debugf("Environment variables: %v", redactEnvVars(taskInfo.EnvVars))
 	}
 
 	var lastError string

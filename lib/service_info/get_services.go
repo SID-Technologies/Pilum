@@ -13,9 +13,10 @@ import (
 	"github.com/sid-technologies/pilum/lib/git"
 	"github.com/sid-technologies/pilum/lib/graph"
 	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/shellutil"
 	"github.com/sid-technologies/pilum/lib/suggest"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // FilterOptions configures how services are filtered.
@@ -259,6 +260,11 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 
 		svcRelPath, _ := filepath.Rel(root, filepath.Dir(path))
 		svc := NewServiceInfo(config, svcRelPath)
+
+		// Validate service name as defense-in-depth against command injection
+		if err := shellutil.ValidateServiceName(svc.Name); err != nil {
+			return errors.Wrap(err, "invalid service in %s", path)
+		}
 
 		// Expand multi-region services into separate instances
 		expanded := ExpandMultiRegion(*svc)

@@ -102,11 +102,11 @@ func TestGenerateFormulaCommandOutputPath(t *testing.T) {
 
 	result := homebrew.GenerateFormulaCommand(service, "v1.0.0", "build", "build/cli.rb")
 
-	// Should output to the specified formula path
-	require.Contains(t, result, "cat > build/cli.rb")
+	// Should output to the specified formula path (shell-quoted)
+	require.Contains(t, result, "cat > 'build/cli.rb'")
 
-	// Should reference correct output directory for checksums
-	require.Contains(t, result, "build/checksums.txt")
+	// Should reference correct output directory for checksums (shell-quoted)
+	require.Contains(t, result, "'build/checksums.txt'")
 }
 
 func TestGenerateFormulaCommandArchitectureBlocks(t *testing.T) {

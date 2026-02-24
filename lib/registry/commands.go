@@ -2,6 +2,8 @@ package registry
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/sid-technologies/pilum/ingredients/azure"
 	"github.com/sid-technologies/pilum/ingredients/build"
@@ -10,6 +12,7 @@ import (
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/ingredients/homebrew"
 	"github.com/sid-technologies/pilum/ingredients/npm"
+	"github.com/sid-technologies/pilum/lib/output"
 )
 
 // RegisterDefaultHandlers registers all built-in step handlers.
@@ -35,6 +38,13 @@ func registerGCPCloudRunHandlers(reg *CommandRegistry) {
 	// Step 2: Build Docker image
 	reg.Register("build docker image", "", func(ctx StepContext) any {
 		templatePath := fmt.Sprintf("%s/%s", ctx.TemplatePath, ctx.Service.Template)
+
+		// Validate that the resolved template path stays within the templates directory
+		if err := validatePathContainment(templatePath, ctx.TemplatePath); err != nil {
+			output.Warning("Template path rejected for %s: %s", ctx.Service.Name, err)
+			return nil
+		}
+
 		return docker.GenerateDockerBuildCommand(ctx.Service, ctx.ImageName, templatePath)
 	})
 
@@ -147,4 +157,18 @@ func registerCloudflareHandlers(reg *CommandRegistry) {
 	reg.Register("deploy to pages", "cloudflare", func(ctx StepContext) any {
 		return cloudflare.GenerateDeployCommand(ctx.Service, ctx.Tag)
 	})
+}
+
+// validatePathContainment ensures the resolved path stays within the base directory.
+// This prevents path traversal attacks via template names like "../../etc/passwd".
+func validatePathContainment(path, baseDir string) error {
+	cleaned := filepath.Clean(path)
+	base := filepath.Clean(baseDir)
+
+	// Ensure the cleaned path starts with the base directory
+	if !strings.HasPrefix(cleaned, base+string(filepath.Separator)) && cleaned != base {
+		return fmt.Errorf("path %q escapes base directory %q", path, baseDir)
+	}
+
+	return nil
 }

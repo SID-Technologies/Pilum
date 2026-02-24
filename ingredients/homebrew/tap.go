@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/shellutil"
 )
 
 // GenerateTapPushCommand creates a command to clone the tap repo, copy the formula, and push.
@@ -27,6 +28,10 @@ func GenerateTapPushCommand(svc serviceinfo.ServiceInfo, tag string, formulaPath
 	// 3. Clones the tap repo using token for auth
 	// 4. Copies the formula file
 	// 5. Commits and pushes
+	quotedFormulaPath := shellutil.Quote(formulaPath)
+	quotedName := shellutil.Quote(name)
+	quotedTag := shellutil.Quote(tag)
+
 	script := fmt.Sprintf(`
 if [ -z "$%s" ]; then
   echo "Error: %s environment variable is not set"
@@ -49,9 +54,9 @@ echo "Successfully pushed formula to tap"
 `,
 		tokenEnvVar, tokenEnvVar,
 		cloneURL,
-		formulaPath, name,
+		quotedFormulaPath, name,
 		name,
-		name, tag,
+		quotedName, quotedTag,
 	)
 
 	return script
@@ -59,9 +64,11 @@ echo "Successfully pushed formula to tap"
 
 // buildAuthenticatedURL inserts the token env var into the URL for git clone.
 // e.g., "https://github.com/org/tap" -> "https://$TOKEN@github.com/org/tap"
-func buildAuthenticatedURL(url string, tokenEnvVar string) string {
-	if strings.HasPrefix(url, "https://") {
-		return strings.Replace(url, "https://", fmt.Sprintf("https://$%s@", tokenEnvVar), 1)
+// The URL is sanitized for use inside double-quoted shell strings.
+func buildAuthenticatedURL(rawURL string, tokenEnvVar string) string {
+	safeURL := shellutil.SanitizeHeredocValue(rawURL)
+	if strings.HasPrefix(safeURL, "https://") {
+		return strings.Replace(safeURL, "https://", fmt.Sprintf("https://$%s@", tokenEnvVar), 1)
 	}
-	return url
+	return safeURL
 }

@@ -364,27 +364,27 @@ func TestRunnerSubstituteVars(t *testing.T) {
 		{
 			name:     "string with service name",
 			cmd:      "echo ${name}",
-			expected: "echo myservice",
+			expected: "echo 'myservice'",
 		},
 		{
 			name:     "string with service.name",
 			cmd:      "echo ${service.name}",
-			expected: "echo myservice",
+			expected: "echo 'myservice'",
 		},
 		{
 			name:     "string with multiple vars",
 			cmd:      "deploy ${name} to ${region} in ${project}",
-			expected: "deploy myservice to us-central1 in my-project",
+			expected: "deploy 'myservice' to 'us-central1' in 'my-project'",
 		},
 		{
 			name:     "string with tag",
 			cmd:      "build:${tag}",
-			expected: "build:v1.0.0",
+			expected: "build:'v1.0.0'",
 		},
 		{
 			name:     "string with build.version",
 			cmd:      "version=${build.version}",
-			expected: "version=v1.0.0",
+			expected: "version='v1.0.0'",
 		},
 		{
 			name:     "string slice",
@@ -523,7 +523,7 @@ func TestRunnerGenerateCommand(t *testing.T) {
 				Name:    "custom",
 				Command: "echo ${name}",
 			},
-			expected: "echo myservice",
+			expected: "echo 'myservice'",
 		},
 		{
 			name: "step with explicit array command",

@@ -63,7 +63,7 @@ func Load(projectRoot string) (Cache, error) {
 // Save writes the build cache to disk.
 func Save(projectRoot string, c Cache) error {
 	dir := filepath.Join(projectRoot, cacheDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return errors.Wrap(err, "creating %s directory", cacheDir)
 	}
 
@@ -73,7 +73,7 @@ func Save(projectRoot string, c Cache) error {
 	}
 
 	fp := FilePath(projectRoot)
-	if err := os.WriteFile(fp, data, 0o644); err != nil {
+	if err := os.WriteFile(fp, data, 0o600); err != nil {
 		return errors.Wrap(err, "writing cache file")
 	}
 

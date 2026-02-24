@@ -4,7 +4,10 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -49,6 +52,11 @@ func Send(configs []Config, payload Payload) {
 			continue
 		}
 
+		if err := validateWebhookURL(cfg.URL); err != nil {
+			output.Warning("Webhook URL rejected for %s: %s", cfg.URL, err)
+			continue
+		}
+
 		if err := post(cfg.URL, payload); err != nil {
 			output.Warning("Webhook failed for %s: %s", cfg.URL, err)
 		}
@@ -68,20 +76,27 @@ func hasEvent(events []Event, target Event) bool {
 	return false
 }
 
-func post(url string, payload Payload) error {
+func post(webhookURL string, payload Payload) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return errors.Wrap(err, "marshaling webhook payload")
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewReader(data))
 	if err != nil {
 		return errors.Wrap(err, "creating webhook request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "pilum-webhook")
 
-	client := &http.Client{Timeout: httpTimeout}
+	client := &http.Client{
+		Timeout:   httpTimeout,
+		Transport: safeTransport(),
+		// Disable redirect following to prevent SSRF via redirects to private IPs
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "sending webhook")
@@ -93,4 +108,48 @@ func post(url string, payload Payload) error {
 	}
 
 	return nil
+}
+
+// safeTransport returns an http.Transport that checks resolved IPs against
+// the private IP blocklist before connecting. This prevents DNS rebinding
+// attacks where a hostname initially resolves to a public IP but later
+// resolves to a private IP (TOCTOU mitigation).
+func safeTransport() *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Allow localhost connections (already validated by validateWebhookURL)
+			if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+				var dialer net.Dialer
+				return dialer.DialContext(ctx, network, addr)
+			}
+
+			ips, err := net.DefaultResolver.LookupHost(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, ipStr := range ips {
+				ip := net.ParseIP(ipStr)
+				if ip != nil && isPrivateIP(ip) {
+					return nil, fmt.Errorf("resolved IP %s is in a private range", ipStr)
+				}
+			}
+
+			// Connect using resolved IPs directly to prevent DNS rebinding
+			var dialer net.Dialer
+			for _, ipStr := range ips {
+				conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ipStr, port))
+				if err == nil {
+					return conn, nil
+				}
+			}
+
+			return nil, fmt.Errorf("failed to connect to any resolved IP for %s", host)
+		},
+	}
 }

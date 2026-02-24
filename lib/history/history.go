@@ -84,7 +84,7 @@ func Load(projectRoot string) ([]Entry, error) {
 // Record appends an entry as a single JSON line to the history file.
 func Record(projectRoot string, entry Entry) error {
 	dir := filepath.Join(projectRoot, historyDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return errors.Wrap(err, "creating %s directory", historyDir)
 	}
 
@@ -95,7 +95,7 @@ func Record(projectRoot string, entry Entry) error {
 	data = append(data, '\n')
 
 	fp := FilePath(projectRoot)
-	f, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return errors.Wrap(err, "opening history file")
 	}

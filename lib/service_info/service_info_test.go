@@ -346,14 +346,13 @@ func TestNewServiceInfoPreservesRawConfig(t *testing.T) {
 	require.Equal(t, "custom_value", svc.Config["custom_field"])
 }
 
-func TestNewServiceInfoWithYamlV2Map(t *testing.T) {
+func TestNewServiceInfoWithNestedMap(t *testing.T) {
 	t.Parallel()
 
-	// Simulates how yaml.v2 parses maps (as map[interface{}]interface{})
 	config := map[string]any{
 		"name":     "myservice",
 		"provider": "gcp",
-		"build": map[any]any{
+		"build": map[string]any{
 			"language": "go",
 			"version":  "1.23",
 			"cmd":      "go build",

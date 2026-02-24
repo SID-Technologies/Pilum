@@ -189,7 +189,7 @@ func TestHomebrewBuildBinariesHandlerExecution(t *testing.T) {
 
 	cmd, ok := result.(string)
 	require.True(t, ok)
-	require.Contains(t, cmd, "mkdir -p dist")
+	require.Contains(t, cmd, "mkdir -p 'dist'")
 	require.Contains(t, cmd, "GOOS=darwin")
 }
 

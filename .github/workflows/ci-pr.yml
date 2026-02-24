@@ -21,3 +21,5 @@ jobs:
     uses: ./.github/workflows/pr-label.yml
   conventional-commits:
     uses: ./.github/workflows/conventional_commits.yml
+  govulncheck:
+    uses: ./.github/workflows/govulncheck.yml

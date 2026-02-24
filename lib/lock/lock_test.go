@@ -113,12 +113,14 @@ func TestStaleLockCleanedByDeadPID(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a lock with a PID that almost certainly doesn't exist
+	// Use current hostname so the PID liveness check is triggered
+	hostname, _ := os.Hostname()
 	dir := filepath.Join(tmpDir, lockDir)
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 
 	info := Info{
-		PID:       999999999, // Very unlikely to be a real process
-		Hostname:  "dead-host",
+		PID:       999999999,  // Very unlikely to be a real process
+		Hostname:  hostname,   // Same host — PID liveness will be checked
 		Timestamp: time.Now(), // Recent, so time-based check won't trigger
 		Services:  []string{"dead-svc"},
 		Command:   "dead-deploy",
@@ -127,7 +129,63 @@ func TestStaleLockCleanedByDeadPID(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(FilePath(tmpDir), data, 0o644))
 
-	// Should succeed because the PID is dead
+	// Should succeed because the PID is dead (and hostname matches)
+	err = Acquire(tmpDir, "deploy", []string{"api"}, false)
+	require.NoError(t, err)
+
+	Release(tmpDir)
+}
+
+func TestLockFromDifferentHostNotCleanedByPID(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create a lock from a different host with a dead PID
+	dir := filepath.Join(tmpDir, lockDir)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+
+	info := Info{
+		PID:       999999999,
+		Hostname:  "other-host", // Different host — PID check should be skipped
+		Timestamp: time.Now(),   // Recent, so time-based check won't trigger
+		Services:  []string{"svc"},
+		Command:   "deploy",
+	}
+	data, err := json.Marshal(info)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(FilePath(tmpDir), data, 0o644))
+
+	// Should fail because we can't verify PID on a different host
+	// and the lock isn't old enough for time-based cleanup
+	err = Acquire(tmpDir, "deploy", []string{"api"}, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "deployment locked")
+
+	Release(tmpDir)
+}
+
+func TestLockFromDifferentHostCleanedByAge(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create an old lock from a different host
+	dir := filepath.Join(tmpDir, lockDir)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+
+	info := Info{
+		PID:       999999999,
+		Hostname:  "other-host",
+		Timestamp: time.Now().Add(-2 * time.Hour), // Stale by age
+		Services:  []string{"svc"},
+		Command:   "deploy",
+	}
+	data, err := json.Marshal(info)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(FilePath(tmpDir), data, 0o644))
+
+	// Should succeed — time-based staleness applies regardless of hostname
 	err = Acquire(tmpDir, "deploy", []string{"api"}, false)
 	require.NoError(t, err)
 

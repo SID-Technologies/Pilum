@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/shellutil"
 )
 
 // GenerateInstallCommand creates the dependency install command based on package_manager config.
@@ -62,8 +63,8 @@ echo "//%s/:_authToken=$%s" > .npmrc
 echo "%s:registry=%s" >> .npmrc
 npm publish --access %s`,
 		tokenEnv, tokenEnv,
-		registryHost, tokenEnv,
-		scope, registry,
-		access,
+		shellutil.SanitizeHeredocValue(registryHost), tokenEnv,
+		shellutil.SanitizeHeredocValue(scope), shellutil.SanitizeHeredocValue(registry),
+		shellutil.Quote(access),
 	)
 }

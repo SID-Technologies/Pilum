@@ -40,17 +40,17 @@ func TestGenerateTapPushCommand(t *testing.T) {
 	// Should create Formula directory
 	require.Contains(t, result, "mkdir -p \"$TAP_DIR/Formula\"")
 
-	// Should copy formula
-	require.Contains(t, result, "cp dist/myapp.rb \"$TAP_DIR/Formula/myapp.rb\"")
+	// Should copy formula (formula path is shell-quoted)
+	require.Contains(t, result, "cp 'dist/myapp.rb' \"$TAP_DIR/Formula/myapp.rb\"")
 
 	// Should configure git
 	require.Contains(t, result, "git config user.name")
 	require.Contains(t, result, "git config user.email")
 
-	// Should add and commit
+	// Should add and commit (name and tag are shell-quoted in commit message)
 	require.Contains(t, result, "git add Formula/myapp.rb")
 	require.Contains(t, result, "git commit -m")
-	require.Contains(t, result, "Update myapp to v1.0.0")
+	require.Contains(t, result, "Update 'myapp' to 'v1.0.0'")
 
 	// Should push
 	require.Contains(t, result, "git push")
@@ -133,8 +133,8 @@ func TestGenerateTapPushCommandCommitMessage(t *testing.T) {
 
 	result := homebrew.GenerateTapPushCommand(service, "v3.2.1", "dist/myapp.rb")
 
-	// Should have correct commit message with tag
-	require.Contains(t, result, "Update myapp to v3.2.1")
+	// Should have correct commit message with tag (shell-quoted)
+	require.Contains(t, result, "Update 'myapp' to 'v3.2.1'")
 }
 
 func TestGenerateTapPushCommandFormulaPath(t *testing.T) {
@@ -152,6 +152,6 @@ func TestGenerateTapPushCommandFormulaPath(t *testing.T) {
 
 	result := homebrew.GenerateTapPushCommand(service, "v1.0.0", "/custom/path/cli.rb")
 
-	// Should copy from custom path
-	require.Contains(t, result, "cp /custom/path/cli.rb")
+	// Should copy from custom path (shell-quoted)
+	require.Contains(t, result, "cp '/custom/path/cli.rb'")
 }
