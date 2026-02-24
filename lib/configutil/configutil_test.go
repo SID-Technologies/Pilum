@@ -267,16 +267,6 @@ func TestMapFromAny(t *testing.T) {
 			expected: map[string]any{"key": "value"},
 		},
 		{
-			name:     "map[any]any input",
-			input:    map[any]any{"key": "value", "num": 42},
-			expected: map[string]any{"key": "value", "num": 42},
-		},
-		{
-			name:     "map[any]any with non-string keys filtered out",
-			input:    map[any]any{"key": "value", 123: "ignored"},
-			expected: map[string]any{"key": "value"},
-		},
-		{
 			name:     "nil input",
 			input:    nil,
 			expected: map[string]any{},
@@ -368,12 +358,12 @@ func TestDeepMerge(t *testing.T) {
 			expected: map[string]any{"name": "api"},
 		},
 		{
-			name: "yaml.v2 map[any]any in nested src",
+			name: "nested map in src",
 			dst: map[string]any{
 				"cloud_run": map[string]any{"min_instances": 0},
 			},
 			src: map[string]any{
-				"cloud_run": map[any]any{"min_instances": 5},
+				"cloud_run": map[string]any{"min_instances": 5},
 			},
 			expected: map[string]any{
 				"cloud_run": map[string]any{"min_instances": 5},
@@ -528,29 +518,6 @@ func TestGetNestedString(t *testing.T) {
 			},
 			keys:     []string{},
 			expected: "",
-		},
-		{
-			name: "yaml.v2 nested map (map[interface{}]interface{})",
-			config: map[string]any{
-				"cloudflare": map[any]any{
-					"account_id": "abc123",
-					"token_env":  "CF_TOKEN",
-				},
-			},
-			keys:     []string{"cloudflare", "account_id"},
-			expected: "abc123",
-		},
-		{
-			name: "yaml.v2 deeply nested map",
-			config: map[string]any{
-				"level1": map[any]any{
-					"level2": map[any]any{
-						"value": "deep",
-					},
-				},
-			},
-			keys:     []string{"level1", "level2", "value"},
-			expected: "deep",
 		},
 	}
 

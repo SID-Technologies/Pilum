@@ -141,7 +141,7 @@ func TestGeneratePublishCommand_FullConfig(t *testing.T) {
 	require.Contains(t, cmd, "NPM_TOKEN")
 	require.Contains(t, cmd, "//registry.npmjs.org/:_authToken=$NPM_TOKEN")
 	require.Contains(t, cmd, "@myorg:registry=https://registry.npmjs.org")
-	require.Contains(t, cmd, "npm publish --access public")
+	require.Contains(t, cmd, "npm publish --access 'public'")
 }
 
 func TestGeneratePublishCommand_Defaults(t *testing.T) {
@@ -161,7 +161,7 @@ func TestGeneratePublishCommand_Defaults(t *testing.T) {
 	require.Contains(t, cmd, "NODE_AUTH_TOKEN")
 	require.Contains(t, cmd, "//npm.pkg.github.com/:_authToken=$NODE_AUTH_TOKEN")
 	require.Contains(t, cmd, "@sid-technologies:registry=https://npm.pkg.github.com")
-	require.Contains(t, cmd, "npm publish --access restricted")
+	require.Contains(t, cmd, "npm publish --access 'restricted'")
 }
 
 func TestGeneratePublishCommand_ValidatesTokenEnv(t *testing.T) {
@@ -192,6 +192,6 @@ func TestGeneratePublishCommand_EmptyConfig(t *testing.T) {
 	cmd := GeneratePublishCommand(svc)
 
 	// Should still produce a valid script with defaults
-	require.Contains(t, cmd, "npm publish --access restricted")
+	require.Contains(t, cmd, "npm publish --access 'restricted'")
 	require.Contains(t, cmd, "npm.pkg.github.com")
 }

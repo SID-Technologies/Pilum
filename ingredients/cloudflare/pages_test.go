@@ -89,10 +89,10 @@ func TestGenerateDeployCommand_Production(t *testing.T) {
 	cmd := GenerateDeployCommand(svc, "main")
 
 	require.Contains(t, cmd, "CLOUDFLARE_API_TOKEN")
-	require.Contains(t, cmd, `CLOUDFLARE_ACCOUNT_ID="abc123"`)
-	require.Contains(t, cmd, "--project-name=my-site")
-	require.Contains(t, cmd, "--branch=main")
-	require.Contains(t, cmd, "npx wrangler pages deploy dist")
+	require.Contains(t, cmd, "CLOUDFLARE_ACCOUNT_ID='abc123'")
+	require.Contains(t, cmd, "--project-name='my-site'")
+	require.Contains(t, cmd, "--branch='main'")
+	require.Contains(t, cmd, "npx wrangler pages deploy 'dist'")
 }
 
 func TestGenerateDeployCommand_LatestTag(t *testing.T) {
@@ -110,7 +110,7 @@ func TestGenerateDeployCommand_LatestTag(t *testing.T) {
 	cmd := GenerateDeployCommand(svc, "latest")
 
 	// "latest" should deploy to production branch
-	require.Contains(t, cmd, "--branch=main")
+	require.Contains(t, cmd, "--branch='main'")
 }
 
 func TestGenerateDeployCommand_Preview(t *testing.T) {
@@ -127,7 +127,7 @@ func TestGenerateDeployCommand_Preview(t *testing.T) {
 
 	cmd := GenerateDeployCommand(svc, "feature-branch")
 
-	require.Contains(t, cmd, "--branch=feature-branch")
+	require.Contains(t, cmd, "--branch='feature-branch'")
 }
 
 func TestGenerateDeployCommand_CustomTokenEnv(t *testing.T) {
@@ -167,7 +167,7 @@ func TestGenerateDeployCommand_CustomOutputDir(t *testing.T) {
 
 	cmd := GenerateDeployCommand(svc, "main")
 
-	require.Contains(t, cmd, "npx wrangler pages deploy build")
+	require.Contains(t, cmd, "npx wrangler pages deploy 'build'")
 }
 
 func TestGenerateDeployCommand_CustomProductionBranch(t *testing.T) {
@@ -185,11 +185,11 @@ func TestGenerateDeployCommand_CustomProductionBranch(t *testing.T) {
 
 	// Tag matches custom production branch
 	cmd := GenerateDeployCommand(svc, "production")
-	require.Contains(t, cmd, "--branch=production")
+	require.Contains(t, cmd, "--branch='production'")
 
 	// Tag differs from custom production branch -> preview
 	cmd = GenerateDeployCommand(svc, "staging")
-	require.Contains(t, cmd, "--branch=staging")
+	require.Contains(t, cmd, "--branch='staging'")
 }
 
 func TestGenerateDeployCommand_ValidatesTokenEnv(t *testing.T) {

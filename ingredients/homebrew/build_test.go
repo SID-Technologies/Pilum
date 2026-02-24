@@ -63,8 +63,8 @@ func TestGenerateBuildCommand(t *testing.T) {
 
 			require.NotEmpty(t, result)
 
-			// Should start with mkdir
-			require.Contains(t, result, "mkdir -p "+tt.outputDir)
+			// Should start with mkdir (outputDir is shell-quoted)
+			require.Contains(t, result, "mkdir -p '"+tt.outputDir+"'")
 
 			// Should contain all platform builds
 			require.Contains(t, result, "GOOS=darwin GOARCH=amd64")
@@ -142,6 +142,6 @@ func TestGenerateBuildCommandDifferentOutputDir(t *testing.T) {
 
 	result := homebrew.GenerateBuildCommand(service, "v2.0.0", "/tmp/build")
 
-	require.Contains(t, result, "mkdir -p /tmp/build")
+	require.Contains(t, result, "mkdir -p '/tmp/build'")
 	require.Contains(t, result, "/tmp/build/cli_v2.0.0_darwin_amd64")
 }

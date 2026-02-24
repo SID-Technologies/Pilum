@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/shellutil"
 )
 
 // GenerateInstallCommand creates the dependency install command.
@@ -39,9 +40,9 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, tag string) string {
 	productionBranch := cfg.ProductionBranch
 
 	// Determine branch flag: production or preview
-	branchFlag := fmt.Sprintf("--branch=%s", tag)
+	branchFlag := fmt.Sprintf("--branch=%s", shellutil.Quote(tag))
 	if tag == productionBranch || tag == "latest" {
-		branchFlag = fmt.Sprintf("--branch=%s", productionBranch)
+		branchFlag = fmt.Sprintf("--branch=%s", shellutil.Quote(productionBranch))
 	}
 
 	return fmt.Sprintf(`if [ -z "$%s" ]; then
@@ -49,11 +50,11 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, tag string) string {
   exit 1
 fi
 export CLOUDFLARE_API_TOKEN="$%s"
-export CLOUDFLARE_ACCOUNT_ID="%s"
+export CLOUDFLARE_ACCOUNT_ID=%s
 npx wrangler pages deploy %s --project-name=%s %s`,
 		tokenEnv, tokenEnv,
 		tokenEnv,
-		accountID,
-		outputDir, svc.Name, branchFlag,
+		shellutil.Quote(accountID),
+		shellutil.Quote(outputDir), shellutil.Quote(svc.Name), branchFlag,
 	)
 }

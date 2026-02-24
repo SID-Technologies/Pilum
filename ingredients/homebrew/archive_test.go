@@ -43,8 +43,8 @@ func TestGenerateArchiveCommand(t *testing.T) {
 			// Should cd to output directory
 			require.Contains(t, result, "cd "+tt.outputDir)
 
-			// Should contain the file pattern
-			pattern := tt.service.Name + "_" + tt.tag + "_*"
+			// Should contain the file pattern (name and tag are shell-quoted)
+			pattern := "'" + tt.service.Name + "'_'" + tt.tag + "'_*"
 			require.Contains(t, result, pattern)
 
 			// Should create tar.gz

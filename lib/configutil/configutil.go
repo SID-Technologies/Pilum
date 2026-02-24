@@ -78,26 +78,11 @@ func GetStringSlice(m map[string]any, key string) []string {
 }
 
 // MapFromAny converts an any value to map[string]any.
-// Handles both map[string]any and map[any]any (from yaml.v2).
-// Returns an empty map if the value cannot be converted.
+// Returns an empty map if the value is not a map[string]any.
 func MapFromAny(v any) map[string]any {
-	// Handle map[string]any directly
 	m, ok := v.(map[string]any)
 	if ok {
 		return m
-	}
-
-	// Handle map[interface{}]interface{} from yaml.v2
-	mAny, ok := v.(map[any]any)
-	if ok {
-		result := make(map[string]any)
-		for k, val := range mAny {
-			keyStr, ok := k.(string)
-			if ok {
-				result[keyStr] = val
-			}
-		}
-		return result
 	}
 
 	return map[string]any{}
@@ -130,16 +115,10 @@ func DeepMerge(dst, src map[string]any) map[string]any {
 	return result
 }
 
-// isMap returns true if the value is a map type (map[string]any or map[any]any from yaml.v2).
+// isMap returns true if the value is a map[string]any.
 func isMap(v any) bool {
-	switch v.(type) {
-	case map[string]any:
-		return true
-	case map[any]any:
-		return true
-	default:
-		return false
-	}
+	_, ok := v.(map[string]any)
+	return ok
 }
 
 // GetNestedString extracts a string value from a nested map structure.

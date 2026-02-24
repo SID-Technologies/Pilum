@@ -39,6 +39,14 @@ func FilePath(projectRoot string) string {
 // lock is removed first. Returns an error with lock holder details if another
 // active deployment is running.
 func Acquire(projectRoot, command string, serviceNames []string, force bool) error {
+	return acquireWithRetry(projectRoot, command, serviceNames, force, 1)
+}
+
+// acquireWithRetry is the internal implementation with a retry counter to
+// mitigate TOCTOU races when cleaning stale locks. If another process wins
+// the race after we remove a stale lock, we retry once rather than recursing
+// indefinitely.
+func acquireWithRetry(projectRoot, command string, serviceNames []string, force bool, retries int) error {
 	fp := FilePath(projectRoot)
 
 	if force {
@@ -47,12 +55,12 @@ func Acquire(projectRoot, command string, serviceNames []string, force bool) err
 
 	// Ensure .pilum directory exists
 	dir := filepath.Join(projectRoot, lockDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return errors.Wrap(err, "creating %s directory", lockDir)
 	}
 
 	// Attempt atomic file creation
-	f, err := os.OpenFile(fp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(fp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		if !os.IsExist(err) {
 			return errors.Wrap(err, "creating lock file")
@@ -61,14 +69,20 @@ func Acquire(projectRoot, command string, serviceNames []string, force bool) err
 		// Lock file exists — check if it's stale
 		existing, readErr := readLock(fp)
 		if readErr != nil {
-			// Can't read it — remove and retry
+			// Can't read it — remove and retry if we have retries left
 			_ = os.Remove(fp)
-			return Acquire(projectRoot, command, serviceNames, false)
+			if retries > 0 {
+				return acquireWithRetry(projectRoot, command, serviceNames, false, retries-1)
+			}
+			return errors.New("could not acquire lock: another process may have raced")
 		}
 
 		if isStale(existing) {
 			_ = os.Remove(fp)
-			return Acquire(projectRoot, command, serviceNames, false)
+			if retries > 0 {
+				return acquireWithRetry(projectRoot, command, serviceNames, false, retries-1)
+			}
+			return errors.New("could not acquire lock: another process won the race after stale lock cleanup")
 		}
 
 		return errors.New(
@@ -123,13 +137,22 @@ func readLock(fp string) (Info, error) {
 }
 
 // isStale returns true if the lock is older than staleDuration or the PID is dead.
+// PID liveness is only checked when the lock's hostname matches the current host,
+// since a PID from a different machine is meaningless locally.
 func isStale(info Info) bool {
-	// Check age
+	// Check age first — applies regardless of hostname
 	if time.Since(info.Timestamp) > staleDuration {
 		return true
 	}
 
-	// Check if process is still alive
+	// Only check PID liveness if the lock is from this host
+	currentHostname, _ := os.Hostname()
+	if info.Hostname != currentHostname {
+		// Different host — can't verify PID, fall back to time-based only
+		return false
+	}
+
+	// Check if process is still alive (same host)
 	if info.PID > 0 {
 		proc, err := os.FindProcess(info.PID)
 		if err != nil {

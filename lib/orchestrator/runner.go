@@ -13,6 +13,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/recepie"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/shellutil"
 	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
 )
 
@@ -534,8 +535,23 @@ func (r *Runner) generateCommand(svc serviceinfo.ServiceInfo, step *recepie.Reci
 }
 
 // substituteVars replaces ${var} patterns in commands.
+// For string commands (executed via sh -c), values are shell-quoted to prevent injection.
+// For []string/[]any commands (executed via exec.Command with separate args), values are
+// substituted without quoting since they don't pass through a shell.
 func (r *Runner) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
-	replacer := strings.NewReplacer(
+	// Shell-quoted replacer for string commands (passed to sh -c)
+	shellReplacer := strings.NewReplacer(
+		"${name}", shellutil.Quote(svc.Name),
+		"${service.name}", shellutil.Quote(svc.Name),
+		"${provider}", shellutil.Quote(svc.Provider),
+		"${region}", shellutil.Quote(svc.Region),
+		"${project}", shellutil.Quote(svc.Project),
+		"${build.version}", shellutil.Quote(r.options.Tag),
+		"${tag}", shellutil.Quote(r.options.Tag),
+	)
+
+	// Raw replacer for []string/[]any commands (exec.Command with separate args)
+	rawReplacer := strings.NewReplacer(
 		"${name}", svc.Name,
 		"${service.name}", svc.Name,
 		"${provider}", svc.Provider,
@@ -547,18 +563,18 @@ func (r *Runner) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
 
 	switch v := cmd.(type) {
 	case string:
-		return replacer.Replace(v)
+		return shellReplacer.Replace(v)
 	case []string:
 		result := make([]string, len(v))
 		for i, s := range v {
-			result[i] = replacer.Replace(s)
+			result[i] = rawReplacer.Replace(s)
 		}
 		return result
 	case []any:
 		result := make([]any, len(v))
 		for i, item := range v {
 			if s, ok := item.(string); ok {
-				result[i] = replacer.Replace(s)
+				result[i] = rawReplacer.Replace(s)
 			} else {
 				result[i] = item
 			}
