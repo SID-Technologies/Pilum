@@ -8,13 +8,16 @@ steps:
     command: ["sh", "-c", "echo '[Homebrew] Compiling binary...' && sleep 0.9 && echo '[Homebrew] Binary ready'"]
     execution_mode: root
     timeout: 30
+    tags: [build]
 
   - name: archive
     command: ["sh", "-c", "echo '[Homebrew] Creating tarball...' && sleep 0.5 && echo '[Homebrew] Archive created'"]
     execution_mode: root
     timeout: 30
+    tags: [push]
 
   - name: shasum
     command: ["sh", "-c", "echo '[Homebrew] Generating SHA256...' && sleep 0.3 && echo '[Homebrew] Checksum: abc123def456'"]
     execution_mode: root
     timeout: 30
+    tags: [push]

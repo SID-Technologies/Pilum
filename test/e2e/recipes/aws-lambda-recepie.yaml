@@ -8,13 +8,16 @@ steps:
     command: ["sh", "-c", "echo '[AWS] Running SAM build...' && sleep 1.3 && echo '[AWS] Build artifacts created'"]
     execution_mode: service_dir
     timeout: 30
+    tags: [build]
 
   - name: package
     command: ["sh", "-c", "echo '[AWS] Packaging for S3...' && sleep 1.1 && echo '[AWS] Package uploaded to S3'"]
     execution_mode: service_dir
     timeout: 30
+    tags: [push]
 
   - name: deploy
     command: ["sh", "-c", "echo '[AWS] Deploying Lambda function...' && sleep 2 && echo '[AWS] Lambda deployed successfully'"]
     execution_mode: service_dir
     timeout: 30
+    tags: [deploy]
