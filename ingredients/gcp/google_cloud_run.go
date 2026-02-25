@@ -57,6 +57,11 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		cmd = append(cmd, fmt.Sprintf("--timeout=%d", cfg.TimeoutSeconds))
 	}
 
+	// Add Cloud SQL instances if set
+	if len(cfg.CloudSQLInstances) > 0 {
+		cmd = append(cmd, "--add-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
+	}
+
 	// Add secrets if provided
 	if len(svc.Secrets) > 0 {
 		var secretsStrs []string

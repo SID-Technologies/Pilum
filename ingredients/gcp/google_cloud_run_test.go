@@ -315,6 +315,78 @@ func TestGenerateGCPDeployCommandCPUThrottlingDisabled(t *testing.T) {
 	}
 }
 
+func TestGenerateGCPDeployCommandCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "myservice",
+		Region:  "us-central1",
+		Project: "my-project",
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"cloudsql_instances": []any{
+					"my-project:us-central1:my-db",
+				},
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	cmdStr := ""
+	for _, arg := range cmd {
+		cmdStr += arg + " "
+	}
+
+	require.Contains(t, cmdStr, "--add-cloudsql-instances my-project:us-central1:my-db")
+}
+
+func TestGenerateGCPDeployCommandMultipleCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"cloudsql_instances": []any{
+					"proj:us-central1:db-one",
+					"proj:us-central1:db-two",
+				},
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	cmdStr := ""
+	for _, arg := range cmd {
+		cmdStr += arg + " "
+	}
+
+	require.Contains(t, cmdStr, "--add-cloudsql-instances proj:us-central1:db-one,proj:us-central1:db-two")
+}
+
+func TestGenerateGCPDeployCommandNoCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{
+				"memory": "1Gi",
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	for _, arg := range cmd {
+		require.NotEqual(t, "--add-cloudsql-instances", arg)
+	}
+}
+
 func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
 	t.Parallel()
 
