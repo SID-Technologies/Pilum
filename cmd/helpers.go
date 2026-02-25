@@ -32,7 +32,6 @@ type deploymentOptions struct {
 	Retries      int
 	DryRun       bool
 	Force        bool
-	NoCache      bool
 	GitHubStatus bool
 	MaxWorkers   int
 	OnlyTags     []string
@@ -54,7 +53,6 @@ func getDeploymentOptions() deploymentOptions {
 		Retries:      viper.GetInt("retries"),
 		DryRun:       viper.GetBool("dry-run"),
 		Force:        viper.GetBool("force"),
-		NoCache:      viper.GetBool("no-cache"),
 		GitHubStatus: viper.GetBool("github-status"),
 		MaxWorkers:   viper.GetInt("max-workers"),
 		OnlyTags:     parseCommaSeparated(viper.GetString("only-tags")),
@@ -80,7 +78,6 @@ func (o deploymentOptions) toRunnerOptions() orchestrator.RunnerOptions {
 		OnlyTags:    o.OnlyTags,
 		ExcludeTags: o.ExcludeTags,
 		NoDeps:      o.NoDeps,
-		NoCache:     o.NoCache,
 	}
 }
 
@@ -92,7 +89,6 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"retries",
 		"dry-run",
 		"force",
-		"no-cache",
 		"github-status",
 		"max-workers",
 		"only-tags",
@@ -132,7 +128,6 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
-	cmd.Flags().Bool("no-cache", false, "Disable build caching (force rebuild)")
 	cmd.Flags().Bool("github-status", false, "Post commit status to GitHub (auto-detected in GitHub Actions)")
 	cmd.Flags().String("recipe-path", "", "Load recipes from a directory instead of embedded recipes")
 
@@ -184,7 +179,7 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return nil
 	}
 
-	// Find project root for lock and cache
+	// Find project root for lock
 	projectRoot, _ := path.FindProjectRoot()
 
 	// Acquire deployment lock (skip for dry-runs)
@@ -243,7 +238,6 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	}
 
 	runnerOpts := opts.toRunnerOptions()
-	runnerOpts.ProjectRoot = projectRoot
 	runner := orchestrator.NewRunner(services, recipes, runnerOpts)
 	startTime := time.Now()
 	runErr := runner.Run()

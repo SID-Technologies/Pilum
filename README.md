@@ -18,7 +18,6 @@ Pilum handles the build → push → deploy pipeline while your infrastructure-a
 - **Multi-cloud support** - GCP Cloud Run, AWS Lambda, Azure Container Apps, Homebrew, and more
 - **Parallel execution** - Deploy multiple services concurrently with step barriers
 - **Dependency ordering** - Wave-based deployment respects `depends_on` across services
-- **Build caching** - Hash-based skip for unchanged services (SHA-256 content hashing)
 - **Deployment locks** - Prevent concurrent deploys with automatic stale lock cleanup
 - **GitHub commit status** - Post pending/success/failure status to commits from CI
 - **Step filtering** - Run only build steps, only deploy steps, or custom tag combinations
@@ -162,23 +161,6 @@ steps:
 ```
 
 See [recepies/README.md](recepies/README.md) for full documentation.
-
-## Build Caching
-
-Pilum caches build results based on content hashes. If no files in a service directory have changed since the last build with the same tag, the build step is skipped automatically.
-
-```bash
-# First run builds everything
-pilum deploy --tag=v1.0.0
-
-# Second run skips unchanged services
-pilum deploy --tag=v1.0.0
-
-# Force rebuild (ignore cache)
-pilum deploy --tag=v1.0.0 --no-cache
-```
-
-Cache state is stored in `.pilum/build-cache.json`. Hashing uses `git ls-files` to respect `.gitignore`, falling back to filesystem walk for non-git projects.
 
 ## Deployment Locks
 
@@ -357,7 +339,6 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | `--since` | | | Git ref to compare against (default: main or master) |
 | `--no-deps` | | `false` | Disable dependency-based deployment ordering |
 | `--force` | `-f` | `false` | Override deployment lock |
-| `--no-cache` | | `false` | Disable build caching (force rebuild) |
 | `--github-status` | | `false` | Post commit status to GitHub |
 
 ### Examples
@@ -397,9 +378,6 @@ pilum publish --tag=v1.0.0
 # Run only deploy-tagged steps (assumes images exist)
 pilum deploy --only-tags=deploy --tag=v1.0.0
 
-# Force rebuild (skip cache)
-pilum deploy --tag=v1.0.0 --no-cache
-
 # Override an existing deployment lock
 pilum deploy --tag=v1.0.0 --force
 
@@ -431,7 +409,6 @@ pilum status --json
 my-project/
 ├── .pilum/                    # State directory (gitignored)
 │   ├── history.jsonl          # Deployment history
-│   ├── build-cache.json       # Build cache hashes
 │   └── deploy.lock            # Deployment lock (temporary)
 ├── _templates/                # Dockerfile templates
 ├── recepies/                  # Recipe definitions (YAML)
@@ -455,12 +432,12 @@ my-project/
 2. **Validation** - Each service is validated against its recipe's required fields
 3. **Matching** - Services are matched to recipes based on `provider` field
 4. **Locking** - A deployment lock prevents concurrent runs
-5. **Orchestration** - Steps execute in order; services run in parallel within steps (build steps skip if cached)
+5. **Orchestration** - Steps execute in order; services run in parallel within steps
 6. **Recording** - Results are saved to `.pilum/history.jsonl`
 
 ```
 Step 1: build
-  ├── api-gateway     ✓ cached (0.0s)
+  ├── api-gateway     ✓ (1.3s)
   ├── user-service    ✓ (1.2s)
   └── payment-service ✓ (1.1s)
 
@@ -484,7 +461,6 @@ Step 3: deploy (wave-ordered)
 | `lib/registry/` | Step handler registration |
 | `lib/orchestrator/` | Parallel execution engine |
 | `lib/service_info/` | Service discovery and filtering |
-| `lib/cache/` | Hash-based build caching |
 | `lib/lock/` | Deployment lock management |
 | `lib/ci/` | CI integrations (GitHub commit status) |
 | `lib/history/` | Deployment history recording |

@@ -74,7 +74,6 @@
 
 ### Advanced Monorepo
 - [x] Parallel builds with dependency ordering (wave-based execution)
-- [x] Build caching (hash-based skip via SHA-256 content hashing)
 - [x] Pattern matching for service selection (`pilum deploy "api-*"`)
 - [x] Filter services by provider (`--provider=gcp`)
 - [x] Environment variable substitution in pilum.yaml (`${GCP_PROJECT}`)
@@ -85,10 +84,6 @@
 
 ### Signal Handling
 - [x] SIGINT/SIGTERM handler for clean lock release — signal handler in `runPipeline()` releases the lock immediately on Ctrl+C or `kill`, instead of waiting for stale detection.
-
-### Cache Management
-- [x] `pilum cache status` - Show cached services, hashes, timestamps, and cache file size (alias: `st`)
-- [x] `pilum cache clear` - Delete `.pilum/build-cache.json` (with `--service` flag to clear individual entries, alias: `rm`)
 
 ### Webhook Notifications
 - [x] Generic webhook support - POST JSON on deploy start/success/fail. Configured in `.pilum.yml` with per-webhook event filtering. Payload includes service names, tag, duration, success/failure, error details, and a human-readable `text` field (works with Slack/Discord/Teams incoming webhooks out of the box).
