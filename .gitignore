@@ -27,3 +27,9 @@ go.work.sum
 # Build output
 dist/
 docs/
+
+# E2E coverage artifacts
+coverage/
+
+# Pilum cache/history
+.pilum/

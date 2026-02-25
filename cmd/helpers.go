@@ -42,6 +42,7 @@ type deploymentOptions struct {
 	NoDeps       bool
 	Env          string
 	Provider     string
+	RecipePath   string
 }
 
 // getDeploymentOptions extracts all standard deployment flags from viper.
@@ -63,6 +64,7 @@ func getDeploymentOptions() deploymentOptions {
 		NoDeps:       viper.GetBool("no-deps"),
 		Env:          viper.GetString("env"),
 		Provider:     viper.GetString("provider"),
+		RecipePath:   viper.GetString("recipe-path"),
 	}
 }
 
@@ -100,6 +102,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"no-deps",
 		"env",
 		"provider",
+		"recipe-path",
 	}
 
 	for _, flag := range flagBindings {
@@ -131,6 +134,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
 	cmd.Flags().Bool("no-cache", false, "Disable build caching (force rebuild)")
 	cmd.Flags().Bool("github-status", false, "Post commit status to GitHub (auto-detected in GitHub Actions)")
+	cmd.Flags().String("recipe-path", "", "Load recipes from a directory instead of embedded recipes")
 
 	if includeDryRun {
 		cmd.Flags().BoolP("dry-run", "D", false, "Perform a dry run without executing the build")
@@ -141,6 +145,8 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 // cmdName identifies the command (e.g. "deploy", "build") for history recording.
 // The noServicesMsg is shown as a warning if no services are found.
 func runPipeline(cmdName string, args []string, opts deploymentOptions, noServicesMsg string) error {
+	output.SetDebug(opts.Debug)
+
 	filterOpts := serviceinfo.FilterOptions{
 		Names:       args,
 		OnlyChanged: opts.OnlyChanged,
@@ -160,9 +166,17 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return nil
 	}
 
-	recipes, err := recepie.LoadEmbeddedRecipes()
-	if err != nil {
-		return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
+	var recipes []recepie.RecipeInfo
+	if opts.RecipePath != "" {
+		recipes, err = recepie.LoadRecipesFromDirectory(opts.RecipePath)
+		if err != nil {
+			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes from %s", opts.RecipePath))
+		}
+	} else {
+		recipes, err = recepie.LoadEmbeddedRecipes()
+		if err != nil {
+			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
+		}
 	}
 
 	if len(recipes) == 0 {

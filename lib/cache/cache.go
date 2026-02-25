@@ -84,6 +84,15 @@ func Save(projectRoot string, c Cache) error {
 // git ls-files to respect .gitignore, falling back to filepath.Walk if not
 // in a git repo. The hash is a SHA-256 of sorted "path\x00content" pairs.
 func HashServiceDir(serviceDir, projectRoot string) (string, error) {
+	// Resolve relative service dirs to absolute so filepath.Rel works correctly
+	// when gitTrackedFiles joins paths with the absolute projectRoot.
+	if !filepath.IsAbs(serviceDir) {
+		abs, err := filepath.Abs(serviceDir)
+		if err == nil {
+			serviceDir = abs
+		}
+	}
+
 	files, err := gitTrackedFiles(serviceDir, projectRoot)
 	if err != nil {
 		// Fallback to filesystem walk
