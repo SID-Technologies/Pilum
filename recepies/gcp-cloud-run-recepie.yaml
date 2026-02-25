@@ -63,6 +63,10 @@ optional_fields:
     type: int
     default: "300"
 
+  - name: cloud_run.cloudsql_instances
+    description: Cloud SQL instance connections (e.g., project:region:instance)
+    type: list
+
 steps:
   - name: build binary
     execution_mode: service_dir

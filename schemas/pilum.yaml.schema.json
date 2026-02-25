@@ -233,6 +233,13 @@
           "type": "integer",
           "description": "Request timeout in seconds",
           "default": 300
+        },
+        "cloudsql_instances": {
+          "type": "array",
+          "description": "Cloud SQL instance connections to mount (e.g., 'project:region:instance')",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
@@ -279,6 +286,13 @@
         "service_account": {
           "type": "string",
           "description": "GCP service account email to run the job as"
+        },
+        "cloudsql_instances": {
+          "type": "array",
+          "description": "Cloud SQL instance connections to mount (e.g., 'project:region:instance')",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false

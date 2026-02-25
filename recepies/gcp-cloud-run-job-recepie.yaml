@@ -68,6 +68,10 @@ optional_fields:
     description: Custom service account email for job execution
     type: string
 
+  - name: job.cloudsql_instances
+    description: Cloud SQL instance connections (e.g., project:region:instance)
+    type: list
+
 steps:
   - name: build binary
     execution_mode: service_dir
