@@ -64,7 +64,7 @@ func CaptureWorker(taskInfo *TaskInfo) (string, error) {
 	// Prepare environment variables
 	cmd.Env = os.Environ()
 	for key, value := range taskInfo.EnvVars {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, os.ExpandEnv(value)))
 	}
 
 	// Capture stdout and stderr

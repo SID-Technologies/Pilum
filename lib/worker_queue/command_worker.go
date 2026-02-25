@@ -112,7 +112,7 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		// Prepare environment variables
 		cmd.Env = os.Environ()
 		for key, value := range taskInfo.EnvVars {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, os.ExpandEnv(value)))
 		}
 
 		// Set up output pipes
