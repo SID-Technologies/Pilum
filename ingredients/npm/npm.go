@@ -31,7 +31,11 @@ func GenerateInstallCommand(svc serviceinfo.ServiceInfo) []string {
 
 // GenerateSetVersionCommand creates the npm version command to sync package.json with the release tag.
 // Strips leading "v" from the tag since npm versions don't use the v prefix.
+// Returns nil if the tag is empty or "latest" (not valid semver), which the runner treats as a skip.
 func GenerateSetVersionCommand(tag string) []string {
+	if tag == "" || tag == "latest" {
+		return nil
+	}
 	version := strings.TrimPrefix(tag, "v")
 	return []string{"npm", "version", version, "--no-git-tag-version", "--allow-same-version"}
 }

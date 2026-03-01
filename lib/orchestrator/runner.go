@@ -134,6 +134,9 @@ func (r *Runner) Run() error {
 		return nil
 	}
 
+	// Count how many steps will actually run (after tag filtering)
+	runnableSteps := r.countRunnableSteps(maxSteps)
+
 	r.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(r.services)))
 
 	// Pre-calculate image names for all services
@@ -142,9 +145,10 @@ func (r *Runner) Run() error {
 		r.imageNames[svc.Name] = imageName
 	}
 
-	// Execute step by step
+	// Execute step by step, tracking display number for runnable steps only
+	displayStep := 0
 	for stepIdx := 0; stepIdx < maxSteps; stepIdx++ {
-		err := r.executeStep(stepIdx, maxSteps)
+		err := r.executeStep(stepIdx, runnableSteps, &displayStep)
 		if err != nil {
 			return err
 		}
@@ -200,6 +204,26 @@ func (r *Runner) findMaxSteps() int {
 	return maxSteps
 }
 
+// countRunnableSteps returns how many step indices (up to maxSteps) have at least
+// one service with a non-skipped step. This gives an accurate "X/Y" for headers
+// when tag filtering is active (e.g., --only-tags build).
+func (r *Runner) countRunnableSteps(maxSteps int) int {
+	count := 0
+	for stepIdx := 0; stepIdx < maxSteps; stepIdx++ {
+		for _, svc := range r.services {
+			recipe, exists := r.getRecipeForService(svc)
+			if !exists || stepIdx >= len(recipe.Steps) {
+				continue
+			}
+			if !r.shouldSkipStep(&recipe.Steps[stepIdx]) {
+				count++
+				break
+			}
+		}
+	}
+	return count
+}
+
 // shouldSkipStep checks if a step should be skipped based on tag filters.
 func (r *Runner) shouldSkipStep(step *recepie.RecipeStep) bool {
 	// If OnlyTags is set, step must have at least one matching tag
@@ -233,7 +257,8 @@ func (*Runner) stepHasAnyTag(step *recepie.RecipeStep, tags []string) bool {
 }
 
 // executeStep runs step N for all services that have it.
-func (r *Runner) executeStep(stepIdx, totalSteps int) error {
+// displayStep is a running counter incremented only for steps that actually execute.
+func (r *Runner) executeStep(stepIdx, runnableSteps int, displayStep *int) error {
 	// Collect tasks for this step
 	var tasks []stepTask
 	stepNames := make(map[string]bool)
@@ -259,9 +284,12 @@ func (r *Runner) executeStep(stepIdx, totalSteps int) error {
 		return nil
 	}
 
+	// Increment display step counter for this runnable step
+	*displayStep++
+
 	// Build step name
 	stepName := r.buildStepName(stepNames)
-	r.output.PrintStepHeader(stepIdx+1, totalSteps, stepName)
+	r.output.PrintStepHeader(*displayStep, runnableSteps, stepName)
 
 	// Show skipped services
 	for _, svc := range r.services {

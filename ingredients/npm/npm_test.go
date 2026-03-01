@@ -98,6 +98,22 @@ func TestGenerateSetVersionCommand_NoPrefix(t *testing.T) {
 	require.Equal(t, []string{"npm", "version", "1.2.3", "--no-git-tag-version", "--allow-same-version"}, cmd)
 }
 
+func TestGenerateSetVersionCommand_LatestReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	cmd := GenerateSetVersionCommand("latest")
+
+	require.Nil(t, cmd, "should skip version set when tag is 'latest'")
+}
+
+func TestGenerateSetVersionCommand_EmptyReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	cmd := GenerateSetVersionCommand("")
+
+	require.Nil(t, cmd, "should skip version set when tag is empty")
+}
+
 func TestGenerateBuildCommand_WithCmd(t *testing.T) {
 	t.Parallel()
 
