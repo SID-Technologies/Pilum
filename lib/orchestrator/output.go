@@ -225,19 +225,29 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	successCount := 0
-	failedCount := 0
-	var failedServices []string
+	// Track unique services and their final status (failed if any step failed)
+	serviceStatus := make(map[string]bool) // true = all steps succeeded
 	var totalDuration time.Duration
 
 	for _, r := range results {
-		if r.Success {
+		totalDuration += r.Duration
+		if !r.Success {
+			serviceStatus[r.ServiceName] = false
+		} else if _, exists := serviceStatus[r.ServiceName]; !exists {
+			serviceStatus[r.ServiceName] = true
+		}
+	}
+
+	successCount := 0
+	failedCount := 0
+	var failedServices []string
+	for name, ok := range serviceStatus {
+		if ok {
 			successCount++
 		} else {
 			failedCount++
-			failedServices = append(failedServices, r.ServiceName)
+			failedServices = append(failedServices, name)
 		}
-		totalDuration += r.Duration
 	}
 
 	// JSON mode: output structured JSON
