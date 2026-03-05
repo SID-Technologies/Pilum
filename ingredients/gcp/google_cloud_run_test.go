@@ -387,6 +387,77 @@ func TestGenerateGCPDeployCommandNoCloudSQLInstances(t *testing.T) {
 	}
 }
 
+func TestGenerateGCPDeployCommandWithEnvVars(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "PLATFORM_ENV", Value: "production"},
+			{Name: "API_URL", Value: "https://api.example.com"},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Should have --set-env-vars flag
+	foundEnvVars := false
+	for i, arg := range cmd {
+		if arg == "--set-env-vars" && i+1 < len(cmd) {
+			envValue := cmd[i+1]
+			require.Contains(t, envValue, "PLATFORM_ENV=production")
+			require.Contains(t, envValue, "API_URL=https://api.example.com")
+			require.Contains(t, envValue, ",") // Multiple env vars joined
+			foundEnvVars = true
+			break
+		}
+	}
+	require.True(t, foundEnvVars, "--set-env-vars flag not found")
+}
+
+func TestGenerateGCPDeployCommandNoEnvVars(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "myservice",
+		Region:  "us-central1",
+		Config:  map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	// Should NOT have --set-env-vars flag
+	for _, arg := range cmd {
+		require.NotEqual(t, "--set-env-vars", arg)
+	}
+}
+
+func TestGenerateGCPDeployCommandSingleEnvVar(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "APP_ENV", Value: "staging"},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	for i, arg := range cmd {
+		if arg == "--set-env-vars" && i+1 < len(cmd) {
+			require.Equal(t, "APP_ENV=staging", cmd[i+1])
+			return
+		}
+	}
+	t.Fatal("--set-env-vars flag not found")
+}
+
 func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
 	t.Parallel()
 

@@ -62,6 +62,15 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		cmd = append(cmd, "--add-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
 	}
 
+	// Add runtime environment variables if provided
+	if len(svc.EnvVars) > 0 {
+		var envStrs []string
+		for _, env := range svc.EnvVars {
+			envStrs = append(envStrs, fmt.Sprintf("%s=%s", env.Name, env.Value))
+		}
+		cmd = append(cmd, "--set-env-vars", strings.Join(envStrs, ","))
+	}
+
 	// Add secrets if provided
 	if len(svc.Secrets) > 0 {
 		var secretsStrs []string
