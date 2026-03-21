@@ -47,12 +47,15 @@ func TestGenerateArchiveCommand(t *testing.T) {
 			pattern := "'" + tt.service.Name + "'_'" + tt.tag + "'_*"
 			require.Contains(t, result, pattern)
 
-			// Should create tar.gz
+			// Should rename binary to just the service name before archiving
+			require.Contains(t, result, "mv \"$f\" '"+tt.service.Name+"'")
+
+			// Should create tar.gz with the renamed binary
 			require.Contains(t, result, "tar -czf")
 			require.Contains(t, result, ".tar.gz")
 
-			// Should remove original binary after archiving
-			require.Contains(t, result, "rm \"$f\"")
+			// Should remove the renamed binary after archiving
+			require.Contains(t, result, "rm '"+tt.service.Name+"'")
 		})
 	}
 }
