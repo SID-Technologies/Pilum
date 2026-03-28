@@ -1,0 +1,36 @@
+name: Security Scan
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Allow manual trigger for on-demand scanning
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  grype-go:
+    name: Grype - Go Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      # Install Syft + Grype directly — no third-party GitHub Action wrappers.
+      # This avoids supply chain risk from compromised Actions (see: Trivy March 2025).
+      - name: Install Syft and Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate Go SBOM and scan
+        run: |
+          syft dir:. --select-catalogers go -o json > sbom.json
+          grype sbom:sbom.json --fail-on high
