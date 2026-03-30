@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -734,15 +735,24 @@ func (r *Runner) dryRunWithWaves(tasks []stepTask) error {
 }
 
 // getWorkerCount returns the number of workers to use.
+// When auto (MaxWorkers=0), uses half the available CPUs, capped by the number of services.
 func (r *Runner) getWorkerCount() int {
 	if r.options.MaxWorkers > 0 {
+		output.Info("Using %d workers (explicit)", r.options.MaxWorkers)
 		return r.options.MaxWorkers
 	}
-	// Default: use number of services or 4, whichever is smaller
-	if len(r.services) < 4 {
-		return len(r.services)
+
+	cpus := runtime.NumCPU()
+	workers := cpus / 2
+	if workers < 1 {
+		workers = 1
 	}
-	return 4
+	if workers > len(r.services) {
+		workers = len(r.services)
+	}
+
+	output.Info("Using %d workers (auto: %d CPUs detected, %d services)", workers, cpus, len(r.services))
+	return workers
 }
 
 // getRecipeForService finds the recipe for a service using composite key with provider-only fallback.

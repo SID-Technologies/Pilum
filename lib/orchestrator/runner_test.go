@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recepie"
@@ -426,54 +427,38 @@ func TestRunnerSubstituteVars(t *testing.T) {
 func TestRunnerGetWorkerCount(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
-		maxWorkers int
-		services   int
-		expected   int
-	}{
-		{
-			name:       "explicit max workers",
-			maxWorkers: 8,
-			services:   10,
-			expected:   8,
-		},
-		{
-			name:       "auto with few services",
-			maxWorkers: 0,
-			services:   2,
-			expected:   2,
-		},
-		{
-			name:       "auto with many services",
-			maxWorkers: 0,
-			services:   10,
-			expected:   4,
-		},
-		{
-			name:       "auto with exactly 4 services",
-			maxWorkers: 0,
-			services:   4,
-			expected:   4,
-		},
+	cpuHalf := runtime.NumCPU() / 2
+	if cpuHalf < 1 {
+		cpuHalf = 1
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	t.Run("explicit max workers", func(t *testing.T) {
+		t.Parallel()
+		services := make([]serviceinfo.ServiceInfo, 10)
+		for i := range services {
+			services[i] = serviceinfo.ServiceInfo{Name: "svc"}
+		}
+		runner := NewRunner(services, nil, RunnerOptions{MaxWorkers: 8})
+		require.Equal(t, 8, runner.getWorkerCount())
+	})
 
-			services := make([]serviceinfo.ServiceInfo, tt.services)
-			for i := range services {
-				services[i] = serviceinfo.ServiceInfo{Name: "svc"}
-			}
+	t.Run("auto caps at half CPUs", func(t *testing.T) {
+		t.Parallel()
+		// Use more services than half CPUs to test the CPU cap
+		services := make([]serviceinfo.ServiceInfo, 100)
+		for i := range services {
+			services[i] = serviceinfo.ServiceInfo{Name: "svc"}
+		}
+		runner := NewRunner(services, nil, RunnerOptions{})
+		require.Equal(t, cpuHalf, runner.getWorkerCount())
+	})
 
-			opts := RunnerOptions{MaxWorkers: tt.maxWorkers}
-			runner := NewRunner(services, nil, opts)
-			result := runner.getWorkerCount()
-
-			require.Equal(t, tt.expected, result)
-		})
-	}
+	t.Run("auto caps at service count when fewer than half CPUs", func(t *testing.T) {
+		t.Parallel()
+		services := []serviceinfo.ServiceInfo{{Name: "svc"}}
+		runner := NewRunner(services, nil, RunnerOptions{})
+		require.Equal(t, 1, runner.getWorkerCount())
+	})
 }
 
 func TestRunnerRunNoServices(t *testing.T) {
