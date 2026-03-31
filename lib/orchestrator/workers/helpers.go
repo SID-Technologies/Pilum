@@ -1,4 +1,4 @@
-package workerqueue
+package workers
 
 import (
 	"fmt"

@@ -1,9 +1,9 @@
-package workerqueue_test
+package workers_test
 
 import (
 	"testing"
 
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -73,7 +73,7 @@ func TestNewTaskInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			taskInfo := workerqueue.NewTaskInfo(
+			taskInfo := workers.NewTaskInfo(
 				tt.command,
 				tt.cwd,
 				tt.serviceName,
@@ -102,7 +102,7 @@ func TestNewTaskInfo(t *testing.T) {
 func TestNewTaskInfoEnvVarsInitialized(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"command",
 		"",
 		"svc",
@@ -129,7 +129,7 @@ func TestNewTaskInfoWithEnvVars(t *testing.T) {
 		"CGO_ENABLED": "0",
 	}
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"go build",
 		"/path",
 		"svc",
@@ -153,7 +153,7 @@ func TestNewTaskInfoWithBuildFlags(t *testing.T) {
 		"gcflags": "-N -l",
 	}
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"go build",
 		"/path",
 		"svc",
@@ -194,7 +194,7 @@ func TestNewTaskInfoCommandTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			taskInfo := workerqueue.NewTaskInfo(
+			taskInfo := workers.NewTaskInfo(
 				tt.command,
 				"",
 				"svc",
@@ -215,7 +215,7 @@ func TestTaskInfoStruct(t *testing.T) {
 	t.Parallel()
 
 	// Test that TaskInfo can be created directly
-	taskInfo := &workerqueue.TaskInfo{
+	taskInfo := &workers.TaskInfo{
 		Command:       "echo hello",
 		Cwd:           "/tmp",
 		ServiceName:   "test-service",

@@ -1,9 +1,9 @@
-package workerqueue_test
+package workers_test
 
 import (
 	"testing"
 
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +11,7 @@ import (
 func TestCaptureWorkerStringCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello",
 		"",
 		"test-service",
@@ -23,7 +23,7 @@ func TestCaptureWorkerStringCommand(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Equal(t, "hello\n", out)
@@ -32,7 +32,7 @@ func TestCaptureWorkerStringCommand(t *testing.T) {
 func TestCaptureWorkerStringSliceCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]string{"echo", "hello", "world"},
 		"",
 		"test-service",
@@ -44,7 +44,7 @@ func TestCaptureWorkerStringSliceCommand(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Equal(t, "hello world\n", out)
@@ -53,7 +53,7 @@ func TestCaptureWorkerStringSliceCommand(t *testing.T) {
 func TestCaptureWorkerAnySliceCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]any{"echo", "hello"},
 		"",
 		"test-service",
@@ -65,7 +65,7 @@ func TestCaptureWorkerAnySliceCommand(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Equal(t, "hello\n", out)
@@ -74,7 +74,7 @@ func TestCaptureWorkerAnySliceCommand(t *testing.T) {
 func TestCaptureWorkerEmptyStringSlice(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]string{},
 		"",
 		"test-service",
@@ -86,7 +86,7 @@ func TestCaptureWorkerEmptyStringSlice(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 }
@@ -94,7 +94,7 @@ func TestCaptureWorkerEmptyStringSlice(t *testing.T) {
 func TestCaptureWorkerInvalidCommandType(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		12345,
 		"",
 		"test-service",
@@ -106,7 +106,7 @@ func TestCaptureWorkerInvalidCommandType(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 }
@@ -114,7 +114,7 @@ func TestCaptureWorkerInvalidCommandType(t *testing.T) {
 func TestCaptureWorkerFailingCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"exit 1",
 		"",
 		"test-service",
@@ -126,7 +126,7 @@ func TestCaptureWorkerFailingCommand(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 }
@@ -134,7 +134,7 @@ func TestCaptureWorkerFailingCommand(t *testing.T) {
 func TestCaptureWorkerTimeout(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"sleep 10",
 		"",
 		"test-service",
@@ -146,7 +146,7 @@ func TestCaptureWorkerTimeout(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 }
@@ -154,7 +154,7 @@ func TestCaptureWorkerTimeout(t *testing.T) {
 func TestCaptureWorkerMultilineOutput(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo line1 && echo line2 && echo line3",
 		"",
 		"test-service",
@@ -166,7 +166,7 @@ func TestCaptureWorkerMultilineOutput(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Equal(t, "line1\nline2\nline3\n", out)
@@ -179,7 +179,7 @@ func TestCaptureWorkerWithEnvVars(t *testing.T) {
 		"MY_TEST_VAR": "captured_value",
 	}
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo $MY_TEST_VAR",
 		"",
 		"test-service",
@@ -191,7 +191,7 @@ func TestCaptureWorkerWithEnvVars(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Equal(t, "captured_value\n", out)
@@ -202,7 +202,7 @@ func TestCaptureWorkerServiceDirMode(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"pwd",
 		tmpDir,
 		"test-service",
@@ -214,7 +214,7 @@ func TestCaptureWorkerServiceDirMode(t *testing.T) {
 		0,
 	)
 
-	out, err := workerqueue.CaptureWorker(taskInfo)
+	out, err := workers.CaptureWorker(taskInfo)
 
 	require.NoError(t, err)
 	require.Contains(t, out, tmpDir)
@@ -223,7 +223,7 @@ func TestCaptureWorkerServiceDirMode(t *testing.T) {
 func TestCaptureWorkerInvalidExecutionMode(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello",
 		"",
 		"test-service",
@@ -235,7 +235,7 @@ func TestCaptureWorkerInvalidExecutionMode(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 }
@@ -246,7 +246,7 @@ func TestCaptureWorkerFailingCommandCapturesStdout(t *testing.T) {
 	t.Parallel()
 
 	// Write error info to stdout (not stderr) then exit with failure
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo 'error details on stdout' && exit 1",
 		"",
 		"test-service",
@@ -258,7 +258,7 @@ func TestCaptureWorkerFailingCommandCapturesStdout(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error details on stdout")
@@ -268,7 +268,7 @@ func TestCaptureWorkerFailingCommandCapturesStdout(t *testing.T) {
 func TestCaptureWorkerFailingCommandPrefersStderr(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo 'stdout info' && echo 'stderr info' >&2 && exit 1",
 		"",
 		"test-service",
@@ -280,7 +280,7 @@ func TestCaptureWorkerFailingCommandPrefersStderr(t *testing.T) {
 		0,
 	)
 
-	_, err := workerqueue.CaptureWorker(taskInfo)
+	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "stderr info")

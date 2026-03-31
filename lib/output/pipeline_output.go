@@ -1,4 +1,4 @@
-package orchestrator
+package output
 
 import (
 	"encoding/json"
@@ -7,54 +7,54 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/types"
 )
 
 // Color aliases using semantic colors.
 const (
-	colorReset   = output.Reset
-	colorError   = output.ErrorColor
-	colorSuccess = output.SuccessColor
-	colorWarning = output.WarningColor
-	colorPrimary = output.Primary
-	colorMuted   = output.Muted
-	colorBold    = output.Bold
-	colorInfo    = output.InfoColor
+	colorReset   = Reset
+	colorError   = ErrorColor
+	colorSuccess = SuccessColor
+	colorWarning = WarningColor
+	colorPrimary = Primary
+	colorMuted   = Muted
+	colorBold    = Bold
+	colorInfo    = InfoColor
 )
 
 // Symbol aliases.
 const (
-	symbolRunning = output.SymbolInfo
-	symbolSuccess = output.SymbolSuccess
-	symbolFailure = output.SymbolFailure
-	symbolSkipped = output.SymbolSkipped
-	symbolDryRun  = output.SymbolDryRun
+	symbolRunning = SymbolInfo
+	symbolSuccess = SymbolSuccess
+	symbolFailure = SymbolFailure
+	symbolSkipped = SymbolSkipped
+	symbolDryRun  = SymbolDryRun
 )
 
-// OutputManager handles formatted CLI output for the orchestrator.
-type OutputManager struct {
+// PipelineOutput handles formatted CLI output for the orchestrator.
+type PipelineOutput struct {
 	mu           sync.Mutex
-	maxNameLen   int
+	MaxNameLen   int
 	useColors    bool
 	serviceState map[string]string // tracks current state of each service
 }
 
-// NewOutputManager creates a new output manager.
-func NewOutputManager() *OutputManager {
-	return &OutputManager{
+// NewPipelineOutput creates a new pipeline output manager.
+func NewPipelineOutput() *PipelineOutput {
+	return &PipelineOutput{
 		useColors:    true,
 		serviceState: make(map[string]string),
 	}
 }
 
 // SetMaxNameLength sets the maximum service name length for alignment.
-func (o *OutputManager) SetMaxNameLength(length int) {
-	o.maxNameLen = length
+func (o *PipelineOutput) SetMaxNameLength(length int) {
+	o.MaxNameLen = length
 }
 
 // PrintHeader prints the main deployment header.
-func (o *OutputManager) PrintHeader(message string) {
-	if output.IsQuiet() || output.IsJSON() {
+func (o *PipelineOutput) PrintHeader(message string) {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	o.mu.Lock()
@@ -66,8 +66,8 @@ func (o *OutputManager) PrintHeader(message string) {
 }
 
 // PrintStepHeader prints a step header with separator.
-func (o *OutputManager) PrintStepHeader(stepNum, totalSteps int, stepName string) {
-	if output.IsQuiet() || output.IsJSON() {
+func (o *PipelineOutput) PrintStepHeader(stepNum, totalSteps int, stepName string) {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	o.mu.Lock()
@@ -78,12 +78,12 @@ func (o *OutputManager) PrintStepHeader(stepNum, totalSteps int, stepName string
 }
 
 // PrintRunning prints a running status for a service.
-func (o *OutputManager) PrintRunning(serviceName, stepName string) {
+func (o *PipelineOutput) PrintRunning(serviceName, stepName string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "running"
-	if output.IsQuiet() || output.IsJSON() {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	padded := o.padName(serviceName)
@@ -94,28 +94,28 @@ func (o *OutputManager) PrintRunning(serviceName, stepName string) {
 }
 
 // PrintSuccess prints a success status for a service.
-func (o *OutputManager) PrintSuccess(serviceName string, duration time.Duration) {
+func (o *PipelineOutput) PrintSuccess(serviceName string, duration time.Duration) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "success"
-	if output.IsQuiet() || output.IsJSON() {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	padded := o.padName(serviceName)
 	fmt.Printf("  %s%s%s %s %s(%s)%s\n",
 		colorSuccess, symbolSuccess, colorReset,
 		padded,
-		colorMuted, formatDuration(duration), colorReset)
+		colorMuted, FormatDuration(duration), colorReset)
 }
 
 // PrintFailure prints a failure status for a service.
-func (o *OutputManager) PrintFailure(serviceName string, err error) {
+func (o *PipelineOutput) PrintFailure(serviceName string, err error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "failed"
-	if output.IsQuiet() || output.IsJSON() {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	padded := o.padName(serviceName)
@@ -130,12 +130,12 @@ func (o *OutputManager) PrintFailure(serviceName string, err error) {
 }
 
 // PrintSkipped prints a skipped status for a service.
-func (o *OutputManager) PrintSkipped(serviceName, reason string) {
+func (o *PipelineOutput) PrintSkipped(serviceName, reason string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "skipped"
-	if output.IsQuiet() || output.IsJSON() {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	padded := o.padName(serviceName)
@@ -146,15 +146,15 @@ func (o *OutputManager) PrintSkipped(serviceName, reason string) {
 }
 
 // PrintDryRun prints a dry-run preview for a service.
-func (o *OutputManager) PrintDryRun(serviceName, stepName string, command any) {
-	if output.IsQuiet() || output.IsJSON() {
+func (o *PipelineOutput) PrintDryRun(serviceName, stepName string, command any) {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	padded := o.padName(serviceName)
-	cmdStr := formatCommand(command)
+	cmdStr := FormatCommand(command)
 	fmt.Printf("  %s%s%s %s %s%s%s\n",
 		colorInfo, symbolDryRun, colorReset,
 		padded,
@@ -165,8 +165,8 @@ func (o *OutputManager) PrintDryRun(serviceName, stepName string, command any) {
 }
 
 // PrintWaveHeader prints a wave sub-header within a step.
-func (o *OutputManager) PrintWaveHeader(waveNum, totalWaves int) {
-	if output.IsQuiet() || output.IsJSON() {
+func (o *PipelineOutput) PrintWaveHeader(waveNum, totalWaves int) {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	o.mu.Lock()
@@ -176,12 +176,12 @@ func (o *OutputManager) PrintWaveHeader(waveNum, totalWaves int) {
 }
 
 // PrintSkippedDependency prints a message when a service is skipped due to a failed dependency.
-func (o *OutputManager) PrintSkippedDependency(serviceName, failedDep string) {
+func (o *PipelineOutput) PrintSkippedDependency(serviceName, failedDep string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.serviceState[serviceName] = "skipped"
-	if output.IsQuiet() || output.IsJSON() {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	padded := o.padName(serviceName)
@@ -192,8 +192,8 @@ func (o *OutputManager) PrintSkippedDependency(serviceName, failedDep string) {
 }
 
 // PrintInfo prints an info message.
-func (o *OutputManager) PrintInfo(message string) {
-	if output.IsQuiet() || output.IsJSON() {
+func (o *PipelineOutput) PrintInfo(message string) {
+	if IsQuiet() || IsJSON() {
 		return
 	}
 	o.mu.Lock()
@@ -221,7 +221,7 @@ type JSONTaskInfo struct {
 }
 
 // PrintComplete prints the completion summary.
-func (o *OutputManager) PrintComplete(results []TaskResult) {
+func (o *PipelineOutput) PrintComplete(results []types.TaskResult) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -251,7 +251,7 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 	}
 
 	// JSON mode: output structured JSON
-	if output.IsJSON() {
+	if IsJSON() {
 		jsonResults := make([]JSONTaskInfo, len(results))
 		for i, r := range results {
 			errStr := ""
@@ -262,13 +262,13 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 				Service:  r.ServiceName,
 				Step:     r.StepName,
 				Success:  r.Success,
-				Duration: formatDuration(r.Duration),
+				Duration: FormatDuration(r.Duration),
 				Error:    errStr,
 			}
 		}
 		jsonOutput := JSONResult{
 			Success:      failedCount == 0,
-			TotalTime:    formatDuration(totalDuration),
+			TotalTime:    FormatDuration(totalDuration),
 			SuccessCount: successCount,
 			FailedCount:  failedCount,
 			Results:      jsonResults,
@@ -279,10 +279,10 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 	}
 
 	// Quiet mode: just print a summary line
-	if output.IsQuiet() {
+	if IsQuiet() {
 		if failedCount == 0 {
 			fmt.Printf("OK: %d/%d services completed in %s\n",
-				successCount, successCount+failedCount, formatDuration(totalDuration))
+				successCount, successCount+failedCount, FormatDuration(totalDuration))
 		} else {
 			fmt.Printf("FAILED: %d/%d services failed (%s)\n",
 				failedCount, successCount+failedCount, strings.Join(failedServices, ", "))
@@ -306,23 +306,23 @@ func (o *OutputManager) PrintComplete(results []TaskResult) {
 		fmt.Printf("     Failed: %s\n", strings.Join(failedServices, ", "))
 	}
 
-	fmt.Printf("     Total time: %s\n", formatDuration(totalDuration))
+	fmt.Printf("     Total time: %s\n", FormatDuration(totalDuration))
 	fmt.Println()
 }
 
 // padName pads a service name for alignment.
-func (o *OutputManager) padName(name string) string {
-	if o.maxNameLen == 0 {
-		o.maxNameLen = 20
+func (o *PipelineOutput) padName(name string) string {
+	if o.MaxNameLen == 0 {
+		o.MaxNameLen = 20
 	}
-	if len(name) >= o.maxNameLen {
+	if len(name) >= o.MaxNameLen {
 		return name
 	}
-	return name + strings.Repeat(" ", o.maxNameLen-len(name))
+	return name + strings.Repeat(" ", o.MaxNameLen-len(name))
 }
 
-// formatDuration formats a duration nicely.
-func formatDuration(d time.Duration) string {
+// FormatDuration formats a duration nicely.
+func FormatDuration(d time.Duration) string {
 	if d < time.Second {
 		return fmt.Sprintf("%dms", d.Milliseconds())
 	}
@@ -332,8 +332,8 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%.1fm", d.Minutes())
 }
 
-// formatCommand formats a command for display.
-func formatCommand(cmd any) string {
+// FormatCommand formats a command for display.
+func FormatCommand(cmd any) string {
 	if cmd == nil {
 		return ""
 	}
