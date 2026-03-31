@@ -90,7 +90,7 @@ func TestParseCommaSeparated(t *testing.T) {
 	}
 }
 
-func TestDeploymentOptionsToRunnerOptions(t *testing.T) {
+func TestDeploymentOptionsToPipelineOptions(t *testing.T) {
 	t.Parallel()
 
 	opts := deploymentOptions{
@@ -104,32 +104,32 @@ func TestDeploymentOptionsToRunnerOptions(t *testing.T) {
 		ExcludeTags: []string{"deploy"},
 	}
 
-	runnerOpts := opts.toRunnerOptions()
+	pipelineOpts := opts.toPipelineOptions()
 
-	require.Equal(t, opts.Tag, runnerOpts.Tag)
-	require.Equal(t, opts.Debug, runnerOpts.Debug)
-	require.Equal(t, opts.Timeout, runnerOpts.Timeout)
-	require.Equal(t, opts.Retries, runnerOpts.Retries)
-	require.Equal(t, opts.DryRun, runnerOpts.DryRun)
-	require.Equal(t, opts.MaxWorkers, runnerOpts.MaxWorkers)
-	require.Equal(t, opts.OnlyTags, runnerOpts.OnlyTags)
-	require.Equal(t, opts.ExcludeTags, runnerOpts.ExcludeTags)
+	require.Equal(t, opts.Tag, pipelineOpts.Tag)
+	require.Equal(t, opts.Debug, pipelineOpts.Debug)
+	require.Equal(t, opts.Timeout, pipelineOpts.Timeout)
+	require.Equal(t, opts.Retries, pipelineOpts.Retries)
+	require.Equal(t, opts.DryRun, pipelineOpts.DryRun)
+	require.Equal(t, opts.MaxWorkers, pipelineOpts.MaxWorkers)
+	require.Equal(t, opts.OnlyTags, pipelineOpts.OnlyTags)
+	require.Equal(t, opts.ExcludeTags, pipelineOpts.ExcludeTags)
 }
 
-func TestDeploymentOptionsToRunnerOptionsDefaults(t *testing.T) {
+func TestDeploymentOptionsToPipelineOptionsDefaults(t *testing.T) {
 	t.Parallel()
 
 	opts := deploymentOptions{}
-	runnerOpts := opts.toRunnerOptions()
+	pipelineOpts := opts.toPipelineOptions()
 
-	require.Equal(t, "", runnerOpts.Tag)
-	require.False(t, runnerOpts.Debug)
-	require.Equal(t, 0, runnerOpts.Timeout)
-	require.Equal(t, 0, runnerOpts.Retries)
-	require.False(t, runnerOpts.DryRun)
-	require.Equal(t, 0, runnerOpts.MaxWorkers)
-	require.Nil(t, runnerOpts.OnlyTags)
-	require.Nil(t, runnerOpts.ExcludeTags)
+	require.Equal(t, "", pipelineOpts.Tag)
+	require.False(t, pipelineOpts.Debug)
+	require.Equal(t, 0, pipelineOpts.Timeout)
+	require.Equal(t, 0, pipelineOpts.Retries)
+	require.False(t, pipelineOpts.DryRun)
+	require.Equal(t, 0, pipelineOpts.MaxWorkers)
+	require.Nil(t, pipelineOpts.OnlyTags)
+	require.Nil(t, pipelineOpts.ExcludeTags)
 }
 
 // --- loadWebhookConfigs tests ---

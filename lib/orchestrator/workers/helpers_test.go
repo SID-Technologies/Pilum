@@ -1,9 +1,9 @@
-package workerqueue_test
+package workers_test
 
 import (
 	"testing"
 
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -75,7 +75,7 @@ func TestExponentialBackoffWithJitter(t *testing.T) {
 
 			// Run multiple times to account for jitter randomness
 			for i := 0; i < 100; i++ {
-				result := workerqueue.ExponentialBackoffWithJitter(tt.attempt, tt.baseDelay, tt.maxDelay)
+				result := workers.ExponentialBackoffWithJitter(tt.attempt, tt.baseDelay, tt.maxDelay)
 				require.GreaterOrEqual(t, result, tt.minResult, "result should be >= minResult")
 				require.LessOrEqual(t, result, tt.maxResult, "result should be <= maxResult")
 			}
@@ -95,7 +95,7 @@ func TestExponentialBackoffProgression(t *testing.T) {
 		sum := 0.0
 		runs := 1000
 		for i := 0; i < runs; i++ {
-			sum += workerqueue.ExponentialBackoffWithJitter(attempt, baseDelay, maxDelay)
+			sum += workers.ExponentialBackoffWithJitter(attempt, baseDelay, maxDelay)
 		}
 		return sum / float64(runs)
 	}
@@ -124,7 +124,7 @@ func TestExponentialBackoffMaxDelayCap(t *testing.T) {
 	// With high attempt number, the exponential would exceed maxDelay
 	// but should be capped. With jitter, result can be up to 1.5x maxDelay
 	for i := 0; i < 100; i++ {
-		result := workerqueue.ExponentialBackoffWithJitter(20, baseDelay, maxDelay)
+		result := workers.ExponentialBackoffWithJitter(20, baseDelay, maxDelay)
 		// Max possible is maxDelay * 1.5 (due to jitter)
 		require.LessOrEqual(t, result, maxDelay*1.5, "result should not exceed maxDelay * 1.5")
 		// Min possible is maxDelay * 0.5 (due to jitter)

@@ -1,11 +1,11 @@
-package workerqueue_test
+package workers_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
+	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ import (
 func TestCommandWorkerStringCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello",
 		"",
 		"test-service",
@@ -25,7 +25,7 @@ func TestCommandWorkerStringCommand(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func TestCommandWorkerStringCommand(t *testing.T) {
 func TestCommandWorkerStringSliceCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]string{"echo", "hello", "world"},
 		"",
 		"test-service",
@@ -46,7 +46,7 @@ func TestCommandWorkerStringSliceCommand(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestCommandWorkerStringSliceCommand(t *testing.T) {
 func TestCommandWorkerAnySliceCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]any{"echo", "hello"},
 		"",
 		"test-service",
@@ -67,7 +67,7 @@ func TestCommandWorkerAnySliceCommand(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestCommandWorkerAnySliceCommand(t *testing.T) {
 func TestCommandWorkerEmptyStringSlice(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]string{},
 		"",
 		"test-service",
@@ -88,7 +88,7 @@ func TestCommandWorkerEmptyStringSlice(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -98,7 +98,7 @@ func TestCommandWorkerEmptyStringSlice(t *testing.T) {
 func TestCommandWorkerEmptyAnySlice(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]any{},
 		"",
 		"test-service",
@@ -110,7 +110,7 @@ func TestCommandWorkerEmptyAnySlice(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -120,7 +120,7 @@ func TestCommandWorkerEmptyAnySlice(t *testing.T) {
 func TestCommandWorkerInvalidCommandType(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		12345, // Invalid type
 		"",
 		"test-service",
@@ -132,7 +132,7 @@ func TestCommandWorkerInvalidCommandType(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -142,7 +142,7 @@ func TestCommandWorkerInvalidCommandType(t *testing.T) {
 func TestCommandWorkerInvalidExecutionMode(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello",
 		"",
 		"test-service",
@@ -154,7 +154,7 @@ func TestCommandWorkerInvalidExecutionMode(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -168,7 +168,7 @@ func TestCommandWorkerNilStringSlice(t *testing.T) {
 
 	var nilSlice []string // typed nil
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		nilSlice,
 		"",
 		"test-service",
@@ -180,7 +180,7 @@ func TestCommandWorkerNilStringSlice(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -193,7 +193,7 @@ func TestCommandWorkerFailingCommandCapturesStdout(t *testing.T) {
 	t.Parallel()
 
 	// Write error info to stdout (not stderr) then exit with failure
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo 'error details on stdout' && exit 1",
 		"",
 		"test-service",
@@ -205,7 +205,7 @@ func TestCommandWorkerFailingCommandCapturesStdout(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -218,7 +218,7 @@ func TestCommandWorkerServiceDirMode(t *testing.T) {
 	// Use a temp directory as the service directory
 	tmpDir := t.TempDir()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"pwd",
 		tmpDir,
 		"test-service",
@@ -230,7 +230,7 @@ func TestCommandWorkerServiceDirMode(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func TestCommandWorkerWithEnvVars(t *testing.T) {
 		"MY_TEST_VAR": "test_value",
 	}
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo $MY_TEST_VAR",
 		"",
 		"test-service",
@@ -255,7 +255,7 @@ func TestCommandWorkerWithEnvVars(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestCommandWorkerWithEnvVars(t *testing.T) {
 func TestCommandWorkerFailingCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"exit 1",
 		"",
 		"test-service",
@@ -276,7 +276,7 @@ func TestCommandWorkerFailingCommand(t *testing.T) {
 		0, // No retries
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -286,7 +286,7 @@ func TestCommandWorkerFailingCommand(t *testing.T) {
 func TestCommandWorkerFailingCommandCapturesStderr(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo 'something went wrong' >&2 && exit 1",
 		"",
 		"test-service",
@@ -298,7 +298,7 @@ func TestCommandWorkerFailingCommandCapturesStderr(t *testing.T) {
 		0, // No retries
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -308,7 +308,7 @@ func TestCommandWorkerFailingCommandCapturesStderr(t *testing.T) {
 func TestCommandWorkerTimeout(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"sleep 10",
 		"",
 		"test-service",
@@ -320,7 +320,7 @@ func TestCommandWorkerTimeout(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -331,7 +331,7 @@ func TestCommandWorkerTimeout(t *testing.T) {
 func TestCommandWorkerWithDebug(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo debug test",
 		"",
 		"test-service",
@@ -343,7 +343,7 @@ func TestCommandWorkerWithDebug(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestCommandWorkerWritesFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello > "+testFile,
 		"",
 		"test-service",
@@ -367,7 +367,7 @@ func TestCommandWorkerWritesFile(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -380,7 +380,7 @@ func TestCommandWorkerWritesFile(t *testing.T) {
 func TestCommandWorkerNonExistentCommand(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		[]string{"nonexistent_command_xyz_123"},
 		"",
 		"test-service",
@@ -392,7 +392,7 @@ func TestCommandWorkerNonExistentCommand(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.False(t, success)
 	require.Error(t, err)
@@ -401,7 +401,7 @@ func TestCommandWorkerNonExistentCommand(t *testing.T) {
 func TestCommandWorkerMultipleCommands(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo one && echo two && echo three",
 		"",
 		"test-service",
@@ -413,7 +413,7 @@ func TestCommandWorkerMultipleCommands(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -422,7 +422,7 @@ func TestCommandWorkerMultipleCommands(t *testing.T) {
 func TestCommandWorkerWithPipe(t *testing.T) {
 	t.Parallel()
 
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"echo hello | cat",
 		"",
 		"test-service",
@@ -434,7 +434,7 @@ func TestCommandWorkerWithPipe(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)
@@ -444,7 +444,7 @@ func TestCommandWorkerLongOutput(t *testing.T) {
 	t.Parallel()
 
 	// Generate a command that produces a lot of output
-	taskInfo := workerqueue.NewTaskInfo(
+	taskInfo := workers.NewTaskInfo(
 		"seq 1 1000",
 		"",
 		"test-service",
@@ -456,7 +456,7 @@ func TestCommandWorkerLongOutput(t *testing.T) {
 		0,
 	)
 
-	success, err := workerqueue.CommandWorker(taskInfo)
+	success, err := workers.CommandWorker(taskInfo)
 
 	require.True(t, success)
 	require.NoError(t, err)

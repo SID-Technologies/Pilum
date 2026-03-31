@@ -1,28 +1,13 @@
-package orchestrator
+package output
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
-
-	"github.com/sid-technologies/pilum/lib/output"
 )
 
 // Spinner frames - a nice smooth animation.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-
-// isCI returns true if running in a CI environment.
-func isCI() bool {
-	// Check common CI environment variables
-	ciVars := []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "JENKINS_URL", "BUILDKITE"}
-	for _, v := range ciVars {
-		if os.Getenv(v) != "" {
-			return true
-		}
-	}
-	return false
-}
 
 // SpinnerManager manages multiple spinners for concurrent tasks.
 type SpinnerManager struct {
@@ -48,7 +33,7 @@ type serviceSpinner struct {
 // NewSpinnerManager creates a new spinner manager.
 func NewSpinnerManager() *SpinnerManager {
 	// Disable spinners in CI, verbose, quiet, or JSON mode
-	disableSpinners := isCI() || output.IsVerbose() || output.IsQuiet() || output.IsJSON()
+	disableSpinners := isCI() || IsVerbose() || IsQuiet() || IsJSON()
 	return &SpinnerManager{
 		spinners: make(map[string]*serviceSpinner),
 		stop:     make(chan struct{}),
@@ -161,7 +146,7 @@ func (sm *SpinnerManager) render() {
 				fmt.Printf("\033[2K  %s%s%s %s %s(%s)%s\n",
 					colorSuccess, symbolSuccess, colorReset,
 					s.name,
-					colorMuted, formatDuration(s.duration), colorReset)
+					colorMuted, FormatDuration(s.duration), colorReset)
 			} else {
 				errMsg := ""
 				if s.err != nil {
@@ -200,7 +185,7 @@ func (sm *SpinnerManager) RenderFinal() {
 				fmt.Printf("  %s%s%s %s %s(%s)%s\n",
 					colorSuccess, symbolSuccess, colorReset,
 					s.name,
-					colorMuted, formatDuration(s.duration), colorReset)
+					colorMuted, FormatDuration(s.duration), colorReset)
 			} else if s.done {
 				errMsg := ""
 				if s.err != nil {
@@ -229,7 +214,7 @@ func (sm *SpinnerManager) RenderFinal() {
 			fmt.Printf("\033[2K  %s%s%s %s %s(%s)%s\n",
 				colorSuccess, symbolSuccess, colorReset,
 				s.name,
-				colorMuted, formatDuration(s.duration), colorReset)
+				colorMuted, FormatDuration(s.duration), colorReset)
 		} else if s.done {
 			errMsg := ""
 			if s.err != nil {

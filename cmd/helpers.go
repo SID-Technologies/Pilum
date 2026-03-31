@@ -18,6 +18,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/path"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/types"
 	"github.com/sid-technologies/pilum/lib/webhook"
 
 	"github.com/spf13/cobra"
@@ -66,9 +67,9 @@ func getDeploymentOptions() deploymentOptions {
 	}
 }
 
-// toRunnerOptions converts deploymentOptions to orchestrator.RunnerOptions.
-func (o deploymentOptions) toRunnerOptions() orchestrator.RunnerOptions {
-	return orchestrator.RunnerOptions{
+// toPipelineOptions converts deploymentOptions to types.PipelineOptions.
+func (o deploymentOptions) toPipelineOptions() types.PipelineOptions {
+	return types.PipelineOptions{
 		Tag:         o.Tag,
 		Debug:       o.Debug,
 		Timeout:     o.Timeout,
@@ -237,10 +238,10 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		})
 	}
 
-	runnerOpts := opts.toRunnerOptions()
-	runner := orchestrator.NewRunner(services, recipes, runnerOpts)
+	pipelineOpts := opts.toPipelineOptions()
+	pipeline := orchestrator.NewPipeline(services, recipes, pipelineOpts)
 	startTime := time.Now()
-	runErr := runner.Run()
+	runErr := pipeline.Run()
 	duration := time.Since(startTime).Round(time.Second)
 
 	// Post final GitHub status
@@ -277,7 +278,7 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 
 	// Record history (skip dry-runs)
 	if !opts.DryRun {
-		recordHistory(cmdName, opts.Tag, runner, time.Since(startTime), runErr)
+		recordHistory(cmdName, opts.Tag, pipeline, time.Since(startTime), runErr)
 	}
 
 	if runErr != nil {
@@ -287,13 +288,13 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 }
 
 // recordHistory saves a pipeline run to the history file.
-func recordHistory(cmdName, tag string, runner *orchestrator.Runner, duration time.Duration, runErr error) {
+func recordHistory(cmdName, tag string, pipeline *orchestrator.Pipeline, duration time.Duration, runErr error) {
 	root, err := path.FindProjectRoot()
 	if err != nil || root == "" {
 		return
 	}
 
-	results := runner.Results()
+	results := pipeline.Results()
 	services := make([]history.ServiceResult, len(results))
 	allSuccess := runErr == nil
 	for i, r := range results {

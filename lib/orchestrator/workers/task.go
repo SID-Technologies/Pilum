@@ -1,4 +1,4 @@
-package workerqueue
+package workers
 
 // TaskInfo holds configuration for a command execution task.
 type TaskInfo struct {

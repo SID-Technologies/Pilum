@@ -6,10 +6,10 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
+	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/query"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
-	workerqueue "github.com/sid-technologies/pilum/lib/worker_queue"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -99,7 +99,7 @@ func runStatus(args []string) (any, error) {
 				return
 			}
 
-			taskInfo := workerqueue.NewTaskInfo(
+			taskInfo := workers.NewTaskInfo(
 				cmd,
 				"",
 				s.DisplayName(),
@@ -111,7 +111,7 @@ func runStatus(args []string) (any, error) {
 				0,
 			)
 
-			jsonOutput, captureErr := workerqueue.CaptureWorker(taskInfo)
+			jsonOutput, captureErr := workers.CaptureWorker(taskInfo)
 			if captureErr != nil {
 				results[idx] = statusResult{
 					status: query.ServiceStatus{

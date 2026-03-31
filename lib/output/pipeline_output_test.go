@@ -1,8 +1,10 @@
-package orchestrator
+package output
 
 import (
 	"testing"
 	"time"
+
+	"github.com/sid-technologies/pilum/lib/types"
 
 	"github.com/stretchr/testify/require"
 )
@@ -75,7 +77,7 @@ func TestFormatDuration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := formatDuration(tt.duration)
+			result := FormatDuration(tt.duration)
 			require.Equal(t, tt.expected, result)
 		})
 	}
@@ -154,13 +156,13 @@ func TestFormatCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := formatCommand(tt.cmd)
+			result := FormatCommand(tt.cmd)
 			require.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestOutputManagerPadName(t *testing.T) {
+func TestPipelineOutputPadName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -204,7 +206,7 @@ func TestOutputManagerPadName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			om := NewOutputManager()
+			om := NewPipelineOutput()
 			om.SetMaxNameLength(tt.maxNameLen)
 			result := om.padName(tt.inputName)
 			require.Equal(t, tt.expected, result)
@@ -212,42 +214,42 @@ func TestOutputManagerPadName(t *testing.T) {
 	}
 }
 
-func TestNewOutputManager(t *testing.T) {
+func TestNewPipelineOutput(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	require.NotNil(t, om)
 	require.True(t, om.useColors)
 	require.NotNil(t, om.serviceState)
 }
 
-func TestOutputManagerSetMaxNameLength(t *testing.T) {
+func TestPipelineOutputSetMaxNameLength(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
-	require.Equal(t, 0, om.maxNameLen)
+	om := NewPipelineOutput()
+	require.Equal(t, 0, om.MaxNameLen)
 
 	om.SetMaxNameLength(25)
-	require.Equal(t, 25, om.maxNameLen)
+	require.Equal(t, 25, om.MaxNameLen)
 
 	om.SetMaxNameLength(10)
-	require.Equal(t, 10, om.maxNameLen)
+	require.Equal(t, 10, om.MaxNameLen)
 }
 
-func TestOutputManagerPrintHeader(t *testing.T) {
+func TestPipelineOutputPrintHeader(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
 	require.NotPanics(t, func() {
 		om.PrintHeader("Deploying 3 services")
 	})
 }
 
-func TestOutputManagerPrintStepHeader(t *testing.T) {
+func TestPipelineOutputPrintStepHeader(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
 	require.NotPanics(t, func() {
 		om.PrintStepHeader(1, 5, "build")
@@ -255,10 +257,10 @@ func TestOutputManagerPrintStepHeader(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintRunning(t *testing.T) {
+func TestPipelineOutputPrintRunning(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -268,10 +270,10 @@ func TestOutputManagerPrintRunning(t *testing.T) {
 	require.Equal(t, "running", om.serviceState["myservice"])
 }
 
-func TestOutputManagerPrintSuccess(t *testing.T) {
+func TestPipelineOutputPrintSuccess(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -281,10 +283,10 @@ func TestOutputManagerPrintSuccess(t *testing.T) {
 	require.Equal(t, "success", om.serviceState["myservice"])
 }
 
-func TestOutputManagerPrintFailure(t *testing.T) {
+func TestPipelineOutputPrintFailure(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -293,10 +295,10 @@ func TestOutputManagerPrintFailure(t *testing.T) {
 	require.Equal(t, "failed", om.serviceState["myservice"])
 }
 
-func TestOutputManagerPrintFailureWithError(t *testing.T) {
+func TestPipelineOutputPrintFailureWithError(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -313,10 +315,10 @@ func (e *testError) Error() string {
 	return e.msg
 }
 
-func TestOutputManagerPrintSkipped(t *testing.T) {
+func TestPipelineOutputPrintSkipped(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -326,10 +328,10 @@ func TestOutputManagerPrintSkipped(t *testing.T) {
 	require.Equal(t, "skipped", om.serviceState["myservice"])
 }
 
-func TestOutputManagerPrintDryRun(t *testing.T) {
+func TestPipelineOutputPrintDryRun(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -337,10 +339,10 @@ func TestOutputManagerPrintDryRun(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintDryRunNilCommand(t *testing.T) {
+func TestPipelineOutputPrintDryRunNilCommand(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -348,10 +350,10 @@ func TestOutputManagerPrintDryRunNilCommand(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintDryRunStringCommand(t *testing.T) {
+func TestPipelineOutputPrintDryRunStringCommand(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	require.NotPanics(t, func() {
@@ -359,22 +361,22 @@ func TestOutputManagerPrintDryRunStringCommand(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintInfo(t *testing.T) {
+func TestPipelineOutputPrintInfo(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
 	require.NotPanics(t, func() {
 		om.PrintInfo("Some informational message")
 	})
 }
 
-func TestOutputManagerPrintCompleteAllSuccess(t *testing.T) {
+func TestPipelineOutputPrintCompleteAllSuccess(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
-	results := []TaskResult{
+	results := []types.TaskResult{
 		{ServiceName: "svc1", StepName: "build", Success: true, Duration: time.Second},
 		{ServiceName: "svc2", StepName: "build", Success: true, Duration: 2 * time.Second},
 	}
@@ -384,12 +386,12 @@ func TestOutputManagerPrintCompleteAllSuccess(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintCompleteWithFailures(t *testing.T) {
+func TestPipelineOutputPrintCompleteWithFailures(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
-	results := []TaskResult{
+	results := []types.TaskResult{
 		{ServiceName: "svc1", StepName: "build", Success: true, Duration: time.Second},
 		{ServiceName: "svc2", StepName: "build", Success: false, Duration: 500 * time.Millisecond},
 		{ServiceName: "svc3", StepName: "build", Success: false, Duration: 300 * time.Millisecond},
@@ -400,20 +402,20 @@ func TestOutputManagerPrintCompleteWithFailures(t *testing.T) {
 	})
 }
 
-func TestOutputManagerPrintCompleteEmpty(t *testing.T) {
+func TestPipelineOutputPrintCompleteEmpty(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 
 	require.NotPanics(t, func() {
 		om.PrintComplete(nil)
 	})
 }
 
-func TestOutputManagerConcurrentAccess(t *testing.T) {
+func TestPipelineOutputConcurrentAccess(t *testing.T) {
 	t.Parallel()
 
-	om := NewOutputManager()
+	om := NewPipelineOutput()
 	om.SetMaxNameLength(20)
 
 	// Test that concurrent access doesn't cause race conditions
