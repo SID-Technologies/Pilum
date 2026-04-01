@@ -1,6 +1,9 @@
 package sysinfo
 
-import "syscall"
+import (
+	"encoding/binary"
+	"syscall"
+)
 
 func detectMemory() int {
 	val, err := syscall.Sysctl("hw.memsize")
@@ -8,16 +11,10 @@ func detectMemory() int {
 		return 0
 	}
 
-	// syscall.Sysctl returns raw bytes for numeric values.
-	// hw.memsize is a 64-bit little-endian integer.
-	raw := []byte(val)
-	var mem uint64
-	for i := range raw {
-		if i >= 8 {
-			break
-		}
-		mem |= uint64(raw[i]) << (uint(i) * 8)
-	}
-
+	// hw.memsize is a 64-bit little-endian integer returned as raw bytes.
+	// syscall.Sysctl may strip the trailing null, so pad to 8 bytes.
+	var buf [8]byte
+	copy(buf[:], []byte(val))
+	mem := binary.LittleEndian.Uint64(buf[:])
 	return int(mem / (1024 * 1024)) // bytes -> MB
 }
