@@ -12,7 +12,7 @@ Recipes also define **required fields** that services must provide - this is how
 
 ## Step 1: Create the Recipe YAML
 
-Create a new file in `recepies/` following this structure:
+Create a new file in `recipes/` following this structure:
 
 ```yaml
 name: my-provider

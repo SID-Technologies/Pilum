@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/types"
@@ -17,7 +17,7 @@ func TestPipelineFindMaxSteps(t *testing.T) {
 	tests := []struct {
 		name     string
 		services []serviceinfo.ServiceInfo
-		recipes  []recepie.RecipeInfo
+		recipes  []recipe.Info
 		maxSteps int
 		expected int
 	}{
@@ -26,11 +26,11 @@ func TestPipelineFindMaxSteps(t *testing.T) {
 			services: []serviceinfo.ServiceInfo{
 				{Name: "svc", Provider: "gcp"},
 			},
-			recipes: []recepie.RecipeInfo{
+			recipes: []recipe.Info{
 				{
 					Provider: "gcp",
-					Recipe: recepie.Recipe{
-						Steps: []recepie.RecipeStep{
+					Recipe: recipe.Recipe{
+						Steps: []recipe.Step{
 							{Name: "build"},
 							{Name: "push"},
 							{Name: "deploy"},
@@ -47,17 +47,17 @@ func TestPipelineFindMaxSteps(t *testing.T) {
 				{Name: "svc1", Provider: "gcp"},
 				{Name: "svc2", Provider: "aws"},
 			},
-			recipes: []recepie.RecipeInfo{
+			recipes: []recipe.Info{
 				{
 					Provider: "gcp",
-					Recipe: recepie.Recipe{
-						Steps: []recepie.RecipeStep{{Name: "build"}, {Name: "push"}},
+					Recipe: recipe.Recipe{
+						Steps: []recipe.Step{{Name: "build"}, {Name: "push"}},
 					},
 				},
 				{
 					Provider: "aws",
-					Recipe: recepie.Recipe{
-						Steps: []recepie.RecipeStep{{Name: "build"}, {Name: "push"}, {Name: "deploy"}, {Name: "verify"}},
+					Recipe: recipe.Recipe{
+						Steps: []recipe.Step{{Name: "build"}, {Name: "push"}, {Name: "deploy"}, {Name: "verify"}},
 					},
 				},
 			},
@@ -69,11 +69,11 @@ func TestPipelineFindMaxSteps(t *testing.T) {
 			services: []serviceinfo.ServiceInfo{
 				{Name: "svc", Provider: "gcp"},
 			},
-			recipes: []recepie.RecipeInfo{
+			recipes: []recipe.Info{
 				{
 					Provider: "gcp",
-					Recipe: recepie.Recipe{
-						Steps: []recepie.RecipeStep{
+					Recipe: recipe.Recipe{
+						Steps: []recipe.Step{
 							{Name: "build"},
 							{Name: "push"},
 							{Name: "deploy"},
@@ -89,7 +89,7 @@ func TestPipelineFindMaxSteps(t *testing.T) {
 			services: []serviceinfo.ServiceInfo{
 				{Name: "svc", Provider: "unknown"},
 			},
-			recipes:  []recepie.RecipeInfo{},
+			recipes:  []recipe.Info{},
 			maxSteps: 0,
 			expected: 0,
 		},
@@ -113,70 +113,70 @@ func TestPipelineShouldSkipStep(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		step        *recepie.RecipeStep
+		step        *recipe.Step
 		onlyTags    []string
 		excludeTags []string
 		shouldSkip  bool
 	}{
 		{
 			name:        "no filters - don't skip",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"build"}},
 			onlyTags:    nil,
 			excludeTags: nil,
 			shouldSkip:  false,
 		},
 		{
 			name:        "only tags - step has matching tag",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"build"}},
 			onlyTags:    []string{"build"},
 			excludeTags: nil,
 			shouldSkip:  false,
 		},
 		{
 			name:        "only tags - step does not have matching tag",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"build"}},
 			onlyTags:    []string{"deploy"},
 			excludeTags: nil,
 			shouldSkip:  true,
 		},
 		{
 			name:        "exclude tags - step has excluded tag",
-			step:        &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:        &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 			onlyTags:    nil,
 			excludeTags: []string{"deploy"},
 			shouldSkip:  true,
 		},
 		{
 			name:        "exclude tags - step does not have excluded tag",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"build"}},
 			onlyTags:    nil,
 			excludeTags: []string{"deploy"},
 			shouldSkip:  false,
 		},
 		{
 			name:        "both filters - step passes both",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"build", "ci"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"build", "ci"}},
 			onlyTags:    []string{"build"},
 			excludeTags: []string{"deploy"},
 			shouldSkip:  false,
 		},
 		{
 			name:        "case insensitive matching",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{"BUILD"}},
+			step:        &recipe.Step{Name: "build", Tags: []string{"BUILD"}},
 			onlyTags:    []string{"build"},
 			excludeTags: nil,
 			shouldSkip:  false,
 		},
 		{
 			name:        "step with no tags - only filter",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{}},
+			step:        &recipe.Step{Name: "build", Tags: []string{}},
 			onlyTags:    []string{"build"},
 			excludeTags: nil,
 			shouldSkip:  true,
 		},
 		{
 			name:        "step with no tags - exclude filter",
-			step:        &recepie.RecipeStep{Name: "build", Tags: []string{}},
+			step:        &recipe.Step{Name: "build", Tags: []string{}},
 			onlyTags:    nil,
 			excludeTags: []string{"deploy"},
 			shouldSkip:  false,
@@ -204,43 +204,43 @@ func TestPipelineStepHasAnyTag(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		step     *recepie.RecipeStep
+		step     *recipe.Step
 		tags     []string
 		expected bool
 	}{
 		{
 			name:     "step has matching tag",
-			step:     &recepie.RecipeStep{Tags: []string{"build", "ci"}},
+			step:     &recipe.Step{Tags: []string{"build", "ci"}},
 			tags:     []string{"build"},
 			expected: true,
 		},
 		{
 			name:     "step has multiple matching tags",
-			step:     &recepie.RecipeStep{Tags: []string{"build", "ci"}},
+			step:     &recipe.Step{Tags: []string{"build", "ci"}},
 			tags:     []string{"build", "ci"},
 			expected: true,
 		},
 		{
 			name:     "step has no matching tags",
-			step:     &recepie.RecipeStep{Tags: []string{"build"}},
+			step:     &recipe.Step{Tags: []string{"build"}},
 			tags:     []string{"deploy"},
 			expected: false,
 		},
 		{
 			name:     "step has no tags",
-			step:     &recepie.RecipeStep{Tags: []string{}},
+			step:     &recipe.Step{Tags: []string{}},
 			tags:     []string{"build"},
 			expected: false,
 		},
 		{
 			name:     "empty tags to check",
-			step:     &recepie.RecipeStep{Tags: []string{"build"}},
+			step:     &recipe.Step{Tags: []string{"build"}},
 			tags:     []string{},
 			expected: false,
 		},
 		{
 			name:     "case insensitive match",
-			step:     &recepie.RecipeStep{Tags: []string{"BUILD"}},
+			step:     &recipe.Step{Tags: []string{"BUILD"}},
 			tags:     []string{"build"},
 			expected: true,
 		},
@@ -389,12 +389,12 @@ func TestPipelineGenerateCommand(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		step     *recepie.RecipeStep
+		step     *recipe.Step
 		expected any
 	}{
 		{
 			name: "step with explicit string command",
-			step: &recepie.RecipeStep{
+			step: &recipe.Step{
 				Name:    "custom",
 				Command: "echo ${name}",
 			},
@@ -402,7 +402,7 @@ func TestPipelineGenerateCommand(t *testing.T) {
 		},
 		{
 			name: "step with explicit array command",
-			step: &recepie.RecipeStep{
+			step: &recipe.Step{
 				Name:    "custom",
 				Command: []string{"echo", "${name}"},
 			},
@@ -410,7 +410,7 @@ func TestPipelineGenerateCommand(t *testing.T) {
 		},
 		{
 			name: "step without command uses registry",
-			step: &recepie.RecipeStep{
+			step: &recipe.Step{
 				Name: "unknown-step",
 			},
 			expected: nil, // No handler registered
@@ -453,13 +453,13 @@ func TestPipelineGenerateCommandWithRegistry(t *testing.T) {
 		RegistryName: "gcr.io/project",
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-cloud-run",
 				Provider: "gcp",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root"},
 				},
 			},
@@ -470,7 +470,7 @@ func TestPipelineGenerateCommandWithRegistry(t *testing.T) {
 	pipeline := NewPipeline([]serviceinfo.ServiceInfo{svc}, recipes, opts)
 
 	// Test with a registered handler (build)
-	step := &recepie.RecipeStep{Name: "build"}
+	step := &recipe.Step{Name: "build"}
 	result := pipeline.generateCommand(svc, step)
 	// Build command should return something (may be nil if no build cmd configured)
 	// Just verify it doesn't panic
@@ -490,7 +490,7 @@ func TestPipelineGenerateCommandWithAnySlice(t *testing.T) {
 	pipeline := NewPipeline(nil, nil, opts)
 
 	// Test with []any command
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:    "custom",
 		Command: []any{"echo", "${name}", "--tag", "${tag}"},
 	}
@@ -521,7 +521,7 @@ func TestPipelineGenerateCommandHandlesTypedNilSlice(t *testing.T) {
 		return cmd       // Returns typed nil wrapped in any — NOT == nil
 	})
 
-	step := &recepie.RecipeStep{Name: "typed-nil-step"}
+	step := &recipe.Step{Name: "typed-nil-step"}
 	result := pipeline.generateCommand(svc, step)
 
 	// Must be actual nil, not a typed nil wrapped in any
@@ -544,7 +544,7 @@ func TestPipelineGenerateCommandHandlesTypedNilAnySlice(t *testing.T) {
 		return cmd
 	})
 
-	step := &recepie.RecipeStep{Name: "typed-nil-any-step"}
+	step := &recipe.Step{Name: "typed-nil-any-step"}
 	result := pipeline.generateCommand(svc, step)
 
 	require.Nil(t, result)
@@ -565,7 +565,7 @@ func TestPipelineGenerateCommandHandlesUntypedNil(t *testing.T) {
 		return nil
 	})
 
-	step := &recepie.RecipeStep{Name: "untyped-nil-step"}
+	step := &recipe.Step{Name: "untyped-nil-step"}
 	result := pipeline.generateCommand(svc, step)
 
 	require.Nil(t, result)
@@ -586,7 +586,7 @@ func TestPipelineGenerateCommandPassesThroughNonNilSlice(t *testing.T) {
 		return []string{"echo", "hello"}
 	})
 
-	step := &recepie.RecipeStep{Name: "real-command-step"}
+	step := &recipe.Step{Name: "real-command-step"}
 	result := pipeline.generateCommand(svc, step)
 
 	require.NotNil(t, result)
@@ -611,7 +611,7 @@ func TestPipelineExecuteTaskTypedNilCommandIsSuccess(t *testing.T) {
 		return cmd
 	})
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "skip-step",
 		ExecutionMode: "root",
 		Timeout:       5,

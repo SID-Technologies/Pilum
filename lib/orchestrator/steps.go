@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/shellutil"
@@ -82,7 +82,7 @@ func (p *Pipeline) executeStep(stepIdx, runnableSteps int, displayStep *int) err
 }
 
 // shouldSkipStep checks if a step should be skipped based on tag filters.
-func (p *Pipeline) shouldSkipStep(step *recepie.RecipeStep) bool {
+func (p *Pipeline) shouldSkipStep(step *recipe.Step) bool {
 	// If OnlyTags is set, step must have at least one matching tag
 	if len(p.options.OnlyTags) > 0 {
 		if !p.stepHasAnyTag(step, p.options.OnlyTags) {
@@ -101,7 +101,7 @@ func (p *Pipeline) shouldSkipStep(step *recepie.RecipeStep) bool {
 }
 
 // stepHasAnyTag checks if a step has any of the specified tags.
-func (*Pipeline) stepHasAnyTag(step *recepie.RecipeStep, tags []string) bool {
+func (*Pipeline) stepHasAnyTag(step *recipe.Step, tags []string) bool {
 	for _, stepTag := range step.Tags {
 		stepTagLower := strings.ToLower(stepTag)
 		for _, tag := range tags {
@@ -128,7 +128,7 @@ func (*Pipeline) buildStepName(names map[string]bool) string {
 }
 
 // generateCommand creates the command for a step based on step name and provider.
-func (p *Pipeline) generateCommand(svc serviceinfo.ServiceInfo, step *recepie.RecipeStep) any {
+func (p *Pipeline) generateCommand(svc serviceinfo.ServiceInfo, step *recipe.Step) any {
 	// If step has explicit command, use it (with variable substitution)
 	if step.Command != nil {
 		return p.substituteVars(step.Command, svc)
@@ -227,14 +227,14 @@ func (p *Pipeline) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
 }
 
 // getRecipeForService finds the recipe for a service using composite key with provider-only fallback.
-func (p *Pipeline) getRecipeForService(svc serviceinfo.ServiceInfo) (recepie.Recipe, bool) {
+func (p *Pipeline) getRecipeForService(svc serviceinfo.ServiceInfo) (recipe.Recipe, bool) {
 	if recipe, ok := p.recipes[svc.RecipeKey()]; ok {
 		return recipe, true
 	}
 	if recipe, ok := p.recipes[svc.Provider]; ok {
 		return recipe, true
 	}
-	return recepie.Recipe{}, false
+	return recipe.Recipe{}, false
 }
 
 // findMaxSteps returns the max number of steps across all recipes.

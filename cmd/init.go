@@ -13,7 +13,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/providers"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/suggest"
 	"github.com/sid-technologies/pilum/lib/templates"
 
@@ -139,7 +139,7 @@ func runInitNonInteractive(opts initOptions) error {
 	}
 
 	// Load recipes and find match
-	recipes, err := recepie.LoadEmbeddedRecipes()
+	recipes, err := recipe.LoadEmbeddedRecipes()
 	if err != nil {
 		return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "failed to load recipes"))
 	}
@@ -205,7 +205,7 @@ func runInitInteractive(opts initOptions) error {
 	}
 
 	// Load available recipes
-	recipes, err := recepie.LoadEmbeddedRecipes()
+	recipes, err := recipe.LoadEmbeddedRecipes()
 	if err != nil {
 		return errors.Wrap(err, "failed to load recipes")
 	}
@@ -419,7 +419,7 @@ func selectLanguage(reader *bufio.Reader) (string, error) {
 	return "", errors.New("unknown language '%s'", language)
 }
 
-func promptForFields(reader *bufio.Reader, fields []recepie.Field, values map[string]string, required bool) error {
+func promptForFields(reader *bufio.Reader, fields []recipe.Field, values map[string]string, required bool) error {
 	for _, field := range fields {
 		// Skip if we already have this field (e.g., "name" is always prompted first)
 		if _, ok := values[field.Name]; ok {
@@ -468,7 +468,7 @@ func prompt(reader *bufio.Reader, label, defaultVal string) (string, error) {
 	return input, nil
 }
 
-func findRecipeByKey(recipes []recepie.RecipeInfo, provider, service string) *recepie.Recipe {
+func findRecipeByKey(recipes []recipe.Info, provider, service string) *recipe.Recipe {
 	// First, try exact provider-service match
 	for _, r := range recipes {
 		if r.Provider == provider && r.Service == service {

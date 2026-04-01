@@ -12,7 +12,7 @@ Pilum is a **cloud-agnostic deployment CLI** — define a service once, deploy t
 - **Declarative deployments** - Terraform defines infrastructure; Pilum defines how code gets deployed to it
 
 **The cooking metaphor:**
-- **Recipes** (`recepies/`) - Deployment workflows with required fields and ordered steps
+- **Recipes** (`recipes/`) - Deployment workflows with required fields and ordered steps
 - **Ingredients** (`ingredients/`) - Cloud-specific command generators
 - **Services** - Discovered via `pilum.yaml` files
 
@@ -42,7 +42,7 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 --debug, -d            # Enable debug output
 --timeout, -T          # Step timeout in seconds (default: 60)
 --max-workers          # Parallel workers (0 = auto)
---recipe-path          # Custom recipe directory (default: ./recepies)
+--recipe-path          # Custom recipe directory (default: ./recipes)
 --only-tags            # Run only steps with these tags (comma-separated)
 --exclude-tags         # Skip steps with these tags (comma-separated)
 ```
@@ -55,14 +55,14 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 | `lib/errors/` | Custom error wrapping |
 | `lib/orchestrator/` | Step execution engine |
 | `lib/output/` | CLI output formatting |
-| `lib/recepie/` | Recipe loading and validation |
+| `lib/recipe/` | Recipe loading and validation |
 | `lib/registry/` | Step handler registration |
 | `lib/service_info/` | Service configuration parsing |
 | `lib/history/` | Deployment history (JSONL append-only log) |
 | `lib/worker_queue/` | Parallel execution worker pool |
 | `lib/query/` | Status/logs query types, dispatch, and response parsing |
 | `ingredients/` | Cloud provider command generators (gcp, aws, azure, cloudflare, docker, homebrew) |
-| `recepies/` | Deployment recipe YAML files |
+| `recipes/` | Deployment recipe YAML files |
 
 ## Architecture
 
@@ -71,7 +71,7 @@ pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 Recipes define both workflows AND validation. No Go code per provider:
 
 ```yaml
-# recepies/homebrew-recepie.yaml
+# recipes/homebrew-recipe.yaml
 name: homebrew
 provider: homebrew
 
@@ -112,11 +112,11 @@ Provider-specific handlers take precedence over generic ones.
 
 ### Adding a New Provider
 
-1. **Create recipe YAML** in `recepies/` with `required_fields` and `steps`
+1. **Create recipe YAML** in `recipes/` with `required_fields` and `steps`
 2. **Register handlers** in `lib/registry/commands.go` (optional - can use explicit commands)
 3. **Create ingredient** in `ingredients/<provider>/` for command generation (optional)
 
-See `recepies/README.md` for full guide.
+See `recipes/README.md` for full guide.
 
 ## Service Configuration (`pilum.yaml`)
 
@@ -157,4 +157,4 @@ build:
 - Commands: `cmd/<action>.go` (verb-based)
 - Libraries: `lib/<domain>/` (noun-based)
 - Plugins: `ingredients/<provider>/`
-- Recipes: `recepies/<type>-recepie.yaml` (note: "recepie" spelling is intentional)
+- Recipes: `recipes/<type>-recipe.yaml`

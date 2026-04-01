@@ -101,7 +101,7 @@ The codebase follows standard Go project conventions:
 - `cmd/` - CLI commands (Cobra)
 - `lib/` - Core libraries (errors, output, orchestrator, etc.)
 - `ingredients/` - Cloud provider implementations
-- `recepies/` - Deployment workflow definitions
+- `recipes/` - Deployment workflow definitions
 
 See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
 
@@ -111,7 +111,7 @@ This is the most common contribution. See the [Adding a Provider](https://pilum.
 
 **Quick overview:**
 
-1. **Create the recipe YAML** in `recepies/<provider>-recepie.yaml`
+1. **Create the recipe YAML** in `recipes/<provider>-recipe.yaml`
 2. **Register handlers** in `lib/registry/commands.go` (if needed)
 3. **Create ingredient package** in `ingredients/<provider>/` (if needed)
 
@@ -163,7 +163,7 @@ go test ./...
 go test -cover ./...
 
 # Run specific package
-go test ./lib/recepie/...
+go test ./lib/recipe/...
 
 # Run with race detection
 go test -race ./...
@@ -174,8 +174,8 @@ go test -race ./...
 Place tests in `*_test.go` files alongside the code:
 
 ```go
-// lib/recepie/loader_test.go
-package recepie
+// lib/recipe/loader_test.go
+package recipe
 
 import (
     "testing"
@@ -207,4 +207,4 @@ End-to-end tests are in `test/e2e/`. Run with:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the BSL 1.1 license (converting to Apache 2.0 on December 3, 2028).
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.

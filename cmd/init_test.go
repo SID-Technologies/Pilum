@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/templates"
 
 	"github.com/stretchr/testify/require"
@@ -84,11 +84,11 @@ func TestGenerateServiceYAMLNoService(t *testing.T) {
 func TestFindRecipeByKey(t *testing.T) {
 	t.Parallel()
 
-	recipes := []recepie.RecipeInfo{
-		{Provider: "gcp", Service: "cloud-run", Recipe: recepie.Recipe{Name: "gcp-cloud-run"}},
-		{Provider: "gcp", Service: "gke", Recipe: recepie.Recipe{Name: "gcp-gke"}},
-		{Provider: "aws", Service: "lambda", Recipe: recepie.Recipe{Name: "aws-lambda"}},
-		{Provider: "homebrew", Service: "", Recipe: recepie.Recipe{Name: "homebrew"}},
+	recipes := []recipe.Info{
+		{Provider: "gcp", Service: "cloud-run", Recipe: recipe.Recipe{Name: "gcp-cloud-run"}},
+		{Provider: "gcp", Service: "gke", Recipe: recipe.Recipe{Name: "gcp-gke"}},
+		{Provider: "aws", Service: "lambda", Recipe: recipe.Recipe{Name: "aws-lambda"}},
+		{Provider: "homebrew", Service: "", Recipe: recipe.Recipe{Name: "homebrew"}},
 	}
 
 	// Exact match
@@ -153,7 +153,7 @@ func TestPromptTrimsWhitespace(t *testing.T) {
 func TestPromptForFields(t *testing.T) {
 	t.Parallel()
 
-	fields := []recepie.Field{
+	fields := []recipe.Field{
 		{Name: "project", Description: "Project ID", Default: "default-project"},
 		{Name: "region", Description: "Region", Default: "us-central1"},
 	}
@@ -171,7 +171,7 @@ func TestPromptForFields(t *testing.T) {
 func TestPromptForFieldsSkipsExisting(t *testing.T) {
 	t.Parallel()
 
-	fields := []recepie.Field{
+	fields := []recipe.Field{
 		{Name: "name", Description: "Service name"},
 		{Name: "project", Description: "Project ID"},
 	}

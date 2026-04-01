@@ -9,7 +9,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
 	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/sysinfo"
 	"github.com/sid-technologies/pilum/lib/templates"
@@ -142,7 +142,7 @@ func (p *Pipeline) maxBuildMemoryMB() int {
 }
 
 // executeTask runs a single task.
-func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recepie.RecipeStep) types.TaskResult {
+func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step) types.TaskResult {
 	result := types.TaskResult{
 		ServiceName: svc.DisplayName(),
 		StepName:    step.Name,

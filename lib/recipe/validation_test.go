@@ -1,4 +1,4 @@
-package recepie
+package recipe
 
 import (
 	"testing"
@@ -392,10 +392,10 @@ func TestGetServiceFieldConfigNonString(t *testing.T) {
 	require.Equal(t, "", result) // Non-string values return empty
 }
 
-func TestRecipeStepDefaults(t *testing.T) {
+func TestStepDefaults(t *testing.T) {
 	t.Parallel()
 
-	step := RecipeStep{
+	step := Step{
 		Name:          "build",
 		ExecutionMode: "root",
 	}
@@ -411,10 +411,10 @@ func TestRecipeStepDefaults(t *testing.T) {
 	require.Nil(t, step.Tags)
 }
 
-func TestRecipeStepWithValues(t *testing.T) {
+func TestStepWithValues(t *testing.T) {
 	t.Parallel()
 
-	step := RecipeStep{
+	step := Step{
 		Name:          "deploy",
 		Command:       []string{"gcloud", "run", "deploy"},
 		ExecutionMode: "service_dir",
@@ -464,7 +464,7 @@ func TestRecipeStruct(t *testing.T) {
 		RequiredFields: []RequiredField{
 			{Name: "name", Description: "service name"},
 		},
-		Steps: []RecipeStep{
+		Steps: []Step{
 			{Name: "build", ExecutionMode: "root"},
 			{Name: "deploy", ExecutionMode: "root"},
 		},

@@ -16,7 +16,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/orchestrator"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/path"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/types"
 	"github.com/sid-technologies/pilum/lib/webhook"
@@ -162,14 +162,14 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return nil
 	}
 
-	var recipes []recepie.RecipeInfo
+	var recipes []recipe.Info
 	if opts.RecipePath != "" {
-		recipes, err = recepie.LoadRecipesFromDirectory(opts.RecipePath)
+		recipes, err = recipe.LoadRecipesFromDirectory(opts.RecipePath)
 		if err != nil {
 			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes from %s", opts.RecipePath))
 		}
 	} else {
-		recipes, err = recepie.LoadEmbeddedRecipes()
+		recipes, err = recipe.LoadEmbeddedRecipes()
 		if err != nil {
 			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
 		}

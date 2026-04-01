@@ -125,7 +125,7 @@ Use `pilum recipes` to list all recipes, or `pilum recipes <name>` to see requir
 
 ### Custom Recipes
 
-Create your own recipes in `recepies/`:
+Create your own recipes in `recipes/`:
 
 ```yaml
 name: my-recipe
@@ -160,7 +160,7 @@ steps:
     timeout: 60
 ```
 
-See [recepies/README.md](recepies/README.md) for full documentation.
+See [recipes/README.md](recipes/README.md) for full documentation.
 
 ## Deployment Locks
 
@@ -411,9 +411,9 @@ my-project/
 │   ├── history.jsonl          # Deployment history
 │   └── deploy.lock            # Deployment lock (temporary)
 ├── _templates/                # Dockerfile templates
-├── recepies/                  # Recipe definitions (YAML)
-│   ├── gcp-cloud-run-recepie.yaml
-│   └── aws-lambda-recepie.yaml
+├── recipes/                  # Recipe definitions (YAML)
+│   ├── gcp-cloud-run-recipe.yaml
+│   └── aws-lambda-recipe.yaml
 ├── schemas/                   # JSON Schema for editor support
 │   └── pilum.yaml.schema.json
 ├── services/
@@ -457,7 +457,7 @@ Step 3: deploy (wave-ordered)
 | Component | Purpose |
 |-----------|---------|
 | `cmd/` | CLI commands (Cobra) |
-| `lib/recepie/` | Recipe loading and validation |
+| `lib/recipe/` | Recipe loading and validation |
 | `lib/registry/` | Step handler registration |
 | `lib/orchestrator/` | Parallel execution engine |
 | `lib/service_info/` | Service discovery and filtering |
@@ -466,7 +466,7 @@ Step 3: deploy (wave-ordered)
 | `lib/history/` | Deployment history recording |
 | `lib/git/` | Git-aware change detection |
 | `ingredients/` | Cloud-specific command generators |
-| `recepies/` | Deployment workflow definitions |
+| `recipes/` | Deployment workflow definitions |
 | `schemas/` | JSON Schema for editor support |
 
 ## Documentation
@@ -493,4 +493,4 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ## License
 
-[BSL 1.1](LICENSE) - Converts to Apache 2.0 on December 3, 2028.
+[Apache License 2.0](LICENSE)
