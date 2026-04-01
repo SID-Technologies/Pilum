@@ -102,5 +102,4 @@ jobs:
       - name: Trigger website rebuild
         run: |
           # Cloudflare Pages deploy hook — triggers a fresh build that picks up the new version
-          curl -X POST "${{ secrets.PILUM_WEBSITE_DEPLOY_HOOK }}"
-        if: ${{ secrets.PILUM_WEBSITE_DEPLOY_HOOK != '' }}
+          curl -sf -X POST "${{ secrets.PILUM_WEBSITE_DEPLOY_HOOK }}" || true
