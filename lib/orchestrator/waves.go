@@ -12,7 +12,7 @@ import (
 
 // stepRequiresWaves returns true if this step should use wave-based execution.
 // Waves are only used when: NoDeps is false, services have dependencies, AND
-// at least one task's step has a "deploy" or "execute" tag.
+// at least one task's step has a "build", "deploy", or "execute" tag.
 func (p *Pipeline) stepRequiresWaves(tasks []stepTask) bool {
 	if p.options.NoDeps {
 		return false
@@ -30,8 +30,8 @@ func (p *Pipeline) stepRequiresWaves(tasks []stepTask) bool {
 		return false
 	}
 
-	// Check if any task's step has a deploy or execute tag
-	waveTags := []string{"deploy", "execute"}
+	// Check if any task's step has a build, deploy, or execute tag
+	waveTags := []string{"build", "deploy", "execute"}
 	for _, t := range tasks {
 		if p.stepHasAnyTag(t.step, waveTags) {
 			return true

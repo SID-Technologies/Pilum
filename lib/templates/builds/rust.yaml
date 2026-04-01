@@ -2,6 +2,8 @@
 language: rust
 version: "1.75"
 cmd: "cargo build --release"
+resources:
+  memory: 2048 # 2 GB — rustc + LLVM codegen
 env_vars:
   CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 flags:

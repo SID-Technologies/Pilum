@@ -133,6 +133,8 @@ linters:
         linters: [revive]
       - text: 'flag-parameter'
         linters: [revive]
+      - text: 'G115: integer overflow conversion'
+        linters: [gosec]
       - text: 'G306: Expect WriteFile permissions to be 0600 or less'
         linters: [gosec]
       - text: 'defer: prefer not to defer chains of function calls'

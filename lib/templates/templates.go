@@ -13,13 +13,35 @@ import (
 //go:embed builds/*.yaml
 var buildsFS embed.FS
 
+// BuildResources represents declared resource requirements for builds.
+type BuildResources struct {
+	Memory int `yaml:"memory"` // Estimated build memory in MB
+}
+
 // BuildConfig represents a language-specific build configuration.
 type BuildConfig struct {
-	Language string            `yaml:"language"`
-	Version  string            `yaml:"version"`
-	Cmd      string            `yaml:"cmd"`
-	EnvVars  map[string]string `yaml:"env_vars"`
-	Flags    map[string]any    `yaml:"flags"`
+	Language  string            `yaml:"language"`
+	Version   string            `yaml:"version"`
+	Cmd       string            `yaml:"cmd"`
+	Resources BuildResources    `yaml:"resources"`
+	EnvVars   map[string]string `yaml:"env_vars"`
+	Flags     map[string]any    `yaml:"flags"`
+}
+
+// DefaultBuildMemoryMB is the fallback when language is unknown or has no template.
+const DefaultBuildMemoryMB = 1024
+
+// MemoryForLanguage returns the estimated build memory in MB for a given language.
+// Loads the value from the embedded build template YAML. Falls back to DefaultBuildMemoryMB.
+func MemoryForLanguage(language string) int {
+	if language == "" {
+		return DefaultBuildMemoryMB
+	}
+	config, err := GetBuildConfig(language)
+	if err != nil || config.Resources.Memory == 0 {
+		return DefaultBuildMemoryMB
+	}
+	return config.Resources.Memory
 }
 
 // GetAvailableLanguages returns a list of supported build languages.

@@ -2,5 +2,7 @@
 language: node
 version: "20"
 cmd: "npm run build"
+resources:
+  memory: 1536 # 1.5 GB — Node.js + bundler (webpack/vite)
 env_vars:
   NODE_ENV: "production"

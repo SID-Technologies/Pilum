@@ -6,6 +6,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/templates"
 	"github.com/sid-technologies/pilum/lib/types"
 
 	"github.com/stretchr/testify/require"
@@ -26,21 +27,77 @@ func TestPipelineGetWorkerCount(t *testing.T) {
 		require.Equal(t, 8, pipeline.getWorkerCount())
 	})
 
-	t.Run("auto uses one worker per CPU", func(t *testing.T) {
-		t.Parallel()
-		services := make([]serviceinfo.ServiceInfo, 100)
-		for i := range services {
-			services[i] = serviceinfo.ServiceInfo{Name: "svc"}
-		}
-		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
-		require.Equal(t, cpus, pipeline.getWorkerCount())
-	})
-
 	t.Run("auto caps at service count when fewer than CPUs", func(t *testing.T) {
 		t.Parallel()
 		services := []serviceinfo.ServiceInfo{{Name: "svc"}}
 		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
 		require.Equal(t, 1, pipeline.getWorkerCount())
+	})
+
+	t.Run("auto worker count is at least 1", func(t *testing.T) {
+		t.Parallel()
+		services := []serviceinfo.ServiceInfo{{
+			Name: "svc",
+			BuildConfig: serviceinfo.BuildConfig{
+				Language:  "java",
+				Resources: serviceinfo.BuildResources{Memory: 999999}, // absurdly high
+			},
+		}}
+		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
+		require.GreaterOrEqual(t, pipeline.getWorkerCount(), 1)
+	})
+
+	t.Run("auto uses min of CPU and memory", func(t *testing.T) {
+		t.Parallel()
+		// With many services and no explicit resources, worker count
+		// should never exceed CPU count
+		services := make([]serviceinfo.ServiceInfo, 100)
+		for i := range services {
+			services[i] = serviceinfo.ServiceInfo{
+				Name:        "svc",
+				BuildConfig: serviceinfo.BuildConfig{Language: "go"},
+			}
+		}
+		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
+		w := pipeline.getWorkerCount()
+		require.LessOrEqual(t, w, cpus)
+		require.GreaterOrEqual(t, w, 1)
+	})
+}
+
+func TestPipelineMaxBuildMemoryMB(t *testing.T) {
+	t.Parallel()
+
+	t.Run("uses language defaults", func(t *testing.T) {
+		t.Parallel()
+		services := []serviceinfo.ServiceInfo{
+			{Name: "go-svc", BuildConfig: serviceinfo.BuildConfig{Language: "go"}},
+			{Name: "rust-svc", BuildConfig: serviceinfo.BuildConfig{Language: "rust"}},
+		}
+		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
+		// Rust (2048) > Go (1024), so max should be 2048
+		require.Equal(t, 2048, pipeline.maxBuildMemoryMB())
+	})
+
+	t.Run("explicit resources override language defaults", func(t *testing.T) {
+		t.Parallel()
+		services := []serviceinfo.ServiceInfo{
+			{Name: "svc", BuildConfig: serviceinfo.BuildConfig{
+				Language:  "go",
+				Resources: serviceinfo.BuildResources{Memory: 4096},
+			}},
+		}
+		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
+		require.Equal(t, 4096, pipeline.maxBuildMemoryMB())
+	})
+
+	t.Run("unknown language uses default", func(t *testing.T) {
+		t.Parallel()
+		services := []serviceinfo.ServiceInfo{
+			{Name: "svc", BuildConfig: serviceinfo.BuildConfig{Language: ""}},
+		}
+		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
+		require.Equal(t, templates.DefaultBuildMemoryMB, pipeline.maxBuildMemoryMB())
 	})
 }
 
