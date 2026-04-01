@@ -174,6 +174,22 @@
           "description": "Build flags (e.g., ldflags, gcflags)",
           "additionalProperties": true
         },
+        "resources": {
+          "type": "object",
+          "description": "Declared resource requirements for builds (used to calculate parallel worker limits)",
+          "properties": {
+            "memory": {
+              "type": "integer",
+              "description": "Estimated build memory usage in MB (e.g., 1024 for 1GB). Defaults per language: go=1024, rust=2048, java=3072, node=1536, python=512, dotnet=2048"
+            },
+            "cpu": {
+              "type": "integer",
+              "description": "Estimated CPU cores needed per build (default: 1)",
+              "default": 1
+            }
+          },
+          "additionalProperties": false
+        },
         "platforms": {
           "type": "array",
           "description": "Target platforms for cross-compilation",

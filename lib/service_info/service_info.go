@@ -20,13 +20,19 @@ type BuildFlag struct {
 	Values []string `yaml:"values"` // e.g., ["-s", "-w"]
 }
 
+type BuildResources struct {
+	Memory int `yaml:"memory"` // Estimated build memory in MB (0 = use language default)
+	CPU    int `yaml:"cpu"`    // Estimated CPU cores needed (0 = 1)
+}
+
 type BuildConfig struct {
-	Language   string      `yaml:"language"`
-	Version    string      `yaml:"version"`
-	Cmd        string      `yaml:"cmd"`
-	EnvVars    []EnvVars   `yaml:"env_vars"`
-	Flags      []BuildFlag `yaml:"flags"`
-	VersionVar string      `yaml:"version_var"` // Go variable path for version injection (e.g., "main.version")
+	Language   string         `yaml:"language"`
+	Version    string         `yaml:"version"`
+	Cmd        string         `yaml:"cmd"`
+	EnvVars    []EnvVars      `yaml:"env_vars"`
+	Flags      []BuildFlag    `yaml:"flags"`
+	VersionVar string         `yaml:"version_var"` // Go variable path for version injection (e.g., "main.version")
+	Resources  BuildResources `yaml:"resources"`
 }
 
 type RuntimeConfig struct {
@@ -192,11 +198,20 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		return BuildConfig{}
 	}
 
+	// Parse resources
+	resources := BuildResources{}
+	resMap := configutil.MapFromAny(buildMap["resources"])
+	if len(resMap) > 0 {
+		resources.Memory = configutil.GetInt(resMap, "memory", 0)
+		resources.CPU = configutil.GetInt(resMap, "cpu", 0)
+	}
+
 	bc := BuildConfig{
 		Language:   configutil.GetString(buildMap, "language", ""),
 		Version:    configutil.GetString(buildMap, "version", ""),
 		Cmd:        configutil.GetString(buildMap, "cmd", ""),
 		VersionVar: configutil.GetString(buildMap, "version_var", ""),
+		Resources:  resources,
 	}
 
 	// Parse build env vars

@@ -63,8 +63,8 @@ func TestStepRequiresWaves_BuildTag(t *testing.T) {
 		},
 	}
 
-	// Build steps should NOT use waves even with deps
-	require.False(t, pipeline.stepRequiresWaves(tasks))
+	// Build steps should use waves when services have deps (e.g. npm workspace packages)
+	require.True(t, pipeline.stepRequiresWaves(tasks))
 }
 
 func TestStepRequiresWaves_NoDepsFlag(t *testing.T) {
@@ -321,7 +321,7 @@ func TestWaveExecution_PartialWaveFailure(t *testing.T) {
 	require.False(t, apiResult.Success) // api skipped due to db failure
 }
 
-func TestWaveExecution_BuildStepIgnoresDeps(t *testing.T) {
+func TestWaveExecution_BuildStepRespectsDeps(t *testing.T) {
 	t.Parallel()
 
 	services := []serviceinfo.ServiceInfo{
@@ -353,10 +353,53 @@ func TestWaveExecution_BuildStepIgnoresDeps(t *testing.T) {
 	err := pipeline.Run()
 
 	require.NoError(t, err)
-	// Both should complete (build steps run in flat parallel, no waves)
+	// Both should complete (build steps respect waves when deps exist)
 	require.Len(t, pipeline.results, 2)
 	for _, r := range pipeline.results {
 		require.True(t, r.Success)
+	}
+}
+
+func TestWaveExecution_BuildStepOrdering(t *testing.T) {
+	t.Parallel()
+
+	// Verify that a build dependency finishes before the dependent starts.
+	// api-client (wave 1) must complete before hooks (wave 2) begins.
+	tmpDir := t.TempDir()
+	marker := tmpDir + "/api-client-done"
+
+	services := []serviceinfo.ServiceInfo{
+		{Name: "api-client", Provider: "test"},
+		{Name: "hooks", Provider: "test", DependsOn: []string{"api-client"}},
+	}
+
+	recipes := []recepie.RecipeInfo{
+		{
+			Provider: "test",
+			Recipe: recepie.Recipe{
+				Name:     "test-recipe",
+				Provider: "test",
+				Steps: []recepie.RecipeStep{
+					{
+						Name:          "build",
+						Command:       []string{"sh", "-c", "if [ \"${name}\" = \"api-client\" ]; then sleep 0.2 && touch " + marker + "; else test -f " + marker + "; fi"},
+						ExecutionMode: "root",
+						Tags:          []string{"build"},
+						Timeout:       10,
+					},
+				},
+			},
+		},
+	}
+
+	opts := types.PipelineOptions{Tag: "v1.0.0", Timeout: 15, MaxWorkers: 2}
+	pipeline := NewPipeline(services, recipes, opts)
+	err := pipeline.Run()
+
+	require.NoError(t, err)
+	require.Len(t, pipeline.results, 2)
+	for _, r := range pipeline.results {
+		require.True(t, r.Success, "service %s should succeed — hooks must run after api-client", r.ServiceName)
 	}
 }
 

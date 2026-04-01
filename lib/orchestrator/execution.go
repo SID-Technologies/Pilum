@@ -11,6 +11,8 @@ import (
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recepie"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/sysinfo"
+	"github.com/sid-technologies/pilum/lib/templates"
 	"github.com/sid-technologies/pilum/lib/types"
 )
 
@@ -75,7 +77,10 @@ func (p *Pipeline) executeTasksParallel(tasks []stepTask) error {
 }
 
 // getWorkerCount returns the number of workers to use.
-// When auto (MaxWorkers=0), uses one worker per CPU core, capped by the number of services.
+// When auto (MaxWorkers=0), takes the minimum of:
+//   - CPU cores (1 worker per core)
+//   - Memory budget (total system memory / max per-build memory estimate)
+//   - Number of services
 func (p *Pipeline) getWorkerCount() int {
 	if p.options.MaxWorkers > 0 {
 		output.Info("Using %d workers (explicit)", p.options.MaxWorkers)
@@ -84,12 +89,56 @@ func (p *Pipeline) getWorkerCount() int {
 
 	cpus := runtime.NumCPU()
 	w := cpus
+
+	// Memory-based limit: find the most expensive build language across services
+	// and calculate how many can run concurrently within system memory.
+	memMB := sysinfo.TotalMemoryMB()
+	if memMB > 0 {
+		maxPerBuild := p.maxBuildMemoryMB()
+		if maxPerBuild > 0 {
+			// Reserve ~25% for OS and other processes (similar to Bazel's 0.67 factor)
+			available := memMB * 75 / 100
+			memWorkers := available / maxPerBuild
+			if memWorkers < 1 {
+				memWorkers = 1
+			}
+			if memWorkers < w {
+				output.Info("Memory constraint: %dMB available, ~%dMB per build → %d workers",
+					available, maxPerBuild, memWorkers)
+				w = memWorkers
+			}
+		}
+	}
+
+	// Cap by number of services
 	if w > len(p.services) {
 		w = len(p.services)
 	}
 
-	output.Info("Using %d workers (auto: %d CPUs detected, %d services)", w, cpus, len(p.services))
+	if w < 1 {
+		w = 1
+	}
+
+	output.Info("Using %d workers (auto: %d CPUs, %dMB RAM, %d services)",
+		w, cpus, memMB, len(p.services))
 	return w
+}
+
+// maxBuildMemoryMB returns the highest estimated build memory across all services.
+// Uses explicit resources.memory from pilum.yaml if set, otherwise language defaults
+// from the embedded build templates.
+func (p *Pipeline) maxBuildMemoryMB() int {
+	maxMem := 0
+	for _, svc := range p.services {
+		mem := svc.BuildConfig.Resources.Memory
+		if mem == 0 {
+			mem = templates.MemoryForLanguage(svc.BuildConfig.Language)
+		}
+		if mem > maxMem {
+			maxMem = mem
+		}
+	}
+	return maxMem
 }
 
 // executeTask runs a single task.
