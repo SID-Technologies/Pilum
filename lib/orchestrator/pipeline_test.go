@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/types"
 
@@ -18,13 +18,13 @@ func TestNewPipeline(t *testing.T) {
 		{Name: "service-b", Provider: "gcp"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-cloud-run",
 				Provider: "gcp",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root"},
 				},
 			},
@@ -121,13 +121,13 @@ func TestPipelineDryRun(t *testing.T) {
 		{Name: "svc2", Provider: "gcp", Region: "us-east1"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-cloud-run",
 				Provider: "gcp",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "deploy", ExecutionMode: "root", Tags: []string{"deploy"}},
 				},
@@ -153,13 +153,13 @@ func TestPipelineDryRunWithExplicitCommands(t *testing.T) {
 		{Name: "svc1", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "custom",
 						Command:       "echo ${name}",
@@ -189,13 +189,13 @@ func TestPipelineWithOnlyTags(t *testing.T) {
 		{Name: "svc1", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "deploy", ExecutionMode: "root", Tags: []string{"deploy"}},
 				},
@@ -222,13 +222,13 @@ func TestPipelineWithExcludeTags(t *testing.T) {
 		{Name: "svc1", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "deploy", ExecutionMode: "root", Tags: []string{"deploy"}},
 				},
@@ -255,13 +255,13 @@ func TestPipelineWithMaxSteps(t *testing.T) {
 		{Name: "svc1", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "step1", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "step2", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "step3", ExecutionMode: "root", Tags: []string{"build"}},
@@ -290,23 +290,23 @@ func TestPipelineMultipleProviders(t *testing.T) {
 		{Name: "aws-svc", Provider: "aws"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-recipe",
 				Provider: "gcp",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 				},
 			},
 		},
 		{
 			Provider: "aws",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "aws-recipe",
 				Provider: "aws",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 					{Name: "deploy", ExecutionMode: "root", Tags: []string{"deploy"}},
 				},
@@ -333,13 +333,13 @@ func TestPipelineServiceWithoutRecipe(t *testing.T) {
 		{Name: "svc-without-recipe", Provider: "unknown"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-recipe",
 				Provider: "gcp",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{Name: "build", ExecutionMode: "root", Tags: []string{"build"}},
 				},
 			},
@@ -366,13 +366,13 @@ func TestPipelineFullRunWithExecution(t *testing.T) {
 		{Name: "svc1", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "step1",
 						Command:       []string{"echo", "step1"},
@@ -414,13 +414,13 @@ func TestPipelineFullRunMultipleServicesParallel(t *testing.T) {
 		{Name: "svc3", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "build",
 						Command:       []string{"echo", "building ${name}"},
@@ -455,13 +455,13 @@ func TestPipelineMultiConfig_SameNameDifferentProviders(t *testing.T) {
 		{Name: "api", Provider: "aws-test", Region: "us-east-1"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "gcp-test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-test-recipe",
 				Provider: "gcp-test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name} to gcp"},
@@ -474,10 +474,10 @@ func TestPipelineMultiConfig_SameNameDifferentProviders(t *testing.T) {
 		},
 		{
 			Provider: "aws-test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "aws-test-recipe",
 				Provider: "aws-test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name} to aws"},
@@ -510,13 +510,13 @@ func TestPipelineMultiConfig_TwoServicesUnderSameParent(t *testing.T) {
 		{Name: "api-lambda", Provider: "test", Path: "services/api-lambda"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "build",
 						Command:       []string{"echo", "building ${name}"},

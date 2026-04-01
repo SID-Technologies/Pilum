@@ -1,4 +1,4 @@
-package recepie
+package recipe
 
 import (
 	"path/filepath"
@@ -6,18 +6,18 @@ import (
 	"testing"
 )
 
-// getRecipesPath returns the path to the recepies directory relative to this test file.
+// getRecipesPath returns the path to the recipes directory relative to this test file.
 func getRecipesPath(t *testing.T) string {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("could not get current file path")
 	}
-	// Go from lib/recepie/ up to repo root, then into recepies/
-	return filepath.Join(filepath.Dir(filename), "..", "..", "recepies")
+	// Go from lib/recipe/ up to repo root, then into recipes/
+	return filepath.Join(filepath.Dir(filename), "..", "..", "recipes")
 }
 
-func TestAllRecipeStepsHaveTags(t *testing.T) {
+func TestAllStepsHaveTags(t *testing.T) {
 	recipesPath := getRecipesPath(t)
 
 	recipeInfos, err := LoadRecipesFromDirectory(recipesPath)
@@ -38,7 +38,7 @@ func TestAllRecipeStepsHaveTags(t *testing.T) {
 	}
 }
 
-func TestRecipeStepsHaveValidTags(t *testing.T) {
+func TestStepsHaveValidTags(t *testing.T) {
 	recipesPath := getRecipesPath(t)
 
 	recipeInfos, err := LoadRecipesFromDirectory(recipesPath)

@@ -1,11 +1,11 @@
-package recepie_test
+package recipe_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	recipelib "github.com/sid-technologies/pilum/lib/recipe"
 
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +40,7 @@ steps:
 	require.NoError(t, err)
 
 	// Load recipes
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 2)
@@ -66,7 +66,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "recipe.yml"), []byte(recipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -78,7 +78,7 @@ func TestLoadRecipesFromDirectoryEmpty(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Empty(t, recipes)
@@ -87,7 +87,7 @@ func TestLoadRecipesFromDirectoryEmpty(t *testing.T) {
 func TestLoadRecipesFromDirectoryNonExistent(t *testing.T) {
 	t.Parallel()
 
-	_, err := recepie.LoadRecipesFromDirectory("/nonexistent/path/xyz")
+	_, err := recipelib.LoadRecipesFromDirectory("/nonexistent/path/xyz")
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to read directory")
@@ -108,7 +108,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "invalid.yaml"), []byte(invalidYaml), 0644)
 	require.NoError(t, err)
 
-	_, err = recepie.LoadRecipesFromDirectory(tmpDir)
+	_, err = recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to parse YAML")
@@ -140,7 +140,7 @@ steps:
 	err = os.WriteFile(filepath.Join(tmpDir, "script.sh"), []byte("#!/bin/bash"), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -179,7 +179,7 @@ steps:
 	err = os.WriteFile(filepath.Join(subDir, "sub-recipe.yaml"), []byte(subRecipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -208,7 +208,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "recipe.yaml"), []byte(recipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -242,7 +242,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "recipe.yaml"), []byte(recipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -279,7 +279,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "recipe.yaml"), []byte(recipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -335,7 +335,7 @@ steps:
 		require.NoError(t, err)
 	}
 
-	loaded, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	loaded, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, loaded, 3)
@@ -346,7 +346,7 @@ steps:
 	require.Equal(t, "c", loaded[2].Provider)
 }
 
-func TestRecipeInfoFields(t *testing.T) {
+func TestInfoFields(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -364,7 +364,7 @@ steps:
 	err := os.WriteFile(filepath.Join(tmpDir, "recipe.yaml"), []byte(recipe), 0644)
 	require.NoError(t, err)
 
-	recipes, err := recepie.LoadRecipesFromDirectory(tmpDir)
+	recipes, err := recipelib.LoadRecipesFromDirectory(tmpDir)
 
 	require.NoError(t, err)
 	require.Len(t, recipes, 1)
@@ -379,7 +379,7 @@ steps:
 func TestLoadEmbeddedRecipes(t *testing.T) {
 	t.Parallel()
 
-	recipes, err := recepie.LoadEmbeddedRecipes()
+	recipes, err := recipelib.LoadEmbeddedRecipes()
 
 	require.NoError(t, err)
 	require.NotEmpty(t, recipes, "expected at least one embedded recipe")
@@ -388,7 +388,7 @@ func TestLoadEmbeddedRecipes(t *testing.T) {
 func TestEmbeddedRecipesHaveRequiredFields(t *testing.T) {
 	t.Parallel()
 
-	recipes, err := recepie.LoadEmbeddedRecipes()
+	recipes, err := recipelib.LoadEmbeddedRecipes()
 	require.NoError(t, err)
 	require.NotEmpty(t, recipes, "expected at least one embedded recipe")
 
@@ -403,10 +403,10 @@ func TestEmbeddedRecipesHaveRequiredFields(t *testing.T) {
 			require.NotEmpty(t, info.Service, "recipe %s must have a service", info.Recipe.Name)
 
 			// Provider should match recipe's provider field
-			require.Equal(t, info.Recipe.Provider, info.Provider, "RecipeInfo.Provider should match Recipe.Provider")
+			require.Equal(t, info.Recipe.Provider, info.Provider, "Info.Provider should match Recipe.Provider")
 
 			// Service should match recipe's service field
-			require.Equal(t, info.Recipe.Service, info.Service, "RecipeInfo.Service should match Recipe.Service")
+			require.Equal(t, info.Recipe.Service, info.Service, "Info.Service should match Recipe.Service")
 		})
 	}
 }

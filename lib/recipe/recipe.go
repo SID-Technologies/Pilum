@@ -1,4 +1,4 @@
-package recepie
+package recipe
 
 import (
 	"reflect"
@@ -22,17 +22,17 @@ type RequiredField = Field
 
 // Recipe defines a deployment workflow.
 type Recipe struct {
-	Name           string       `yaml:"name"`
-	Description    string       `yaml:"description"`
-	Provider       string       `yaml:"provider"`
-	Service        string       `yaml:"service"`
-	RequiredFields []Field      `yaml:"required_fields"`
-	OptionalFields []Field      `yaml:"optional_fields"`
-	Steps          []RecipeStep `yaml:"steps"`
+	Name           string  `yaml:"name"`
+	Description    string  `yaml:"description"`
+	Provider       string  `yaml:"provider"`
+	Service        string  `yaml:"service"`
+	RequiredFields []Field `yaml:"required_fields"`
+	OptionalFields []Field `yaml:"optional_fields"`
+	Steps          []Step  `yaml:"steps"`
 }
 
-// RecipeStep defines a single step in a recipe.
-type RecipeStep struct {
+// Step defines a single step in a recipe.
+type Step struct {
 	Name          string            `yaml:"name"`
 	Command       any               `yaml:"command,omitempty"` // string or []string
 	ExecutionMode string            `yaml:"execution_mode"`

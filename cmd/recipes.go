@@ -6,7 +6,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/suggest"
 
 	"github.com/spf13/cobra"
@@ -20,7 +20,7 @@ func RecipesCmd() *cobra.Command {
 		Long:    "List all available deployment recipes, or pass a recipe name to see its required fields, optional fields, and deployment steps.",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: withJSON(func(_ *cobra.Command, args []string) (any, error) {
-			recipes, err := recepie.LoadEmbeddedRecipes()
+			recipes, err := recipe.LoadEmbeddedRecipes()
 			if err != nil {
 				return nil, exitcodes.WithCode(exitcodes.Config,
 					errors.Wrap(err, "failed to load recipes"))
@@ -44,7 +44,7 @@ func RecipesCmd() *cobra.Command {
 	return cmd
 }
 
-func listRecipes(recipes []recepie.RecipeInfo) (any, error) {
+func listRecipes(recipes []recipe.Info) (any, error) {
 	items := make([]output.RecipeListItem, len(recipes))
 	for i, r := range recipes {
 		items[i] = output.RecipeListItem{
@@ -75,9 +75,9 @@ func listRecipes(recipes []recepie.RecipeInfo) (any, error) {
 	return result, nil
 }
 
-func describeRecipe(recipes []recepie.RecipeInfo, name string) (any, error) {
+func describeRecipe(recipes []recipe.Info, name string) (any, error) {
 	// Find the recipe by name or key
-	var found *recepie.RecipeInfo
+	var found *recipe.Info
 	var allNames []string
 	for i, r := range recipes {
 		allNames = append(allNames, r.Recipe.Name)

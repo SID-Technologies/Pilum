@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/types"
 
@@ -19,11 +19,11 @@ func TestStepRequiresWaves_DeployTag(t *testing.T) {
 	tasks := []stepTask{
 		{
 			service: serviceinfo.ServiceInfo{Name: "db", DependsOn: nil},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 		{
 			service: serviceinfo.ServiceInfo{Name: "api", DependsOn: []string{"db"}},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 	}
 
@@ -37,11 +37,11 @@ func TestStepRequiresWaves_ExecuteTag(t *testing.T) {
 	tasks := []stepTask{
 		{
 			service: serviceinfo.ServiceInfo{Name: "db", DependsOn: nil},
-			step:    &recepie.RecipeStep{Name: "execute job", Tags: []string{"execute"}},
+			step:    &recipe.Step{Name: "execute job", Tags: []string{"execute"}},
 		},
 		{
 			service: serviceinfo.ServiceInfo{Name: "api", DependsOn: []string{"db"}},
-			step:    &recepie.RecipeStep{Name: "execute job", Tags: []string{"execute"}},
+			step:    &recipe.Step{Name: "execute job", Tags: []string{"execute"}},
 		},
 	}
 
@@ -55,11 +55,11 @@ func TestStepRequiresWaves_BuildTag(t *testing.T) {
 	tasks := []stepTask{
 		{
 			service: serviceinfo.ServiceInfo{Name: "db", DependsOn: nil},
-			step:    &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:    &recipe.Step{Name: "build", Tags: []string{"build"}},
 		},
 		{
 			service: serviceinfo.ServiceInfo{Name: "api", DependsOn: []string{"db"}},
-			step:    &recepie.RecipeStep{Name: "build", Tags: []string{"build"}},
+			step:    &recipe.Step{Name: "build", Tags: []string{"build"}},
 		},
 	}
 
@@ -74,11 +74,11 @@ func TestStepRequiresWaves_NoDepsFlag(t *testing.T) {
 	tasks := []stepTask{
 		{
 			service: serviceinfo.ServiceInfo{Name: "db", DependsOn: nil},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 		{
 			service: serviceinfo.ServiceInfo{Name: "api", DependsOn: []string{"db"}},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 	}
 
@@ -92,11 +92,11 @@ func TestStepRequiresWaves_NoDependencies(t *testing.T) {
 	tasks := []stepTask{
 		{
 			service: serviceinfo.ServiceInfo{Name: "svc1"},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 		{
 			service: serviceinfo.ServiceInfo{Name: "svc2"},
-			step:    &recepie.RecipeStep{Name: "deploy", Tags: []string{"deploy"}},
+			step:    &recipe.Step{Name: "deploy", Tags: []string{"deploy"}},
 		},
 	}
 
@@ -112,13 +112,13 @@ func TestWaveExecution_LinearChain(t *testing.T) {
 		{Name: "gateway", Provider: "test", DependsOn: []string{"api"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -149,13 +149,13 @@ func TestWaveExecution_Diamond(t *testing.T) {
 		{Name: "gateway", Provider: "test", DependsOn: []string{"auth", "users"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -188,13 +188,13 @@ func TestWaveExecution_NoDependencies(t *testing.T) {
 		{Name: "svc3", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -224,13 +224,13 @@ func TestWaveExecution_FailurePropagation(t *testing.T) {
 		{Name: "api", Provider: "test", DependsOn: []string{"db"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"false"}, // always fails
@@ -271,13 +271,13 @@ func TestWaveExecution_PartialWaveFailure(t *testing.T) {
 		{Name: "api", Provider: "test", DependsOn: []string{"db"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "fail-test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "fail-recipe",
 				Provider: "fail-test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"false"}, // fails
@@ -290,10 +290,10 @@ func TestWaveExecution_PartialWaveFailure(t *testing.T) {
 		},
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -329,13 +329,13 @@ func TestWaveExecution_BuildStepRespectsDeps(t *testing.T) {
 		{Name: "api", Provider: "test", DependsOn: []string{"db"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "build",
 						Command:       []string{"echo", "building ${name}"},
@@ -373,13 +373,13 @@ func TestWaveExecution_BuildStepOrdering(t *testing.T) {
 		{Name: "hooks", Provider: "test", DependsOn: []string{"api-client"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "build",
 						Command:       []string{"sh", "-c", "if [ \"${name}\" = \"api-client\" ]; then sleep 0.2 && touch " + marker + "; else test -f " + marker + "; fi"},
@@ -412,13 +412,13 @@ func TestWaveExecution_DryRunWithWaves(t *testing.T) {
 		{Name: "gateway", Provider: "test", DependsOn: []string{"api"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -446,13 +446,13 @@ func TestWaveExecution_NoDepsFlag(t *testing.T) {
 		{Name: "api", Provider: "test", DependsOn: []string{"db"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -486,13 +486,13 @@ func TestWaveExecution_MixedProviders(t *testing.T) {
 		{Name: "aws-api", Provider: "aws-test", DependsOn: []string{"db"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name}"},
@@ -505,10 +505,10 @@ func TestWaveExecution_MixedProviders(t *testing.T) {
 		},
 		{
 			Provider: "gcp-test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "gcp-test-recipe",
 				Provider: "gcp-test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name} to gcp"},
@@ -521,10 +521,10 @@ func TestWaveExecution_MixedProviders(t *testing.T) {
 		},
 		{
 			Provider: "aws-test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "aws-test-recipe",
 				Provider: "aws-test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"echo", "deploying ${name} to aws"},
@@ -558,13 +558,13 @@ func TestWaveExecution_TransitiveFailure(t *testing.T) {
 		{Name: "c", Provider: "test", DependsOn: []string{"b"}},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "deploy",
 						Command:       []string{"false"}, // always fails

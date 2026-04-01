@@ -1,4 +1,4 @@
-# azure-container-apps-recepie.yaml
+# azure-container-apps-recipe.yaml
 name: azure-container-apps
 description: Deploy to Azure Container Apps
 provider: azure

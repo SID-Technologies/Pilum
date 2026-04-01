@@ -7,7 +7,7 @@ import (
 	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/types"
@@ -16,7 +16,7 @@ import (
 // Pipeline executes deployment pipelines for multiple services.
 type Pipeline struct {
 	services      []serviceinfo.ServiceInfo
-	recipes       map[string]recepie.Recipe
+	recipes       map[string]recipe.Recipe
 	imageNames    map[string]string // service name -> image name
 	options       types.PipelineOptions
 	output        *output.PipelineOutput
@@ -27,7 +27,7 @@ type Pipeline struct {
 }
 
 // NewPipeline creates a new deployment pipeline.
-func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInfo, opts types.PipelineOptions) *Pipeline {
+func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts types.PipelineOptions) *Pipeline {
 	// Initialize command registry with default handlers
 	cmdRegistry := registry.NewCommandRegistry()
 	registry.RegisterDefaultHandlers(cmdRegistry)
@@ -44,7 +44,7 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recepie.RecipeInf
 
 	p := &Pipeline{
 		services:   sortedServices,
-		recipes:    make(map[string]recepie.Recipe),
+		recipes:    make(map[string]recipe.Recipe),
 		imageNames: make(map[string]string),
 		options:    opts,
 		output:     output.NewPipelineOutput(),

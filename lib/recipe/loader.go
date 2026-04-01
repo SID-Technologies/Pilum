@@ -1,4 +1,4 @@
-package recepie
+package recipe
 
 import (
 	"io/fs"
@@ -8,13 +8,13 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
-	"github.com/sid-technologies/pilum/recepies"
+	"github.com/sid-technologies/pilum/recipes"
 
 	"gopkg.in/yaml.v3"
 )
 
-// RecipeInfo contains the essential recipe information.
-type RecipeInfo struct {
+// Info contains the essential recipe information.
+type Info struct {
 	Provider string
 	Service  string
 	Recipe   Recipe
@@ -24,7 +24,7 @@ type RecipeInfo struct {
 // Matches the format used by ServiceInfo.RecipeKey().
 // If Service is non-empty: "provider-service" (e.g., "gcp-cloud-run")
 // If Service is empty: "provider" (e.g., "homebrew")
-func (ri RecipeInfo) RecipeKey() string {
+func (ri Info) RecipeKey() string {
 	if ri.Service != "" {
 		return ri.Provider + "-" + ri.Service
 	}
@@ -32,8 +32,8 @@ func (ri RecipeInfo) RecipeKey() string {
 }
 
 // LoadRecipesFromDirectory loads all recipe YAML files from the specified directory
-// Returns a slice of RecipeInfo structs, ordered by the files' names.
-func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
+// Returns a slice of Info structs, ordered by the files' names.
+func LoadRecipesFromDirectory(dirPath string) ([]Info, error) {
 	// Get all files from the directory
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -52,7 +52,7 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 	sort.Strings(yamlFiles)
 
 	// Load recipes from each file
-	recipeInfos := make([]RecipeInfo, 0, len(yamlFiles))
+	recipeInfos := make([]Info, 0, len(yamlFiles))
 	for _, fileName := range yamlFiles {
 		filePath := filepath.Join(dirPath, fileName)
 
@@ -81,8 +81,8 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 			return nil, errors.Wrap(err, "failed to parse ordered YAML from %s", filePath)
 		}
 
-		// Create RecipeInfo with provider and service info
-		recipeInfo := RecipeInfo{
+		// Create Info with provider and service info
+		recipeInfo := Info{
 			Provider: recipe.Provider,
 			Service:  recipe.Service,
 			Recipe:   recipe,
@@ -101,12 +101,12 @@ func LoadRecipesFromDirectory(dirPath string) ([]RecipeInfo, error) {
 
 // LoadEmbeddedRecipes loads recipes from the embedded filesystem.
 // This is the default when no --recipe-path is specified.
-func LoadEmbeddedRecipes() ([]RecipeInfo, error) {
-	return loadRecipesFromFS(recepies.FS, ".")
+func LoadEmbeddedRecipes() ([]Info, error) {
+	return loadRecipesFromFS(recipes.FS, ".")
 }
 
 // loadRecipesFromFS loads recipes from any fs.FS implementation.
-func loadRecipesFromFS(fsys fs.FS, root string) ([]RecipeInfo, error) {
+func loadRecipesFromFS(fsys fs.FS, root string) ([]Info, error) {
 	entries, err := fs.ReadDir(fsys, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read embedded recipes")
@@ -123,7 +123,7 @@ func loadRecipesFromFS(fsys fs.FS, root string) ([]RecipeInfo, error) {
 	sort.Strings(yamlFiles)
 
 	// Load recipes from each file
-	recipeInfos := make([]RecipeInfo, 0, len(yamlFiles))
+	recipeInfos := make([]Info, 0, len(yamlFiles))
 	for _, fileName := range yamlFiles {
 		filePath := fileName
 		if root != "." {
@@ -150,7 +150,7 @@ func loadRecipesFromFS(fsys fs.FS, root string) ([]RecipeInfo, error) {
 			return nil, errors.Wrap(err, "failed to parse ordered YAML from %s", filePath)
 		}
 
-		recipeInfo := RecipeInfo{
+		recipeInfo := Info{
 			Provider: recipe.Provider,
 			Service:  recipe.Service,
 			Recipe:   recipe,

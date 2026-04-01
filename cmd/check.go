@@ -5,7 +5,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/providers"
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/suggest"
 
@@ -40,7 +40,7 @@ func CheckCmd() *cobra.Command {
 			}
 
 			// Load recipes
-			recipes, err := recepie.LoadEmbeddedRecipes()
+			recipes, err := recipe.LoadEmbeddedRecipes()
 			if err != nil {
 				return nil, exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
 			}
@@ -51,7 +51,7 @@ func CheckCmd() *cobra.Command {
 			}
 
 			// Index recipes by composite key (e.g., "gcp-cloud-run")
-			recipeMap := make(map[string]*recepie.Recipe)
+			recipeMap := make(map[string]*recipe.Recipe)
 			for i := range recipes {
 				recipeMap[recipes[i].RecipeKey()] = &recipes[i].Recipe
 			}

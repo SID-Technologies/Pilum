@@ -1,4 +1,4 @@
-package recepies
+package recipes
 
 import "embed"
 

@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/sid-technologies/pilum/lib/recepie"
+	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/templates"
 	"github.com/sid-technologies/pilum/lib/types"
@@ -110,7 +110,7 @@ func TestPipelineExecuteTaskNilCommand(t *testing.T) {
 	}
 
 	// Step with no command and no handler registered
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "unknown-step",
 		ExecutionMode: "root",
 	}
@@ -134,7 +134,7 @@ func TestPipelineExecuteTaskWithSimpleCommand(t *testing.T) {
 	}
 
 	// Step with a simple command that should succeed
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "hello"},
 		ExecutionMode: "root",
@@ -156,7 +156,7 @@ func TestPipelineExecuteTaskWithStringCommand(t *testing.T) {
 		Provider: "test",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       "echo hello world",
 		ExecutionMode: "root",
@@ -183,7 +183,7 @@ func TestPipelineExecuteTaskWithEnvVars(t *testing.T) {
 		},
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "root",
@@ -208,7 +208,7 @@ func TestPipelineExecuteTaskServiceDirMode(t *testing.T) {
 		Path:     ".",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "service_dir",
@@ -229,7 +229,7 @@ func TestPipelineExecuteTaskWithStepTimeout(t *testing.T) {
 		Provider: "test",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "root",
@@ -250,7 +250,7 @@ func TestPipelineExecuteTaskWithStepRetries(t *testing.T) {
 		Provider: "test",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "root",
@@ -272,13 +272,13 @@ func TestPipelineExecuteTasksParallel(t *testing.T) {
 		{Name: "svc2", Provider: "test"},
 	}
 
-	recipes := []recepie.RecipeInfo{
+	recipes := []recipe.Info{
 		{
 			Provider: "test",
-			Recipe: recepie.Recipe{
+			Recipe: recipe.Recipe{
 				Name:     "test-recipe",
 				Provider: "test",
-				Steps: []recepie.RecipeStep{
+				Steps: []recipe.Step{
 					{
 						Name:          "echo",
 						Command:       []string{"echo", "hello"},
@@ -325,7 +325,7 @@ func TestPipelineExecuteTasksParallelWithFailure(t *testing.T) {
 	pipeline := NewPipeline(services, nil, opts)
 
 	// Create a task with a command that will fail
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "fail",
 		Command:       []string{"false"}, // This command always fails
 		ExecutionMode: "root",
@@ -349,7 +349,7 @@ func TestPipelineExecuteTaskWithBuildFlags(t *testing.T) {
 		Provider: "test",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "root",
@@ -373,7 +373,7 @@ func TestPipelineExecuteTaskEmptyExecutionMode(t *testing.T) {
 		Provider: "test",
 	}
 
-	step := &recepie.RecipeStep{
+	step := &recipe.Step{
 		Name:          "echo",
 		Command:       []string{"echo", "test"},
 		ExecutionMode: "", // Empty should default to "root"

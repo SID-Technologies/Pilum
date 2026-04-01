@@ -2,7 +2,7 @@
 name: pilum
 type: homebrew
 description: Multi-cloud deployment CLI - define once, deploy anywhere
-license: BSL-1.1
+license: Apache-2.0
 
 homebrew:
   project_url: https://github.com/SID-Technologies/pilum
