@@ -3,19 +3,15 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., 0.1.0, 0.2.0)'
-        required: true
-        type: string
       bump:
-        description: 'Or auto-bump from latest tag'
-        required: false
+        description: "Version bump type"
+        required: true
         type: choice
         options:
-          - none
           - patch
           - minor
           - major
+        default: patch
 
 permissions:
   contents: write
@@ -27,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Need full history for tags
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -37,57 +33,42 @@ jobs:
       - name: Determine version
         id: version
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+          LATEST=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || echo "")
 
-            # Strip 'v' prefix if provided
-            VERSION="${VERSION#v}"
-
-            # Validate semantic versioning format
-            if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-              echo "Error: Version must be semantic versioning format (e.g., 0.1.0, 1.2.3-beta.1)"
-              echo "You entered: ${{ inputs.version }}"
-              exit 1
-            fi
-          elif [ "${{ inputs.bump }}" != "none" ] && [ -n "${{ inputs.bump }}" ]; then
-            # Get latest tag
-            LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            LATEST=${LATEST#v}
-
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST"
-
-            case "${{ inputs.bump }}" in
-              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
-              patch) PATCH=$((PATCH + 1)) ;;
-            esac
-
-            VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          else
-            echo "Error: Either version or bump must be specified"
-            exit 1
+          if [ -z "$LATEST" ]; then
+            LATEST="v0.0.0"
           fi
 
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Releasing version: v${VERSION}"
+          CLEAN="${LATEST#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN"
+
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing: $VERSION"
 
       - name: Create and push tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ steps.version.outputs.VERSION }}" -m "Release v${{ steps.version.outputs.VERSION }}"
-          git push origin "v${{ steps.version.outputs.VERSION }}"
+          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
 
       - name: Build Pilum CLI
-        run: go build -ldflags="-X github.com/sid-technologies/pilum/cmd.version=v${{ steps.version.outputs.VERSION }}" -o pilum .
+        run: go build -ldflags="-X github.com/sid-technologies/pilum/cmd.version=${{ steps.version.outputs.version }}" -o pilum .
 
       - name: Run Pilum build (build + archive + checksums)
-        run: ./pilum build -t "v${{ steps.version.outputs.VERSION }}" pilum
+        run: ./pilum build -t "${{ steps.version.outputs.version }}" pilum
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ steps.version.outputs.version }}
           files: |
             dist/*.tar.gz
             dist/checksums.txt
@@ -97,7 +78,7 @@ jobs:
       - name: Run Pilum deploy (update Homebrew tap)
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: ./pilum deploy -t "v${{ steps.version.outputs.VERSION }}" --only-tags=deploy pilum
+        run: ./pilum deploy -t "${{ steps.version.outputs.version }}" --only-tags=deploy pilum
 
       - name: Trigger website rebuild
         run: |
