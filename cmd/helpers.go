@@ -143,8 +143,20 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 func runPipeline(cmdName string, args []string, opts deploymentOptions, noServicesMsg string) error {
 	output.SetDebug(opts.Debug)
 
+	// Normalize service names: support both space-separated and comma-separated inputs.
+	// "service-a,service-b" → ["service-a", "service-b"]
+	var normalizedArgs []string
+	for _, arg := range args {
+		for _, name := range strings.Split(arg, ",") {
+			name = strings.TrimSpace(name)
+			if name != "" {
+				normalizedArgs = append(normalizedArgs, name)
+			}
+		}
+	}
+
 	filterOpts := serviceinfo.FilterOptions{
-		Names:       args,
+		Names:       normalizedArgs,
 		OnlyChanged: opts.OnlyChanged,
 		Since:       opts.Since,
 		NoGitIgnore: NoGitIgnore(),
@@ -158,6 +170,11 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	}
 
 	if len(services) == 0 {
+		// If the user explicitly named services but none were found, fail hard.
+		// If no names were given (deploy all), warn and succeed.
+		if len(normalizedArgs) > 0 {
+			return exitcodes.WithCode(exitcodes.NoServices, errors.New(noServicesMsg))
+		}
 		output.Warning(noServicesMsg)
 		return nil
 	}
