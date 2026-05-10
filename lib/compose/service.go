@@ -105,8 +105,19 @@ func resolveImageName(svc serviceinfo.ServiceInfo, opts Options) string {
 	case opts.Registry != "":
 		return fmt.Sprintf("%s/%s:%s", opts.Registry, svc.Name, opts.Tag)
 	case svc.Provider == "gcp" && svc.Region != "" && svc.Project != "":
+		// GCP Artifact Registry path: {region}-docker.pkg.dev/{project}/{repo}/{image}
+		// `repo` (the Artifact Registry repository) comes from the service's
+		// `registry_name` field. Fall back to `project` for services that
+		// don't set one — mirrors ingredients/docker/helpers.go so the image
+		// tag matches what `pilum build` produces. Previously we substituted
+		// `project` for both slots, which broke `pilum compose` whenever a
+		// service set `registry_name` (image tag mismatch with the build).
+		registryName := svc.RegistryName
+		if registryName == "" {
+			registryName = svc.Project
+		}
 		return fmt.Sprintf("%s-docker.pkg.dev/%s/%s/%s:%s",
-			svc.Region, svc.Project, svc.Project, svc.Name, opts.Tag)
+			svc.Region, svc.Project, registryName, svc.Name, opts.Tag)
 	case svc.RegistryName != "":
 		return fmt.Sprintf("%s/%s:%s", svc.RegistryName, svc.Name, opts.Tag)
 	default:

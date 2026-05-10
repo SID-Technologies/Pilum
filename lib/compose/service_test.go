@@ -24,7 +24,9 @@ func TestBuildServiceEntryImageResolution(t *testing.T) {
 			expected: "ghcr.io/myorg/api:v1",
 		},
 		{
-			name: "GCP artifact registry",
+			// Project-only (no registry_name): falls back to using project as
+			// the AR repo. Mirrors pilum build's behavior for the same input.
+			name: "GCP artifact registry — project fallback",
 			svc: serviceinfo.ServiceInfo{
 				Name:     "api",
 				Provider: "gcp",
@@ -33,6 +35,21 @@ func TestBuildServiceEntryImageResolution(t *testing.T) {
 			},
 			opts:     Options{Tag: "latest"},
 			expected: "us-central1-docker.pkg.dev/my-project/my-project/api:latest",
+		},
+		{
+			// With explicit registry_name (the platform-core case): repo
+			// must come from registry_name, NOT project. This is the case
+			// the previous implementation got wrong.
+			name: "GCP artifact registry — explicit registry_name",
+			svc: serviceinfo.ServiceInfo{
+				Name:         "api",
+				Provider:     "gcp",
+				Region:       "us-central1",
+				Project:      "my-project",
+				RegistryName: "platform",
+			},
+			opts:     Options{Tag: "latest"},
+			expected: "us-central1-docker.pkg.dev/my-project/platform/api:latest",
 		},
 		{
 			name:     "registry name from config",
