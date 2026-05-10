@@ -60,7 +60,7 @@ class %s < Formula
   end
 
   def install
-    bin.install Dir["%s_*"].first => "%s"
+    bin.install "%s"
   end
 
   test do
@@ -87,7 +87,7 @@ FORMULA
 		// Linux AMD64
 		safeProjectURL, safeTag, name, safeTag,
 		// Install (name is validated)
-		name, name,
+		name,
 		// Test (name is validated)
 		name,
 	)

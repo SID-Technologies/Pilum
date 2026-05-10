@@ -151,8 +151,9 @@ func TestGenerateFormulaCommandInstallBlock(t *testing.T) {
 
 	result := homebrew.GenerateFormulaCommand(service, "v1.0.0", "dist", "dist/mytool.rb")
 
-	// Should install binary with correct name
-	require.Contains(t, result, `bin.install Dir["mytool_*"].first => "mytool"`)
+	// Archives package the binary at its bare service name (see archive.go),
+	// so the formula installs by literal filename — not via a glob.
+	require.Contains(t, result, `bin.install "mytool"`)
 }
 
 func TestGenerateFormulaCommandTestBlock(t *testing.T) {
