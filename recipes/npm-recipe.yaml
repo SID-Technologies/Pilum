@@ -32,30 +32,49 @@ steps:
     tags:
       - build
 
-  # Step 2: Set package version from release tag
+  # Step 2: Snapshot package.json before mutating it (set-version + resolve-workspaces
+  # both rewrite the file). The matching "restore package manifest" step at the end
+  # restores it. Also recovers from any leftover backup left by a previously-crashed run.
+  - name: snapshot package manifest
+    execution_mode: service_dir
+    timeout: 10
+    tags:
+      - build
+
+  # Step 3: Set package version from release tag
   - name: set version
     execution_mode: service_dir
     timeout: 30
     tags:
       - build
 
-  # Step 3: Build package (optional, skipped if no build cmd)
+  # Step 4: Build package (optional, skipped if no build cmd)
   - name: build package
     execution_mode: service_dir
     timeout: 300
     tags:
       - build
 
-  # Step 4: Resolve workspace dependencies (pnpm only, no-op for npm/yarn/bun)
+  # Step 5: Resolve workspace dependencies (pnpm only, no-op for npm/yarn/bun)
   - name: resolve workspace dependencies
     execution_mode: service_dir
     timeout: 30
     tags:
       - build
 
-  # Step 5: Publish to npm registry
+  # Step 6: Publish to npm registry
   - name: publish package
     execution_mode: service_dir
     timeout: 120
+    tags:
+      - deploy
+
+  # Step 7: Restore package.json from the snapshot taken in step 2. Runs whether
+  # publish succeeded or failed — the source tree always returns to its pre-pipeline
+  # state. (NOTE: if a step BETWEEN snapshot and restore fails, this won't run; the
+  # next pilum invocation's snapshot step recovers the leftover backup automatically.)
+  - name: restore package manifest
+    execution_mode: service_dir
+    timeout: 10
     tags:
       - deploy

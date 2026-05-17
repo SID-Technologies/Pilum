@@ -134,6 +134,20 @@ func registerNpmHandlers(reg *CommandRegistry) {
 	reg.Register("publish package", "npm", func(ctx StepContext) any {
 		return npm.GeneratePublishCommand(ctx.Service)
 	})
+
+	// Snapshot package.json before publish-time mutations (set version,
+	// resolve workspaces). Recipes should run this BEFORE "set version".
+	// Idempotently restores any leftover backup from a prior failed run.
+	reg.Register("snapshot package manifest", "npm", func(_ StepContext) any {
+		return npm.GenerateSnapshotCommand()
+	})
+
+	// Restore package.json from snapshot after publish completes. Recipes
+	// should run this AFTER "publish package". Leaves the working tree in
+	// the same state it was in before the pipeline ran.
+	reg.Register("restore package manifest", "npm", func(_ StepContext) any {
+		return npm.GenerateRestoreCommand()
+	})
 }
 
 // registerAzureContainerAppsHandlers registers handlers for Azure Container Apps recipe steps.
