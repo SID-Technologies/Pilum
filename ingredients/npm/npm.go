@@ -13,6 +13,12 @@ import (
 //go:embed scripts/resolve_workspaces.js
 var resolveWorkspacesScript string
 
+// packageJSONBackup is where the snapshot step stashes the original
+// package.json. The restore step reads from here. Lives in the package
+// directory so it's scoped per-service and ignored by git (under the
+// dotfile convention).
+const packageJSONBackup = ".pilum-package.json.bak"
+
 // GenerateInstallCommand creates the dependency install command based on package_manager config.
 func GenerateInstallCommand(svc serviceinfo.ServiceInfo) []string {
 	cfg := ParseConfig(svc.Config)
@@ -91,4 +97,32 @@ npm publish --access %s`,
 		shellutil.SanitizeHeredocValue(scope), shellutil.SanitizeHeredocValue(registry),
 		shellutil.Quote(access),
 	)
+}
+
+// GenerateSnapshotCommand snapshots package.json into a backup file before
+// the publish pipeline mutates it (set-version bumps the version field,
+// resolve-workspaces rewrites workspace:* dep specifiers). The restore step
+// reads this backup after publish to leave the working tree untouched.
+//
+// Also restores any leftover backup from a previous run that crashed before
+// reaching restore (e.g., a publish-step failure, a resolve-workspaces crash,
+// or a Ctrl-C). This makes the pipeline idempotent across re-runs — you can
+// re-invoke pilum without manually cleaning up.
+func GenerateSnapshotCommand() []string {
+	return []string{"/bin/sh", "-c", fmt.Sprintf(
+		`if [ -f %[1]s ]; then mv -f %[1]s package.json; fi
+cp -p package.json %[1]s`,
+		packageJSONBackup,
+	)}
+}
+
+// GenerateRestoreCommand restores package.json from the backup taken by
+// GenerateSnapshotCommand and removes the backup file. No-op if no backup
+// exists (e.g., snapshot was skipped because package manager isn't pnpm and
+// no version tag was set).
+func GenerateRestoreCommand() []string {
+	return []string{"/bin/sh", "-c", fmt.Sprintf(
+		`if [ -f %[1]s ]; then mv -f %[1]s package.json; fi`,
+		packageJSONBackup,
+	)}
 }
