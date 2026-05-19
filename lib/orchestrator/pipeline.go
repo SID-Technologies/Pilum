@@ -102,13 +102,30 @@ func (p *Pipeline) Run() error {
 		p.imageNames[svc.Name] = imageName
 	}
 
-	// Execute step by step, tracking display number for runnable steps only
+	// Execute step by step, tracking display number for runnable steps only.
+	//
+	// Failure handling: once any step fails, we still attempt every remaining
+	// step that's marked always_run (defer/finally semantics). Other remaining
+	// steps are skipped. The first error is preserved and returned at the end,
+	// so the pipeline's exit code reflects the real failure — always_run steps
+	// are best-effort cleanup, not error recovery.
 	displayStep := 0
+	var firstErr error
 	for stepIdx := 0; stepIdx < maxSteps; stepIdx++ {
-		err := p.executeStep(stepIdx, runnableSteps, &displayStep)
-		if err != nil {
-			return err
+		// If a previous step failed, only run steps that are marked always_run
+		// across ALL recipes that include this step index. Skipping cleanly
+		// keeps the spinner output honest about what actually ran.
+		if firstErr != nil && !p.stepHasAlwaysRun(stepIdx) {
+			continue
 		}
+
+		err := p.executeStep(stepIdx, runnableSteps, &displayStep)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr != nil {
+		return firstErr
 	}
 
 	// Dry-run JSON: emit collected entries instead of the normal summary
