@@ -275,3 +275,19 @@ func (p *Pipeline) countRunnableSteps(maxSteps int) int {
 	}
 	return count
 }
+
+// stepHasAlwaysRun returns true if any recipe in this pipeline marks the step
+// at stepIdx with always_run: true. Used by the pipeline loop to decide whether
+// to continue execution past a failure. Returns false if no recipe declares it.
+func (p *Pipeline) stepHasAlwaysRun(stepIdx int) bool {
+	for _, svc := range p.services {
+		recipe, exists := p.getRecipeForService(svc)
+		if !exists || stepIdx >= len(recipe.Steps) {
+			continue
+		}
+		if recipe.Steps[stepIdx].AlwaysRun {
+			return true
+		}
+	}
+	return false
+}

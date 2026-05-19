@@ -42,6 +42,14 @@ type Step struct {
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
 	Tags          []string          `yaml:"tags,omitempty"` // Tags for filtering (e.g., "deploy", "build")
+
+	// AlwaysRun marks the step as a cleanup/restore step that must execute even
+	// when an earlier step in the pipeline failed. Think of it as Go's defer or
+	// a try/finally — used for restoring source state (e.g., restoring
+	// package.json after npm publish mutated it). The pipeline's overall exit
+	// code still reflects the original failure; always-run steps just guarantee
+	// their cleanup logic runs before the pipeline returns.
+	AlwaysRun bool `yaml:"always_run,omitempty"`
 }
 
 // ValidateService checks if a service has all required fields for this recipe.

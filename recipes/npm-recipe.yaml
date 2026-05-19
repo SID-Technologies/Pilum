@@ -32,14 +32,14 @@ steps:
     tags:
       - build
 
-  # Step 2: Snapshot package.json before mutating it (set-version + resolve-workspaces
-  # both rewrite the file). The matching "restore package manifest" step at the end
-  # restores it. Also recovers from any leftover backup left by a previously-crashed run.
+  # Snapshot + restore pair must run in any flow that touches set-version
+  # or resolve-workspaces (both mutate the file).
   - name: snapshot package manifest
     execution_mode: service_dir
     timeout: 10
     tags:
       - build
+      - deploy
 
   # Step 3: Set package version from release tag
   - name: set version
@@ -69,12 +69,11 @@ steps:
     tags:
       - deploy
 
-  # Step 7: Restore package.json from the snapshot taken in step 2. Runs whether
-  # publish succeeded or failed — the source tree always returns to its pre-pipeline
-  # state. (NOTE: if a step BETWEEN snapshot and restore fails, this won't run; the
-  # next pilum invocation's snapshot step recovers the leftover backup automatically.)
+  # always_run pairs with snapshot above — restores even if any prior step failed.
   - name: restore package manifest
     execution_mode: service_dir
     timeout: 10
+    always_run: true
     tags:
+      - build
       - deploy
