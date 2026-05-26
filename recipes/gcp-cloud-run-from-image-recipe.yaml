@@ -1,0 +1,95 @@
+# gcp-cloud-run-from-image — deploy a Cloud Run service from a pre-built
+# image. No build, no push — just deploy. The complement to
+# gcp-artifact-registry-image: that type publishes images, this type consumes
+# them.
+#
+# Use this for fan-out deploys where a single image is referenced by many
+# Cloud Run services that differ only in env vars / sidecars. Canonical
+# example: mcp-controller, where one image runs as many services (one per
+# MCP type) with per-service `MCP_COMMAND` env vars.
+#
+# Pairs with `depends_on:` so wave-based deploys publish the image first
+# and deploy consumers in a later wave. Pin the image tag deliberately so
+# you can upgrade services independently.
+name: gcp-cloud-run-from-image
+description: Deploy a Cloud Run service from a pre-built image (no build/push)
+provider: gcp
+service: cloud-run-from-image
+
+required_fields:
+  - name: project
+    description: GCP project ID
+    type: string
+
+  - name: region
+    description: GCP region (e.g., us-central1)
+    type: string
+
+  - name: name
+    description: Cloud Run service name
+    type: string
+
+  - name: image
+    description: |
+      Fully-qualified image reference to deploy
+      (e.g., us-central1-docker.pkg.dev/p/r/mcp-controller:v1.0.0).
+      Must be pullable by the Cloud Run service account.
+    type: string
+
+optional_fields:
+  - name: cloud_run.min_instances
+    description: Minimum instances (0 for scale to zero)
+    type: int
+    default: "0"
+
+  - name: cloud_run.max_instances
+    description: Maximum instances to scale to
+    type: int
+    default: "10"
+
+  - name: cloud_run.cpu_throttling
+    description: Throttle CPU when not processing requests
+    type: bool
+    default: "true"
+
+  - name: cloud_run.memory
+    description: Memory per instance (e.g., 512Mi, 1Gi)
+    type: string
+    default: "512Mi"
+
+  - name: cloud_run.cpu
+    description: CPUs per instance
+    type: string
+    default: "1"
+
+  - name: cloud_run.concurrency
+    description: Max concurrent requests per instance
+    type: int
+    default: "80"
+
+  - name: cloud_run.timeout_seconds
+    description: Request timeout in seconds
+    type: int
+    default: "300"
+
+  - name: cloud_run.port
+    description: |
+      Port the ingress container listens on. Required when `sidecars:`
+      is set (Cloud Run has no default port in multi-container mode).
+    type: int
+    default: "8080"
+
+  - name: sidecars
+    description: |
+      Auxiliary containers to co-deploy in the same Cloud Run revision.
+      Schema matches the gcp-cloud-run recipe — see $defs/sidecar in
+      the pilum.yaml JSON schema for the full field set.
+    type: list
+
+steps:
+  - name: deploy from image
+    execution_mode: root
+    timeout: 180
+    default_retries: 2
+    tags:
+      - deploy

@@ -20,12 +20,31 @@
       "enum": [
         "gcp-cloud-run",
         "gcp-cloud-run-job",
+        "gcp-artifact-registry-image",
+        "gcp-cloud-run-from-image",
         "aws-lambda",
         "azure-container-apps",
         "cloudflare-pages",
         "homebrew",
         "npm"
       ]
+    },
+    "image": {
+      "type": "string",
+      "description": "Fully-qualified image reference for deploy-only types like gcp-cloud-run-from-image. When set, the deploy step uses this image as-is instead of constructing one from build artifacts. Ignored by types that build their own image."
+    },
+    "image_name": {
+      "type": "string",
+      "description": "Image name leaf segment. Defaults to the service `name`. Use this when the Pilum service identifier should differ from the published image identifier (e.g., service `sid-otel-collector` published as image `otel-collector`)."
+    },
+    "version": {
+      "type": "string",
+      "description": "Image tag for build types like gcp-artifact-registry-image. Defaults to 'latest' when omitted; CLI --tag overrides this."
+    },
+    "sidecars": {
+      "type": "array",
+      "description": "Auxiliary containers co-deployed in the same Cloud Run revision (multi-container services). Each sidecar runs as a separate container sharing the network namespace with the ingress container — typically used for OTel collectors, logging proxies, or other platform components.",
+      "items": { "$ref": "#/$defs/sidecar" }
     },
     "provider": {
       "type": "string",
@@ -134,6 +153,70 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "sidecar": {
+      "type": "object",
+      "description": "An auxiliary container co-deployed with the main service container in the same Cloud Run revision. Sidecars share the network namespace with the ingress container (reachable via localhost) and start up independently.",
+      "required": ["name", "image"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Container name (unique within the service). Other containers reference this name via `depends_on`."
+        },
+        "image": {
+          "type": "string",
+          "description": "Fully-qualified image reference (e.g., us-docker.pkg.dev/sid-platform/observability/otel-collector:v0.1.0). Must be pullable by the Cloud Run service account."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port the sidecar listens on. Optional — only relevant if exposing via ingress (sidecars typically don't)."
+        },
+        "memory": {
+          "type": "string",
+          "description": "Memory limit (e.g., 128Mi)"
+        },
+        "cpu": {
+          "type": "string",
+          "description": "CPU limit (e.g., 0.25)"
+        },
+        "env_vars": {
+          "type": "object",
+          "description": "Environment variables for this sidecar only",
+          "additionalProperties": { "type": "string" }
+        },
+        "secrets": {
+          "type": "object",
+          "description": "Secret references for this sidecar only",
+          "additionalProperties": { "type": "string" }
+        },
+        "args": {
+          "type": "array",
+          "description": "Override the container's CMD/args",
+          "items": { "type": "string" }
+        },
+        "command": {
+          "type": "array",
+          "description": "Override the container's ENTRYPOINT",
+          "items": { "type": "string" }
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "Container-startup ordering — names of OTHER containers in this revision that must be ready before this one starts. Distinct from top-level depends_on (which is service-level ordering across the deployment).",
+          "items": { "type": "string" }
+        },
+        "startup_probe": {
+          "type": "object",
+          "description": "HTTP startup probe — Cloud Run waits for this to succeed before considering the container ready",
+          "properties": {
+            "path": { "type": "string" },
+            "port": { "type": "integer" },
+            "initial_delay_seconds": { "type": "integer" },
+            "period_seconds": { "type": "integer" },
+            "timeout_seconds": { "type": "integer" },
+            "failure_threshold": { "type": "integer" }
+          }
+        }
+      }
+    },
     "build": {
       "type": "object",
       "description": "Build configuration for the service",
@@ -239,6 +322,10 @@
           "type": "string",
           "description": "CPU allocation (e.g., '1', '2', '4')",
           "default": "1"
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port the ingress container listens on. Required when `sidecars:` is set (Cloud Run does not infer a default port in multi-container mode); ignored in single-container deploys, which use the implicit Cloud Run default."
         },
         "concurrency": {
           "type": "integer",
