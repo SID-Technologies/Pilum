@@ -178,9 +178,9 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		// If the user explicitly named services but none were found, fail hard.
 		// If no names were given (deploy all), warn and succeed.
 		if len(normalizedArgs) > 0 {
-			return exitcodes.WithCode(exitcodes.NoServices, errors.New(noServicesMsg))
+			return exitcodes.WithCode(exitcodes.NoServices, errors.New("%s", noServicesMsg))
 		}
-		output.Warning(noServicesMsg)
+		output.Warning("%s", noServicesMsg)
 		return nil
 	}
 

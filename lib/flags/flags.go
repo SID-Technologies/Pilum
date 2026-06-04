@@ -42,7 +42,7 @@ func ParseArgs(args []string, flags []types.FlagArg) (map[string]any, error) {
 		opt, exists := expectedFlags[flagName]
 		if !exists {
 			errMsg := fmt.Sprintf("unexpected flag: --%s", flagName)
-			return nil, errors.New(errMsg)
+			return nil, errors.New("%s", errMsg)
 		}
 
 		parsedValue, err := getOptionValue(opt.Type, flagName, flagValue)

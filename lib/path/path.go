@@ -36,7 +36,7 @@ func FindProjectRoot() (string, error) {
 		parentDir := filepath.Dir(dir)
 		if parentDir == dir {
 			errMsg := fmt.Sprintf("no project configuration found in path hierarchy %s", currentDir)
-			return "", errors.New(errMsg)
+			return "", errors.New("%s", errMsg)
 		}
 		dir = parentDir
 	}
