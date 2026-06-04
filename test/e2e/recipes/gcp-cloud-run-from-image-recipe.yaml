@@ -1,0 +1,11 @@
+name: gcp-cloud-run-from-image
+description: Deploy from pre-built image (E2E Test)
+provider: gcp
+service: cloud-run-from-image
+
+steps:
+  - name: deploy from image
+    command: ["sh", "-c", "echo '[GCP-FROM-IMG] Deploying from pre-built image...' && sleep 0.5 && echo '[GCP-FROM-IMG] Service deployed'"]
+    execution_mode: root
+    timeout: 30
+    tags: [deploy]

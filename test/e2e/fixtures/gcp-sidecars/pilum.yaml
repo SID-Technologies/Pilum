@@ -1,0 +1,39 @@
+# Fixture for gcp-cloud-run with sidecars — multi-container deploys.
+#
+# Headline invariants this fixture validates in dry-run mode:
+#   1. Multiple `--container=NAME` flag groups appear in the deploy command.
+#   2. Service-level flags (region, project, --memory at top level) appear
+#      BEFORE the first --container flag — gcloud rejects out-of-order.
+#   3. The ingress container's --port is emitted explicitly (no default
+#      applies in multi-container mode).
+#   4. Sidecar's --depends-on=CONTAINER_NAME appears scoped under its
+#      --container declaration.
+name: multi-container-svc
+type: gcp-cloud-run
+provider: gcp
+project: test-project
+region: us-central1
+registry_name: test-project
+template: golang-api.v1.dockerfile
+
+build:
+  language: go
+  cmd: "echo 'Building multi-container-svc...' && sleep 0.5 && echo 'Build complete'"
+
+cloud_run:
+  min_instances: 0
+  cpu_throttling: true
+  memory: 1Gi
+  cpu: "1"
+  # Required in multi-container mode — no implicit default.
+  port: 8080
+
+sidecars:
+  - name: telemetry-sidecar
+    image: us-docker.pkg.dev/shared/obs/otel-collector:v0.1.0
+    memory: 128Mi
+    cpu: "0.25"
+    env_vars:
+      LOG_LEVEL: info
+    depends_on:
+      - multi-container-svc
