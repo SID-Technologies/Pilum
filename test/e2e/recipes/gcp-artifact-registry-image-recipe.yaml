@@ -1,0 +1,23 @@
+name: gcp-artifact-registry-image
+description: Build + publish image (E2E Test)
+provider: gcp
+service: artifact-registry-image
+
+steps:
+  - name: build binary
+    command: ["sh", "-c", "echo '[GCP-IMG] Compiling Go binary...' && sleep 0.5 && echo '[GCP-IMG] Binary compiled'"]
+    execution_mode: service_dir
+    timeout: 30
+    tags: [build]
+
+  - name: build docker image
+    command: ["sh", "-c", "echo '[GCP-IMG] Building Docker image...' && sleep 0.5 && echo '[GCP-IMG] Docker image built'"]
+    execution_mode: service_dir
+    timeout: 30
+    tags: [build]
+
+  - name: publish to registry
+    command: ["sh", "-c", "echo '[GCP-IMG] Pushing to Artifact Registry...' && sleep 0.5 && echo '[GCP-IMG] Image published'"]
+    execution_mode: root
+    timeout: 30
+    tags: [push]

@@ -1,0 +1,72 @@
+# gcp-artifact-registry-image — build and publish a Docker image to GCP
+# Artifact Registry. No deploy step.
+#
+# Use this type for "platform" images that are referenced by other services
+# (typically via the `sidecars:` field of a Cloud Run service) and whose
+# lifecycle is independent of any single consumer service. Canonical example:
+# a shared OTel Collector image consumed as a sidecar by every metric-emitting
+# service across the SID portfolio.
+#
+# Each consumer references the published image by tag — e.g.,
+#   sidecars:
+#     - name: otel-collector
+#       image: us-docker.pkg.dev/sid-platform/observability/otel-collector:v0.1.0
+#
+# Bump the `version` field here, run `pilum deploy` on this service, and the
+# new tag becomes available to consumers. Consumers opt in to the new version
+# by updating the tag in their own pilum.yaml — no implicit upgrades.
+name: gcp-artifact-registry-image
+description: Build a Docker image and publish it to GCP Artifact Registry (no deploy)
+provider: gcp
+service: artifact-registry-image
+
+required_fields:
+  - name: project
+    description: GCP project ID hosting the Artifact Registry repository
+    type: string
+
+  - name: region
+    description: GCP region for the Artifact Registry repository (e.g., us-central1, us)
+    type: string
+
+  - name: name
+    description: Pilum service name (used in output; not used as the image name unless image_name is empty)
+    type: string
+
+  - name: registry_name
+    description: Artifact Registry repository name (the repo inside the project where this image lives)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
+optional_fields:
+  - name: image_name
+    description: Image name within the Artifact Registry repository. Defaults to the service name when omitted. Use this when the Pilum service name differs from the image name you want consumers to reference.
+    type: string
+    default: ""
+
+  - name: version
+    description: Image tag (e.g., v0.1.0). Defaults to "latest" when omitted, but pinning is strongly recommended so consumers can opt into upgrades deliberately.
+    type: string
+    default: latest
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push

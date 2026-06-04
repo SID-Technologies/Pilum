@@ -60,7 +60,7 @@ Pipeline commands:
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		output.Error(err.Error())
+		output.Error("%s", err.Error())
 		//nolint: revive // standard practice to use os.Exit in main package
 		os.Exit(exitcodes.CodeFrom(err))
 	}

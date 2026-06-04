@@ -17,7 +17,7 @@ import (
 //nolint:wrapcheck,inamedparam // This function does custom wrapping and errors.
 func New(msg string, attrs ...any) error {
 	formatted := fmt.Sprintf(msg, attrs...)
-	output.Error(formatted)
+	output.Error("%s", formatted)
 	return structured{
 		err:   pkgerrors.New(formatted),
 		attrs: attrs,

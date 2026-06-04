@@ -109,18 +109,20 @@ func TestBuildServiceEntryEnvVars(t *testing.T) {
 func TestBuildServiceEntryCloudRunEnvVars(t *testing.T) {
 	t.Parallel()
 
-	svc := serviceinfo.ServiceInfo{
-		Name: "api",
-		Config: map[string]any{
-			"cloud_run": map[string]any{
-				"env_vars": map[string]any{
-					"ALLOWED_ORIGINS": "http://localhost:3000",
-				},
+	// Use NewServiceInfo so the merge of nested cloud_run.env_vars into the
+	// canonical EnvVars list happens — the production code path. Constructing
+	// ServiceInfo by hand would skip that merge and produce empty env, which
+	// is the exact bug this consolidation is fixing.
+	svc := serviceinfo.NewServiceInfo(map[string]any{
+		"name": "api",
+		"cloud_run": map[string]any{
+			"env_vars": map[string]any{
+				"ALLOWED_ORIGINS": "http://localhost:3000",
 			},
 		},
-	}
+	}, "/tmp/api")
 
-	cs := BuildServiceEntry(svc, 0, Options{Tag: "latest"})
+	cs := BuildServiceEntry(*svc, 0, Options{Tag: "latest"})
 
 	require.Contains(t, cs.Environment, "ALLOWED_ORIGINS=http://localhost:3000")
 }

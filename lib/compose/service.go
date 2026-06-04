@@ -36,18 +36,14 @@ func BuildServiceEntry(svc serviceinfo.ServiceInfo, index int, opts Options) *Se
 		}
 	}
 
-	// Env vars from pilum.yaml
+	// Env vars from pilum.yaml. svc.EnvVars is the merged view of top-level
+	// `env_vars:` plus any nested target-specific blocks (e.g. cloud_run.env_vars).
+	// The merge happens in NewServiceInfo so every reader sees the same set —
+	// historically this loop read svc.EnvVars while a separate loop below read
+	// cloud_run.env_vars off the raw config, which caused duplication here AND
+	// silent drops in the deploy paths that only read svc.EnvVars.
 	for _, ev := range svc.EnvVars {
 		env = append(env, fmt.Sprintf("%s=%s", ev.Name, ev.Value))
-	}
-
-	// Cloud Run env_vars from raw config
-	if cr, ok := svc.Config["cloud_run"].(map[string]any); ok {
-		if envVars, ok := cr["env_vars"].(map[string]any); ok {
-			for name, value := range envVars {
-				env = append(env, fmt.Sprintf("%s=%v", name, value))
-			}
-		}
 	}
 
 	if len(env) > 0 {

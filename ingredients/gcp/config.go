@@ -16,6 +16,10 @@ type CloudRunConfig struct {
 	Concurrency       int      // Max concurrent requests per instance (-1 for not set)
 	TimeoutSeconds    int      // Request timeout in seconds (-1 for not set)
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
+	// Port is the ingress container's listening port. Required by Cloud Run
+	// in multi-container mode (no default applies when sidecars are present);
+	// 0 means "not set" and the deploy command emitter falls back to 8080.
+	Port int
 }
 
 // ParseCloudRunConfig extracts Cloud Run configuration from the raw service config.
@@ -41,6 +45,7 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		Concurrency:       configutil.GetInt(cloudRunMap, "concurrency", -1),
 		TimeoutSeconds:    configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
 		CloudSQLInstances: configutil.GetStringSlice(cloudRunMap, "cloudsql_instances"),
+		Port:              configutil.GetInt(cloudRunMap, "port", 0),
 	}
 }
 

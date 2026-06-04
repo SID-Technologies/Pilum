@@ -1,0 +1,17 @@
+# Fixture for the gcp-cloud-run-from-image recipe type. Deploy-only — no
+# build, no push. References a pre-built image. The headline test invariant
+# is that the emitted deploy command contains the exact image string we
+# provided (not a constructed one from name/registry).
+name: consumer-service
+type: gcp-cloud-run-from-image
+provider: gcp
+project: test-project
+region: us-central1
+
+# This must appear verbatim in the deploy command — no Pilum construction.
+image: us-central1-docker.pkg.dev/shared/platform/platform-base:v0.5.0
+
+cloud_run:
+  min_instances: 0
+  cpu_throttling: true
+  memory: 512Mi
