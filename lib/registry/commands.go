@@ -27,12 +27,6 @@ func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerCloudflareHandlers(reg)
 }
 
-// registerGCPCloudRunFromImageHandlers registers the single step for the
-// gcp-cloud-run-from-image recipe — deploy a Cloud Run service from a
-// pre-built image without any build/push work. Reuses the same deploy
-// command builder as gcp-cloud-run; the only difference is the image
-// reference comes from the service config (svc.Image) instead of from
-// upstream build steps.
 func registerGCPCloudRunFromImageHandlers(reg *CommandRegistry) {
 	reg.Register("deploy from image", "gcp", func(ctx StepContext) any {
 		return gcp.GenerateGCPDeployCommand(ctx.Service, ctx.Service.Image)

@@ -7,57 +7,44 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-// GenerateBuildCommand creates a build command from service configuration.
-// Returns the command to execute and the image name for downstream use.
-//
-// Image naming precedence:
-//   - service.ImageName (from pilum.yaml `image_name:`) overrides service.Name
-//     for the image part of the reference. Use this when the Pilum service
-//     name and the image name should differ (e.g., a platform-shared image
-//     where the service is `sid-otel-collector` but the image is just
-//     `otel-collector`).
-//   - tag (CLI `--tag`) overrides service.Version (from pilum.yaml `version:`)
-//     which in turn overrides the default `latest`. This lets CI inject a
-//     git-sha tag while still allowing pilum.yaml to pin a stable platform
-//     version for deliberate-release types like gcp-artifact-registry-image.
-func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string) ([]string, string) {
-	buildCmd := service.BuildConfig.Cmd
-	if buildCmd == "" {
-		return nil, ""
+// ResolveImageName returns the fully-qualified image reference.
+// CLI tag > service.Version > "latest". registry override > provider path.
+func ResolveImageName(service serviceinfo.ServiceInfo, registry, tag string) string {
+	imageBase := imageBaseName(service)
+
+	var imageName string
+	if registry != "" && !isRegistryName(registry, service) {
+		imageName = fmt.Sprintf("%s/%s", registry, imageBase)
+	} else {
+		imageName = generateProviderImageName(service, imageBase)
 	}
 
-	// Start with the base command
+	return fmt.Sprintf("%s:%s", imageName, resolveTag(service, tag))
+}
+
+// GenerateBuildCommand returns the source-compile command and the image name.
+// Returns (nil, imageName) for Dockerfile-only services so docker build / push
+// downstream still have a tag.
+func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string) ([]string, string) {
+	imageName := ResolveImageName(service, registry, tag)
+
+	buildCmd := service.BuildConfig.Cmd
+	if buildCmd == "" {
+		return nil, imageName
+	}
+
 	command := buildCmd
 
-	// Add build flags (e.g., ldflags)
 	for _, flag := range service.BuildConfig.Flags {
 		if len(flag.Values) == 0 {
 			continue
 		}
+
 		vals := strings.Join(flag.Values, " ")
 		command = fmt.Sprintf("%s -%s='%s'", command, flag.Name, vals)
 	}
 
-	imageBaseName := imageBaseName(service)
-
-	// Construct image name using provider-specific formatting.
-	// The registry parameter is for CLI overrides only (full registry URL).
-	// If empty, use service configuration with provider-specific paths.
-	var imageName string
-	if registry != "" && !isRegistryName(registry, service) {
-		// CLI override with full registry path
-		imageName = fmt.Sprintf("%s/%s", registry, imageBaseName)
-	} else {
-		// Use provider-specific formatting
-		imageName = generateProviderImageName(service, imageBaseName)
-	}
-
-	imageName = fmt.Sprintf("%s:%s", imageName, resolveTag(service, tag))
-
-	// Wrap in shell for execution
-	fullCmd := []string{"/bin/sh", "-c", command}
-
-	return fullCmd, imageName
+	return []string{"/bin/sh", "-c", command}, imageName
 }
 
 // imageBaseName returns the leaf segment of the image reference (the part

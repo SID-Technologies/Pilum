@@ -68,20 +68,12 @@ optional_fields:
     type: list
 
   - name: cloud_run.port
-    description: |
-      Port the ingress (main) container listens on. Required when `sidecars:`
-      is set (Cloud Run has no default port in multi-container mode). Ignored
-      in single-container deploys.
+    description: Ingress container port. Required when `sidecars:` is set.
     type: int
     default: "8080"
 
   - name: sidecars
-    description: |
-      Auxiliary containers to co-deploy in the same Cloud Run revision.
-      See the JSON schema's $defs/sidecar for the full per-container field set
-      (name, image, memory, cpu, env_vars, secrets, depends_on, startup_probe).
-      Typical use: an OTel collector sidecar that scrapes the main container's
-      /metrics endpoint and ships to GMP.
+    description: Auxiliary containers to co-deploy in the same Cloud Run revision.
     type: list
 
 steps:

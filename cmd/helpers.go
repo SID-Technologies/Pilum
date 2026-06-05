@@ -116,11 +116,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 // addCommandFlags adds standard deployment flags to a command.
 // Set includeDryRun to false for commands that are always dry-run mode.
 func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
-	// Default is "" not "latest" — when empty, build.resolveTag falls through
-	// to the pilum.yaml `version:` field if set, then finally to "latest".
-	// Defaulting to "latest" here would short-circuit the YAML version
-	// override (which is what `gcp-artifact-registry-image` needs to pin
-	// per-image versions in source).
+	// Empty default lets pilum.yaml `version:` take precedence; falls through to "latest".
 	cmd.Flags().StringP("tag", "t", "", "Tag for the services (default: latest, or pilum.yaml `version:` if set)")
 	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
 	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")

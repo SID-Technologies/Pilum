@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewServiceInfo_NoSidecars_LeavesFieldEmpty locks in that the new
-// `sidecars:` field is fully optional — existing pilum.yaml files that
-// don't mention it stay unchanged.
 func TestNewServiceInfo_NoSidecars_LeavesFieldEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -20,11 +17,9 @@ func TestNewServiceInfo_NoSidecars_LeavesFieldEmpty(t *testing.T) {
 	}, "/tmp/api")
 
 	require.NotNil(t, svc)
-	require.Empty(t, svc.Sidecars, "absent sidecars: must yield zero-length slice, not a default sentinel")
+	require.Empty(t, svc.Sidecars)
 }
 
-// TestNewServiceInfo_ParsesSingleSidecar covers the happy path: one sidecar
-// with the typical observability shape (image + memory + cpu + env_vars).
 func TestNewServiceInfo_ParsesSingleSidecar(t *testing.T) {
 	t.Parallel()
 
@@ -60,9 +55,6 @@ func TestNewServiceInfo_ParsesSingleSidecar(t *testing.T) {
 	require.Equal(t, "romans-dev", sc.EnvVars[0].Value)
 }
 
-// TestNewServiceInfo_ParsesMultipleSidecars covers the >1 case and order
-// preservation (gcloud emits --container groups in declaration order, so
-// ordering matters for predictability).
 func TestNewServiceInfo_ParsesMultipleSidecars(t *testing.T) {
 	t.Parallel()
 
@@ -82,9 +74,6 @@ func TestNewServiceInfo_ParsesMultipleSidecars(t *testing.T) {
 	require.Equal(t, "proxy", svc.Sidecars[2].Name)
 }
 
-// TestNewServiceInfo_ParsesSidecarStartupProbe verifies the nested probe
-// struct parses correctly. Probes are how operators tell Cloud Run "wait
-// for this sidecar to be healthy before declaring the revision ready".
 func TestNewServiceInfo_ParsesSidecarStartupProbe(t *testing.T) {
 	t.Parallel()
 
@@ -119,9 +108,7 @@ func TestNewServiceInfo_ParsesSidecarStartupProbe(t *testing.T) {
 	require.Equal(t, 6, p.FailureThreshold)
 }
 
-// TestNewServiceInfo_SidecarWithoutProbeIsNil — distinguishes "no probe set"
-// from "probe set with defaults". Cloud Run treats absent probes differently
-// from probes with all-zero fields, so this nil sentinel matters.
+// Cloud Run distinguishes absent probe from all-zero probe.
 func TestNewServiceInfo_SidecarWithoutProbeIsNil(t *testing.T) {
 	t.Parallel()
 
@@ -134,12 +121,9 @@ func TestNewServiceInfo_SidecarWithoutProbeIsNil(t *testing.T) {
 	}, "/tmp/svc")
 
 	require.Len(t, svc.Sidecars, 1)
-	require.Nil(t, svc.Sidecars[0].StartupProbe,
-		"absent startup_probe must yield a nil pointer so the deploy emitter can distinguish 'not set' from 'all zeros'")
+	require.Nil(t, svc.Sidecars[0].StartupProbe)
 }
 
-// TestNewServiceInfo_SidecarSecrets ensures the YAML map → []Secrets
-// translation works the same shape as top-level service secrets.
 func TestNewServiceInfo_SidecarSecrets(t *testing.T) {
 	t.Parallel()
 
@@ -163,10 +147,6 @@ func TestNewServiceInfo_SidecarSecrets(t *testing.T) {
 	require.Equal(t, "projects/p/secrets/api-key/versions/latest", svc.Sidecars[0].Secrets[0].Value)
 }
 
-// TestNewServiceInfo_ArtifactRegistryImageType — the new build/publish-only
-// type that produces a versioned image referenced by other services'
-// sidecars. Provider derivation should land on "gcp" so the dispatcher
-// routes it to GCP handlers.
 func TestNewServiceInfo_ArtifactRegistryImageType(t *testing.T) {
 	t.Parallel()
 
@@ -179,7 +159,7 @@ func TestNewServiceInfo_ArtifactRegistryImageType(t *testing.T) {
 	}, "/tmp/otel")
 
 	require.NotNil(t, svc)
-	require.Equal(t, "gcp", svc.Provider, "gcp-artifact-registry-image must derive provider=gcp for dispatcher routing")
+	require.Equal(t, "gcp", svc.Provider)
 	require.Equal(t, "otel-collector", svc.ImageName)
 	require.Equal(t, "v0.1.0", svc.Version)
 }
