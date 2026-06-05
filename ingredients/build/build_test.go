@@ -84,7 +84,7 @@ func TestGenerateBuildCommand(t *testing.T) {
 			expectedImage: "myservice:v1.0.0",
 		},
 		{
-			name: "empty build command returns nil",
+			name: "empty build command returns nil cmd but populated image name",
 			service: serviceinfo.ServiceInfo{
 				Name: "myservice",
 				BuildConfig: serviceinfo.BuildConfig{
@@ -94,7 +94,7 @@ func TestGenerateBuildCommand(t *testing.T) {
 			registry:         "",
 			tag:              "v1.0.0",
 			expectedEmptyCmd: true,
-			expectedImage:    "",
+			expectedImage:    "myservice:v1.0.0",
 		},
 		{
 			name: "with explicit registry",
@@ -164,11 +164,11 @@ func TestGenerateBuildCommand(t *testing.T) {
 
 			if tt.expectedEmptyCmd {
 				require.Nil(t, cmd)
-				require.Empty(t, imageName)
 			} else {
 				require.Equal(t, tt.expectedCmd, cmd)
-				require.Equal(t, tt.expectedImage, imageName)
 			}
+
+			require.Equal(t, tt.expectedImage, imageName)
 		})
 	}
 }

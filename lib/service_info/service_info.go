@@ -39,43 +39,36 @@ type RuntimeConfig struct {
 	Service string `yaml:"service"`
 }
 
-// Probe describes a container readiness/startup probe. Mirrors the subset of
-// the Cloud Run / Knative probe schema we support today (HTTP GET probe).
+// Probe is an HTTP GET readiness/startup probe.
 type Probe struct {
-	Path                string `yaml:"path"`                  // HTTP path to probe (e.g., "/")
-	Port                int    `yaml:"port"`                  // Port to probe; if 0, falls back to the container's port
-	InitialDelaySeconds int    `yaml:"initial_delay_seconds"` // Wait this long before first probe
-	PeriodSeconds       int    `yaml:"period_seconds"`        // Probe every N seconds
-	TimeoutSeconds      int    `yaml:"timeout_seconds"`       // Fail the probe after N seconds
-	FailureThreshold    int    `yaml:"failure_threshold"`     // Mark container unready after N consecutive failures
+	Path                string `yaml:"path"`
+	Port                int    `yaml:"port"`
+	InitialDelaySeconds int    `yaml:"initial_delay_seconds"`
+	PeriodSeconds       int    `yaml:"period_seconds"`
+	TimeoutSeconds      int    `yaml:"timeout_seconds"`
+	FailureThreshold    int    `yaml:"failure_threshold"`
 }
 
-// Sidecar describes an auxiliary container that runs alongside the main app
-// container in a Cloud Run multi-container revision.
-//
-// On Cloud Run, sidecars share the network namespace with the ingress
-// container (so `localhost:PORT` reaches the sidecar from the ingress
-// container and vice-versa). One ingress container per revision; up to 10
-// containers total. Cloud Run pulls each image independently from its
-// registry at startup — sidecars are NOT layered on the main image.
+// Sidecar is an auxiliary container co-deployed with the ingress container.
+// Cloud Run sidecars share the network namespace with the ingress container.
 type Sidecar struct {
-	Name         string    `yaml:"name"`          // Required: container name (unique within the service)
-	Image        string    `yaml:"image"`         // Required: fully-qualified image reference
-	Port         int       `yaml:"port"`          // Optional: port the sidecar listens on (only required if exposing via ingress, which sidecars typically don't)
-	Memory       string    `yaml:"memory"`        // Optional: memory limit (e.g., "128Mi")
-	CPU          string    `yaml:"cpu"`           // Optional: CPU limit (e.g., "0.25")
-	EnvVars      []EnvVars `yaml:"env_vars"`      // Optional: env vars (YAML map: KEY: VALUE)
-	Secrets      []Secrets `yaml:"secrets"`       // Optional: secret refs (YAML map: ENV_NAME: secret-ref)
-	Args         []string  `yaml:"args"`          // Optional: override the container's CMD/args
-	Command      []string  `yaml:"command"`       // Optional: override the container's ENTRYPOINT
-	DependsOn    []string  `yaml:"depends_on"`    // Optional: container-startup ordering — names of OTHER containers in this revision that must be ready before this one starts
-	StartupProbe *Probe    `yaml:"startup_probe"` // Optional: HTTP startup probe
+	Name         string    `yaml:"name"`
+	Image        string    `yaml:"image"`
+	Port         int       `yaml:"port"`
+	Memory       string    `yaml:"memory"`
+	CPU          string    `yaml:"cpu"`
+	EnvVars      []EnvVars `yaml:"env_vars"`
+	Secrets      []Secrets `yaml:"secrets"`
+	Args         []string  `yaml:"args"`
+	Command      []string  `yaml:"command"`
+	DependsOn    []string  `yaml:"depends_on"`
+	StartupProbe *Probe    `yaml:"startup_probe"`
 }
 
 type ServiceInfo struct {
 	Name          string         `yaml:"name"`
 	Description   string         `yaml:"description"`
-	Type          string         `yaml:"-"` // Recipe type (e.g., "gcp-cloud-run") — from "type" YAML key
+	Type          string         `yaml:"-"`
 	Template      string         `yaml:"template"`
 	Path          string         `yaml:"-"`
 	Config        map[string]any `yaml:"-"`
@@ -84,25 +77,21 @@ type ServiceInfo struct {
 	EnvVars       []EnvVars      `yaml:"env_vars"`
 	Secrets       []Secrets      `yaml:"secrets"`
 	Region        string         `yaml:"region"`
-	Regions       []string       `yaml:"regions"` // For multi-region deployments
-	IsMultiRegion bool           `yaml:"-"`       // True if this was expanded from a multi-region config
+	Regions       []string       `yaml:"regions"`
+	IsMultiRegion bool           `yaml:"-"`
 	Project       string         `yaml:"project"`
 	License       string         `yaml:"license"`
 	Provider      string         `yaml:"provider"`
 	RegistryName  string         `yaml:"registry_name"`
-	DependsOn     []string       `yaml:"depends_on"` // Services this service depends on
-	Sidecars      []Sidecar      `yaml:"sidecars"`   // Auxiliary containers co-deployed in the same Cloud Run revision
+	DependsOn     []string       `yaml:"depends_on"`
+	Sidecars      []Sidecar      `yaml:"sidecars"`
 
-	// ImageName is used by the gcp-artifact-registry-image type — a build/push-only
-	// service that produces a versioned image referenced by other services'
-	// sidecars. Ignored by deploy-shaped types.
+	// ImageName + Version are used by gcp-artifact-registry-image to override
+	// the defaults derived from Name. Ignored by deploy-only types.
 	ImageName string `yaml:"image_name"`
 	Version   string `yaml:"version"`
 
-	// Image is the fully-qualified image reference for deploy-only types like
-	// gcp-cloud-run-from-image. When set, the deploy step uses this image as-is
-	// rather than constructing one from build artifacts. Ignored by types that
-	// build their own image (gcp-cloud-run, gcp-artifact-registry-image).
+	// Image is the pre-built image ref for gcp-cloud-run-from-image deploys.
 	Image string `yaml:"image"`
 }
 
@@ -145,36 +134,21 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		}
 	}
 
-	// env vars merge: top-level `env_vars:` PLUS any target-specific nested
-	// blocks (e.g. `cloud_run.env_vars:`). Both sources contribute to the
-	// single `svc.EnvVars` list that downstream code reads.
-	//
-	// Precedence: top-level wins on key conflicts. This nudges new pilum.yaml
-	// files toward top-level (the portable location that applies regardless
-	// of deploy target), but doesn't silently drop nested env vars from
-	// legacy configs.
 	envVars := mergeEnvVarSources(config)
 
-	// secrets conversion
 	secrets := configutil.MapFromAny(config["secrets"])
 	var secretVars []Secrets
 	for k, v := range secrets {
 		secretVars = append(secretVars, Secrets{Name: k, Value: v.(string)})
 	}
 
-	// Parse build config
 	buildConfig := parseBuildConfig(config)
 
-	// Type is the recipe/deployment type (e.g., "gcp-cloud-run")
 	serviceType := configutil.GetString(config, "type", "")
-
-	// Template is the Dockerfile template name (e.g., "golang-api.v1.dockerfile")
 	template := configutil.GetString(config, "template", "")
 
-	// Provider can be explicit or derived from type
 	provider := configutil.GetString(config, "provider", "")
 	if provider == "" {
-		// Derive provider from type if not explicitly set
 		switch serviceType {
 		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp-artifact-registry-image", "gcp-cloud-run-from-image", "gcp":
 			provider = "gcp"
@@ -189,7 +163,6 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		case "cloudflare-pages", "cloudflare":
 			provider = "cloudflare"
 		default:
-			// Unknown type, leave provider empty
 		}
 	}
 
@@ -220,37 +193,23 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	}
 }
 
-// mergeEnvVarSources combines top-level `env_vars:` with any nested
-// target-specific env_vars blocks into a single deterministic []EnvVars
-// list. Top-level entries win on key conflicts.
-//
-// Background: historically the deploy command builders only read top-level
-// EnvVars while the compose generator read both top-level AND nested
-// (cloud_run.env_vars). That divergence caused nested env vars to silently
-// disappear on real Cloud Run deploys while continuing to work in local
-// docker-compose output. Merging at parse time gives every downstream
-// reader the same complete view.
+// mergeEnvVarSources merges top-level env_vars with target-specific nested
+// blocks (cloud_run.env_vars, etc.). Top-level wins on key conflicts.
 func mergeEnvVarSources(config map[string]any) []EnvVars {
 	merged := make(map[string]string)
 
-	// Nested first (lowest priority). Add any target-specific env_vars blocks
-	// here as new deploy types gain them; today only cloud_run uses this shape.
 	for _, nestedKey := range []string{"cloud_run", "container_app", "lambda"} {
 		nested := configutil.MapFromAny(config[nestedKey])
 		for k, v := range configutil.MapFromAny(nested["env_vars"]) {
 			val, ok := v.(string)
 			if !ok {
-				continue // skip non-string entries; the top-level path is stricter
+				continue
 			}
 
 			merged[k] = val
 		}
 	}
 
-	// Top-level last so it overwrites any nested value with the same key.
-	// Non-string values are skipped rather than fatal — the previous strict
-	// path returned nil from NewServiceInfo, which would panic the only
-	// production caller (which dereferences svc.Name without a nil check).
 	for k, v := range configutil.MapFromAny(config["env_vars"]) {
 		val, ok := v.(string)
 		if !ok {
@@ -272,9 +231,6 @@ func mergeEnvVarSources(config map[string]any) []EnvVars {
 	return envVars
 }
 
-// parseSidecars extracts the sidecar list from a raw config map. Returns nil
-// when no `sidecars:` key is present or it's empty — callers branch on
-// len(svc.Sidecars) == 0 to keep the single-container path unchanged.
 func parseSidecars(config map[string]any) []Sidecar {
 	raw, ok := config["sidecars"].([]any)
 	if !ok || len(raw) == 0 {
