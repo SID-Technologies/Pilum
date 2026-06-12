@@ -35,7 +35,6 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, tag string) string {
 	cfg := ParseConfig(svc.Config)
 
 	tokenEnv := cfg.TokenEnv
-	accountID := cfg.AccountID
 	outputDir := cfg.OutputDir
 	productionBranch := cfg.ProductionBranch
 
@@ -45,16 +44,27 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, tag string) string {
 		branchFlag = fmt.Sprintf("--branch=%s", shellutil.Quote(productionBranch))
 	}
 
+	// Account ID: read from an env var when account_id_env is set (keeps it out
+	// of the config / a public repo), otherwise use the literal account_id.
+	accountExport := fmt.Sprintf("export CLOUDFLARE_ACCOUNT_ID=%s", shellutil.Quote(cfg.AccountID))
+	if cfg.AccountIDEnv != "" {
+		accountExport = fmt.Sprintf(`if [ -z "$%s" ]; then
+  echo "Error: %s environment variable is not set"
+  exit 1
+fi
+export CLOUDFLARE_ACCOUNT_ID="$%s"`, cfg.AccountIDEnv, cfg.AccountIDEnv, cfg.AccountIDEnv)
+	}
+
 	return fmt.Sprintf(`if [ -z "$%s" ]; then
   echo "Error: %s environment variable is not set"
   exit 1
 fi
 export CLOUDFLARE_API_TOKEN="$%s"
-export CLOUDFLARE_ACCOUNT_ID=%s
+%s
 npx wrangler pages deploy %s --project-name=%s %s`,
 		tokenEnv, tokenEnv,
 		tokenEnv,
-		shellutil.Quote(accountID),
+		accountExport,
 		shellutil.Quote(outputDir), shellutil.Quote(svc.Name), branchFlag,
 	)
 }
