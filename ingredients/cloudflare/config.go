@@ -17,7 +17,8 @@ const (
 
 // Config holds Cloudflare Pages-specific configuration.
 type Config struct {
-	AccountID        string // Cloudflare account ID
+	AccountID        string // Cloudflare account ID (literal)
+	AccountIDEnv     string // Env var name holding the account ID (alternative to AccountID; takes precedence)
 	TokenEnv         string // Env var name for API token (default: CLOUDFLARE_API_TOKEN)
 	ProductionBranch string // Branch for production deploys (default: main)
 	PackageManager   string // npm or pnpm (default: npm)
@@ -31,6 +32,7 @@ func ParseConfig(config map[string]any) Config {
 
 	return Config{
 		AccountID:        configutil.GetString(cfMap, "account_id", ""),
+		AccountIDEnv:     configutil.GetString(cfMap, "account_id_env", ""),
 		TokenEnv:         configutil.GetString(cfMap, "token_env", DefaultTokenEnv),
 		ProductionBranch: configutil.GetString(cfMap, "production_branch", DefaultProductionBranch),
 		PackageManager:   configutil.GetString(cfMap, "package_manager", DefaultPackageManager),

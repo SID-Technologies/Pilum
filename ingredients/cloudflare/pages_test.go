@@ -130,6 +130,26 @@ func TestGenerateDeployCommand_Preview(t *testing.T) {
 	require.Contains(t, cmd, "--branch='feature-branch'")
 }
 
+func TestGenerateDeployCommand_AccountIDEnv(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name: "my-site",
+		Config: map[string]any{
+			"cloudflare": map[string]any{
+				"account_id_env": "CF_ACCT",
+			},
+		},
+	}
+
+	cmd := GenerateDeployCommand(svc, "main")
+
+	// Account ID is read from the named env var, not injected as a literal.
+	require.Contains(t, cmd, `export CLOUDFLARE_ACCOUNT_ID="$CF_ACCT"`)
+	require.Contains(t, cmd, `if [ -z "$CF_ACCT" ]; then`)
+	require.NotContains(t, cmd, "CLOUDFLARE_ACCOUNT_ID=''")
+}
+
 func TestGenerateDeployCommand_CustomTokenEnv(t *testing.T) {
 	t.Parallel()
 
