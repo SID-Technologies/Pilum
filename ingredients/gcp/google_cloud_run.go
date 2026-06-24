@@ -162,13 +162,60 @@ func ingressContainerPort(cfg CloudRunConfig) int {
 	return 8080
 }
 
+// joinEnvVars formats env vars for gcloud's --set-env-vars flag.
+// If any value contains a comma (the default delimiter), it uses
+// gcloud's alternative-delimiter syntax `^DELIM^KEY1=VAL1DELIM KEY2=VAL2`.
+// See `gcloud topic escaping`.
 func joinEnvVars(envs []serviceinfo.EnvVars) string {
 	parts := make([]string, 0, len(envs))
 	for _, env := range envs {
 		parts = append(parts, fmt.Sprintf("%s=%s", env.Name, env.Value))
 	}
 
+	if needsAltDelimiter(envs) {
+		delim := pickDelimiter(envs)
+		return fmt.Sprintf("^%s^%s", delim, strings.Join(parts, delim))
+	}
+
 	return strings.Join(parts, ",")
+}
+
+// needsAltDelimiter reports whether any env value contains the default
+// comma separator — gcloud parses --set-env-vars as comma-delimited KEY=VAL
+// pairs, so a comma in any value breaks the default syntax.
+func needsAltDelimiter(envs []serviceinfo.EnvVars) bool {
+	for _, env := range envs {
+		if strings.Contains(env.Value, ",") {
+			return true
+		}
+	}
+
+	return false
+}
+
+// pickDelimiter returns the first single-byte separator not present in any
+// env value. Tried in order of "least likely to appear" to keep emitted
+// commands readable.
+func pickDelimiter(envs []serviceinfo.EnvVars) string {
+	candidates := []string{"|", "@", ";", "~", "#", "%"}
+	for _, c := range candidates {
+		if !anyValueContains(envs, c) {
+			return c
+		}
+	}
+	// All common delimiters present — fall back to a control char that's
+	// effectively never in real config (file separator).
+	return "\x1c"
+}
+
+func anyValueContains(envs []serviceinfo.EnvVars, s string) bool {
+	for _, env := range envs {
+		if strings.Contains(env.Value, s) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func joinSecretRefs(secrets []serviceinfo.Secrets) string {

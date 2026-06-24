@@ -1,6 +1,7 @@
 package gcp_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sid-technologies/pilum/ingredients/gcp"
@@ -479,4 +480,101 @@ func TestGenerateGCPDeployCommandEmptyCloudRunConfig(t *testing.T) {
 		require.NotContains(t, arg, "--concurrency")
 		require.NotContains(t, arg, "--timeout")
 	}
+}
+
+// TestGenerateGCPDeployCommandEnvVarWithComma locks in that when an env value
+// contains a comma, the recipe switches to gcloud's ^DELIM^ alternative-
+// delimiter syntax. The default --set-env-vars parser treats commas as KEY=VAL
+// pair separators, so a comma in any value breaks parsing — caught in prod
+// when a CORS allow-list env var (multi-origin CSV) was rejected.
+func TestGenerateGCPDeployCommandEnvVarWithComma(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "ALLOWED_ORIGINS", Value: "https://a.com,https://b.com,https://c.com"},
+			{Name: "OTHER", Value: "plain"},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	for i, arg := range cmd {
+		if arg == "--set-env-vars" && i+1 < len(cmd) {
+			val := cmd[i+1]
+			// Must use alt-delimiter form ^X^…
+			require.True(t, strings.HasPrefix(val, "^"), "expected ^DELIM^ prefix; got %q", val)
+			// Must contain both env vars in the picked-delimiter form
+			require.Contains(t, val, "ALLOWED_ORIGINS=https://a.com,https://b.com,https://c.com")
+			require.Contains(t, val, "OTHER=plain")
+			return
+		}
+	}
+
+	t.Fatal("--set-env-vars flag not found")
+}
+
+// TestGenerateGCPDeployCommandEnvVarWithoutComma ensures the alt-delimiter
+// form is NOT used when no value contains a comma — keeps emitted commands
+// readable in the common case and preserves backward compatibility.
+func TestGenerateGCPDeployCommandEnvVarWithoutComma(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "FOO", Value: "bar"},
+			{Name: "BAZ", Value: "qux"},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	for i, arg := range cmd {
+		if arg == "--set-env-vars" && i+1 < len(cmd) {
+			val := cmd[i+1]
+			require.False(t, strings.HasPrefix(val, "^"), "should not use ^DELIM^ form when no commas in values; got %q", val)
+			require.Equal(t, "FOO=bar,BAZ=qux", val)
+			return
+		}
+	}
+
+	t.Fatal("--set-env-vars flag not found")
+}
+
+// TestGenerateGCPDeployCommandEnvVarDelimiterCollision covers the case where
+// the first-choice delimiter (`|`) appears in a value — the picker must fall
+// through to a non-conflicting candidate (`@`).
+func TestGenerateGCPDeployCommandEnvVarDelimiterCollision(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "myservice",
+		Region: "us-central1",
+		Config: map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "REGEX", Value: "foo|bar|baz"}, // contains |
+			{Name: "LIST", Value: "a,b,c"},        // forces alt-delimiter
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	for i, arg := range cmd {
+		if arg == "--set-env-vars" && i+1 < len(cmd) {
+			val := cmd[i+1]
+			require.True(t, strings.HasPrefix(val, "^"), "expected ^DELIM^ prefix")
+			require.False(t, strings.HasPrefix(val, "^|^"), "must not pick `|` since values contain it; got %q", val)
+			require.Contains(t, val, "REGEX=foo|bar|baz")
+			require.Contains(t, val, "LIST=a,b,c")
+			return
+		}
+	}
+
+	t.Fatal("--set-env-vars flag not found")
 }
