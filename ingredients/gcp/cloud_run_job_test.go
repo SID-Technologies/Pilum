@@ -1,6 +1,7 @@
 package gcp_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/sid-technologies/pilum/ingredients/gcp"
@@ -299,5 +300,69 @@ func TestGenerateExecuteJobCommandNoProject(t *testing.T) {
 	require.NotNil(t, cmd)
 	for _, arg := range cmd {
 		require.NotEqual(t, "--project", arg)
+	}
+}
+
+// TestGenerateDeployJobCommandCloudSQLInstances locks in that the job recipe
+// uses --set-cloudsql-instances (not --add-cloudsql-instances).
+// `gcloud run jobs deploy` rejects --add; only services accept both forms.
+func TestGenerateDeployJobCommandCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "migrations",
+		Region:  "us-central1",
+		Project: "my-project",
+		Config: map[string]any{
+			"job": map[string]any{
+				"cloudsql_instances": []any{
+					"my-project:us-central1:my-db",
+				},
+			},
+		},
+	}
+
+	cmd := gcp.GenerateDeployJobCommand(service, "us-docker.pkg.dev/my-project/repo/migrations:latest")
+
+	cmdStr := strings.Join(cmd, " ")
+	require.Contains(t, cmdStr, "--set-cloudsql-instances my-project:us-central1:my-db")
+	require.NotContains(t, cmdStr, "--add-cloudsql-instances")
+}
+
+func TestGenerateDeployJobCommandMultipleCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "migrations",
+		Region:  "us-central1",
+		Project: "my-project",
+		Config: map[string]any{
+			"job": map[string]any{
+				"cloudsql_instances": []any{
+					"proj:us-central1:db-one",
+					"proj:us-central1:db-two",
+				},
+			},
+		},
+	}
+
+	cmd := gcp.GenerateDeployJobCommand(service, "us-docker.pkg.dev/my-project/repo/migrations:latest")
+	cmdStr := strings.Join(cmd, " ")
+	require.Contains(t, cmdStr, "--set-cloudsql-instances proj:us-central1:db-one,proj:us-central1:db-two")
+}
+
+func TestGenerateDeployJobCommandNoCloudSQLInstances(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "migrations",
+		Region: "us-central1",
+		Config: map[string]any{},
+	}
+
+	cmd := gcp.GenerateDeployJobCommand(service, "us-docker.pkg.dev/project/repo/migrations:latest")
+	for _, arg := range cmd {
+		require.NotEqual(t, "--set-cloudsql-instances", arg)
+		require.NotEqual(t, "--add-cloudsql-instances", arg)
 	}
 }

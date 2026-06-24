@@ -56,9 +56,11 @@ func GenerateDeployJobCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		cmd = append(cmd, "--service-account", cfg.ServiceAccount)
 	}
 
-	// Add Cloud SQL instances if set
+	// Add Cloud SQL instances if set.
+	// NOTE: jobs use --set-cloudsql-instances (gcloud run jobs deploy doesn't
+	// accept --add-cloudsql-instances, unlike gcloud run deploy for services).
 	if len(cfg.CloudSQLInstances) > 0 {
-		cmd = append(cmd, "--add-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
+		cmd = append(cmd, "--set-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
 	}
 
 	// Add secrets if provided
