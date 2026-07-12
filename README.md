@@ -469,6 +469,29 @@ Step 3: deploy (wave-ordered)
 | `recipes/` | Deployment workflow definitions |
 | `schemas/` | JSON Schema for editor support |
 
+## Troubleshooting
+
+### `failed to compute cache key: "…/dist": not found` on Docker build step
+
+**Cause:** the Docker build daemon can't find a path the Dockerfile is trying to `COPY` — even though it exists on disk. The usual culprit is `.dockerignore` filtering the path out of the build context before it reaches the daemon.
+
+Pilum's Go pipeline compiles binaries into `services/<name>/dist/` in the build step, then the golang-api Dockerfile does `COPY ./services/<name>/dist .` in the image step. If your repo's `.dockerignore` contains `**/dist`, `dist/`, or any pattern that matches those directories, they're stripped from the context and the `COPY` fails with:
+
+```
+ERROR: failed to compute cache key: failed to calculate checksum of ref …::…: "/services/<name>/dist": not found
+```
+
+Docker also emits (easy to miss) a warning line:
+
+```
+1 warning found:
+ - CopyIgnoredFile: Attempting to Copy file "services/<name>/dist" that is excluded by .dockerignore (line N)
+```
+
+**Fix:** remove the `dist` pattern from `.dockerignore`, or narrow it to only frontend build outputs (e.g., `apps/web/dist`, `apps/desktop/dist`) rather than the repo-wide `**/dist`.
+
+**Mental model.** `.gitignore` controls what git tracks. `.dockerignore` controls what Docker ships to the daemon at build time — files can exist on disk but be invisible to the build. If a Dockerfile `COPY`s a path, that path MUST NOT match anything in `.dockerignore`, even if it's a build artifact. Two-strategy repos (one flow compiles inside the image, another compiles outside) need to be careful — the `dist` you ignore for one strategy is the `dist` the other needs.
+
 ## Documentation
 
 Full documentation available at **[pilum.dev/docs](https://pilum.dev/docs/getting-started/introduction/)**
