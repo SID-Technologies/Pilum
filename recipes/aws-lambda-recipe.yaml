@@ -1,4 +1,4 @@
-# aws-lambda-recipe.yaml
+# Prereqs: aws CLI (authenticated) + sam CLI installed.
 name: aws-lambda
 description: Deploy to AWS Lambda
 provider: aws
@@ -15,46 +15,35 @@ required_fields:
     type: string
     default: my-project
 
-  - name: stack_name
-    description: CloudFormation stack name
-    type: string
-    default: my-stack
-
-optional_fields:
-  - name: lambda.memory
-    description: Memory in MB
-    type: int
-    default: "128"
-
-  - name: lambda.timeout
-    description: Timeout in seconds
-    type: int
-    default: "30"
-
-  - name: lambda.runtime
-    description: Lambda runtime (e.g., provided.al2023, python3.12)
-    type: string
-    default: "provided.al2023"
-
 steps:
   - name: build
     command: ["sam", "build"]
     execution_mode: service_dir
-    timeout: 120
+    timeout: 300
     tags:
       - build
 
-  - name: package
-    command: ["sam", "package", "--s3-bucket", "${project}-deployments", "--region", "${region}"]
-    execution_mode: service_dir
-    timeout: 180
-    tags:
-      - push
-
+  # `sam deploy` packages and uploads artifacts itself (--resolve-s3 creates/
+  # reuses SAM's managed bucket), so there is no separate package/push step.
+  # --capabilities CAPABILITY_IAM: SAM templates almost always create the
+  #   function's execution role; without it the deploy is rejected.
+  # --no-fail-on-empty-changeset: redeploying an unchanged service is a
+  #   success, not an error (keeps retries and repeat runs green).
   - name: deploy
-    command: ["sam", "deploy", "--stack-name", "${name}", "--region", "${region}", "--no-confirm-changeset"]
+    command: [
+      "sam", "deploy",
+      "--stack-name", "${name}",
+      "--region", "${region}",
+      "--resolve-s3",
+      "--capabilities", "CAPABILITY_IAM",
+      "--no-confirm-changeset",
+      "--no-fail-on-empty-changeset",
+      "--no-progressbar",
+      "--tags", "pilum:service=${name}", "pilum:version=${tag}",
+    ]
     execution_mode: service_dir
-    timeout: 240
+    timeout: 300
     retries: 1
     tags:
+      - push
       - deploy
