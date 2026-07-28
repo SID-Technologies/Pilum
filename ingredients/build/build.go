@@ -100,7 +100,8 @@ func generateProviderImageName(service serviceinfo.ServiceInfo, imageBase string
 		}
 	case "azure":
 		if service.RegistryName != "" {
-			return fmt.Sprintf("%s.azurecr.io/%s", service.RegistryName, imageBase)
+			// Bare ACR name expected; tolerate a pasted full login server.
+			return fmt.Sprintf("%s.azurecr.io/%s", strings.TrimSuffix(service.RegistryName, ".azurecr.io"), imageBase)
 		}
 	case "github":
 		if service.RegistryName != "" {

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
 	service "github.com/sid-technologies/pilum/lib/service_info"
@@ -62,7 +63,9 @@ func generateProviderImageName(svc service.ServiceInfo) (string, error) {
 		if svc.RegistryName == "" {
 			return "", errors.New("service '%s': Azure provider requires registry_name", svc.Name)
 		}
-		return fmt.Sprintf("%s.azurecr.io/%s", svc.RegistryName, svc.Name), nil
+		// registry_name is the bare ACR name; tolerate users pasting the full
+		// login server ("myregistry.azurecr.io") without doubling the suffix.
+		return fmt.Sprintf("%s.azurecr.io/%s", strings.TrimSuffix(svc.RegistryName, ".azurecr.io"), svc.Name), nil
 	case "dockerhub":
 		return fmt.Sprintf("docker.io/%s", svc.Name), nil
 	case "gitlab":
