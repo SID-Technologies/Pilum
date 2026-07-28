@@ -180,3 +180,65 @@ func TestGenerateDockerBuildCommandContext(t *testing.T) {
 	// Last argument should be build context "."
 	require.Equal(t, ".", cmd[len(cmd)-1])
 }
+
+// collectTags returns every image ref passed via -t, in order.
+func collectTags(cmd []string) []string {
+	var tags []string
+	for i, arg := range cmd {
+		if arg == "-t" && i+1 < len(cmd) {
+			tags = append(tags, cmd[i+1])
+		}
+	}
+	return tags
+}
+
+func TestGenerateDockerBuildCommandAddsLatestAlias(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{Name: "myservice"}
+
+	cmd := docker.GenerateDockerBuildCommand(service,
+		"us-central1-docker.pkg.dev/proj/repo/mcp-controller:v1.0.0", "Dockerfile")
+
+	require.Equal(t, []string{
+		"us-central1-docker.pkg.dev/proj/repo/mcp-controller:v1.0.0",
+		"us-central1-docker.pkg.dev/proj/repo/mcp-controller:latest",
+	}, collectTags(cmd))
+}
+
+func TestGenerateDockerBuildCommandNoAliasWhenAlreadyLatest(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{Name: "myservice"}
+
+	cmd := docker.GenerateDockerBuildCommand(service,
+		"gcr.io/project/myservice:latest", "Dockerfile")
+
+	require.Equal(t, []string{"gcr.io/project/myservice:latest"}, collectTags(cmd))
+}
+
+func TestGenerateDockerBuildCommandNoAliasWhenUntagged(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{Name: "myservice"}
+
+	// The only ":" is the registry port — not a tag separator.
+	cmd := docker.GenerateDockerBuildCommand(service,
+		"localhost:5000/myservice", "Dockerfile")
+
+	require.Equal(t, []string{"localhost:5000/myservice"}, collectTags(cmd))
+}
+
+func TestGenerateDockerBuildCommandAliasWithRegistryPort(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{Name: "myservice"}
+
+	cmd := docker.GenerateDockerBuildCommand(service,
+		"localhost:5000/myservice:v2.1.0", "Dockerfile")
+
+	require.Equal(t, []string{
+		"localhost:5000/myservice:v2.1.0",
+		"localhost:5000/myservice:latest",
+	}, collectTags(cmd))
+}
