@@ -11,6 +11,30 @@ pilum deploy --tag=v1.0.0
 
 Pilum handles the build → push → deploy pipeline while your infrastructure-as-code (Terraform, Pulumi) defines the actual resources.
 
+Pilum is dogfooded as the deployment tool for every [SID Technologies](https://romans.dev) product — dozens of services shipped to Cloud Run, Cloud Run Jobs, Cloudflare Pages, npm, and Homebrew with it, daily, since December 2025.
+
+**Provider status, honestly:**
+
+- **Battle-tested daily**: GCP Cloud Run, GCP Cloud Run Jobs, Cloudflare Pages, npm, Homebrew
+- **Implemented and command-level reviewed, less exercised**: AWS Lambda, Azure Container Apps — feedback from real-world use wanted
+
+Not sure Pilum fits your stack? Read [When to Use Pilum (and When Not To)](https://pilum.dev/docs/guides/when-to-use/) — it includes the cases where the answer is no.
+
+## Installation
+
+### Homebrew
+
+```bash
+brew tap sid-technologies/pilum
+brew install pilum
+```
+
+### From source
+
+```bash
+go install github.com/sid-technologies/pilum@latest
+```
+
 ## Features
 
 - **Recipe-driven deployments** - Define reusable deployment workflows in YAML
@@ -27,21 +51,6 @@ Pilum handles the build → push → deploy pipeline while your infrastructure-a
 - **JSON output** - Machine-readable output for scripting and AI agents
 - **Editor support** - JSON Schema for autocompletion and validation in VS Code, JetBrains, etc.
 - **Beautiful CLI** - Animated spinners, colored output, clear progress
-
-## Installation
-
-### Homebrew
-
-```bash
-brew tap sid-technologies/pilum
-brew install pilum
-```
-
-### From source
-
-```bash
-go install github.com/sid-technologies/pilum@latest
-```
 
 ## Quick Start
 
@@ -497,6 +506,9 @@ Docker also emits (easy to miss) a warning line:
 Full documentation available at **[pilum.dev/docs](https://pilum.dev/docs/getting-started/introduction/)**
 
 - [Getting Started](https://pilum.dev/docs/getting-started/introduction/) - Introduction and quick start
+- [When to Use Pilum (and When Not To)](https://pilum.dev/docs/guides/when-to-use/) - An honest fit guide
+- [Pilum vs. GCP Native Tooling](https://pilum.dev/docs/comparisons/pilum-vs-gcp-native/) / [Pilum vs. CI/CD Pipelines](https://pilum.dev/docs/comparisons/pilum-vs-ci-cd/) - Comparisons
+- [FAQ](https://pilum.dev/docs/reference/faq/) - Security, maintenance, lock-in, Terraform/CI relationships
 - [Service Configuration](https://pilum.dev/docs/configuration/service-yaml/) - Full `pilum.yaml` reference
 - [Build Config](https://pilum.dev/docs/configuration/build-config/) - Language-specific build settings
 - [Multi-Service Monorepo](https://pilum.dev/docs/guides/multi-service-monorepo/) - Managing multiple services
