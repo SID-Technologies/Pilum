@@ -5,6 +5,8 @@
 
 A cloud-agnostic build and deployment CLI. Define your service once, deploy to any cloud provider.
 
+![Pilum deploy demo](public/demo.gif)
+
 ```bash
 pilum deploy --tag=v1.0.0
 ```
