@@ -1,18 +1,15 @@
 ---
-name: Issue template
-about: General
+name: "❓ Question / Support"
+about: Not sure if it's a bug, or just need help with a recipe or config
 title: ''
-labels: ''
+labels: question
 assignees: ''
 
 ---
 
-sist2 version:
+**What are you trying to do?**
 
-Platform (Linux or Docker, x86-64 or arm64):
+**What have you tried?**
+<!-- Relevant pilum.yaml, command, or docs page you've already checked -->
 
-Elasticsearch version:
-
-Command with arguments:  `ex: "scan ~/Documents -o ./i2 --threads 3 -q 1.0`
-
-If the issue is related to the `scan` module, please attach the files necessary to reproduce the error or email them to me[at]simon987.net.
+**What happened instead?**
