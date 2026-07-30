@@ -1,7 +1,9 @@
 # Pilum
 
-[![Go Tests](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml/badge.svg)](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml)
+[![CI](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml/badge.svg)](https://github.com/sid-technologies/pilum/actions/workflows/ci-pr.yml)
 [![codecov](https://codecov.io/gh/sid-technologies/pilum/branch/main/graph/badge.svg)](https://codecov.io/gh/sid-technologies/pilum)
+[![License](https://img.shields.io/github/license/sid-technologies/pilum)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/sid-technologies/pilum)](https://github.com/sid-technologies/pilum/releases)
 
 A cloud-agnostic build and deployment CLI. Define your service once, deploy to any cloud provider.
 
@@ -527,6 +529,10 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Code style guidelines
 - How to add new providers
 - Pull request process
+
+## Security
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md) for how to report it privately.
 
 ## License
 
