@@ -20,7 +20,11 @@ required_fields:
     type: string
 
   - name: registry_name
-    description: Azure Container Registry name (e.g., myregistry.azurecr.io)
+    description: Azure Container Registry name WITHOUT the .azurecr.io suffix (e.g., myregistry)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
     type: string
 
 optional_fields:
