@@ -1,0 +1,20 @@
+name: my-api
+provider: azure
+type: azure-container-apps
+project: my-resource-group           # Azure resource group name
+region: eastus
+registry_name: myregistry            # ACR name WITHOUT the .azurecr.io suffix
+template: python                     # expects a Dockerfile at _templates/python in your project
+
+build:
+  language: python
+  version: "3.12"
+  cmd: pip install -r requirements.txt
+
+container_app:
+  min_replicas: 0
+  max_replicas: 10
+  cpu: "0.5"
+  memory: 1Gi
+  ingress_port: 8080
+  ingress_external: true

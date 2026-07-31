@@ -1,11 +1,10 @@
-name: go-example
+name: my-api
 provider: gcp
 type: gcp-cloud-run
-project: your-gcp-project
+project: my-gcp-project
 region: us-central1
-registry_name: your-repo            # bare Artifact Registry repo name, not a full host/path
+registry_name: my-repo              # bare Artifact Registry repo name, not a full host/path
 template: go                        # expects a Dockerfile at _templates/go in your project
-                                     # (see ./Dockerfile in this folder for a working example)
 
 build:
   language: go
@@ -17,3 +16,9 @@ build:
     GOARCH: amd64
   flags:
     ldflags: ["-s", "-w"]
+
+cloud_run:
+  min_instances: 0
+  max_instances: 10
+  memory: 512Mi
+  cpu: "1"

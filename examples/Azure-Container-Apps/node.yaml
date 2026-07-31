@@ -1,0 +1,20 @@
+name: my-api
+provider: azure
+type: azure-container-apps
+project: my-resource-group           # Azure resource group name
+region: eastus
+registry_name: myregistry            # ACR name WITHOUT the .azurecr.io suffix
+template: node                       # expects a Dockerfile at _templates/node in your project
+
+build:
+  language: node
+  version: "22"
+  cmd: npm ci --production
+
+container_app:
+  min_replicas: 0
+  max_replicas: 10
+  cpu: "0.5"
+  memory: 1Gi
+  ingress_port: 8080
+  ingress_external: true

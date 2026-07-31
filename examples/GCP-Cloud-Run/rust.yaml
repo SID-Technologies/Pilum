@@ -1,0 +1,18 @@
+name: my-api
+provider: gcp
+type: gcp-cloud-run
+project: my-gcp-project
+region: us-central1
+registry_name: my-repo              # bare Artifact Registry repo name, not a full host/path
+template: rust                      # expects a Dockerfile at _templates/rust in your project
+
+build:
+  language: rust
+  version: "1.75"
+  cmd: cargo build --release
+
+cloud_run:
+  min_instances: 0
+  max_instances: 10
+  memory: 512Mi
+  cpu: "1"

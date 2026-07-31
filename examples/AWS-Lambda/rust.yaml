@@ -1,0 +1,21 @@
+# AWS Lambda deploys via AWS SAM (`sam build` + `sam deploy`), not Pilum's
+# generic build/docker pipeline — there's no `build:`, `template:`, or
+# `registry_name:` here because SAM handles packaging itself. Function
+# runtime, handler, and memory live in this service's own template.yaml
+# (a SAM/CloudFormation template), which is where the per-language
+# difference actually shows up, e.g. for Rust (custom runtime, same as Go):
+#
+#   Resources:
+#     Function:
+#       Type: AWS::Serverless::Function
+#       Properties:
+#         Runtime: provided.al2
+#         Handler: bootstrap
+#         CodeUri: .
+#
+# Prereqs: aws CLI (authenticated) + sam CLI installed, cargo-lambda for the build.
+name: my-lambda-rust
+provider: aws
+type: aws-lambda
+region: us-east-1
+project: my-project

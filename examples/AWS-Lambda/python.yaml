@@ -1,0 +1,21 @@
+# AWS Lambda deploys via AWS SAM (`sam build` + `sam deploy`), not Pilum's
+# generic build/docker pipeline — there's no `build:`, `template:`, or
+# `registry_name:` here because SAM handles packaging itself. Function
+# runtime, handler, and memory live in this service's own template.yaml
+# (a SAM/CloudFormation template), which is where the per-language
+# difference actually shows up, e.g. for Python:
+#
+#   Resources:
+#     Function:
+#       Type: AWS::Serverless::Function
+#       Properties:
+#         Runtime: python3.12
+#         Handler: app.handler
+#         CodeUri: .
+#
+# Prereqs: aws CLI (authenticated) + sam CLI installed.
+name: my-lambda-python
+provider: aws
+type: aws-lambda
+region: us-east-1
+project: my-project

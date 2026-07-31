@@ -1,0 +1,26 @@
+name: my-api
+provider: azure
+type: azure-container-apps
+project: my-resource-group           # Azure resource group name
+region: eastus
+registry_name: myregistry            # ACR name WITHOUT the .azurecr.io suffix
+template: go                         # expects a Dockerfile at _templates/go in your project
+
+build:
+  language: go
+  version: "1.23"
+  cmd: go build -o ./dist/server ./cmd/server
+  env_vars:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  flags:
+    ldflags: ["-s", "-w"]
+
+container_app:
+  min_replicas: 0
+  max_replicas: 10
+  cpu: "0.5"
+  memory: 1Gi
+  ingress_port: 8080
+  ingress_external: true
