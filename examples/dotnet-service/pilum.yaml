@@ -1,7 +1,11 @@
 name: dotnet-example
 provider: gcp
+type: gcp-cloud-run
 project: your-gcp-project
 region: us-central1
+registry_name: your-repo            # bare Artifact Registry repo name, not a full host/path
+template: dotnet                    # expects a Dockerfile at _templates/dotnet in your project
+                                     # (see ./Dockerfile in this folder for a working example)
 
 build:
   language: dotnet

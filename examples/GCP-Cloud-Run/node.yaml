@@ -1,0 +1,18 @@
+name: my-api
+provider: gcp
+type: gcp-cloud-run
+project: my-gcp-project
+region: us-central1
+registry_name: my-repo              # bare Artifact Registry repo name, not a full host/path
+template: node                      # expects a Dockerfile at _templates/node in your project
+
+build:
+  language: node
+  version: "22"
+  cmd: npm ci --production
+
+cloud_run:
+  min_instances: 0
+  max_instances: 10
+  memory: 512Mi
+  cpu: "1"
