@@ -238,3 +238,70 @@ func TestGenerateBuildCommandString(t *testing.T) {
 		})
 	}
 }
+
+// TestResolveImageNameGCP locks in the documented registry_name convention
+// (bare Artifact Registry repository name, e.g. "my-repo") and guards against
+// regressing into double-wrapping a pasted full host (docker.pkg.dev or the
+// legacy gcr.io), which previously produced a broken image reference like
+// "us-central1-docker.pkg.dev/my-project/us-docker.pkg.dev/my-project/repo/my-api".
+func TestResolveImageNameGCP(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		service  serviceinfo.ServiceInfo
+		expected string
+	}{
+		{
+			name: "bare registry name (documented convention)",
+			service: serviceinfo.ServiceInfo{
+				Name:         "my-api",
+				Provider:     "gcp",
+				Project:      "my-project",
+				Region:       "us-central1",
+				RegistryName: "my-repo",
+			},
+			expected: "us-central1-docker.pkg.dev/my-project/my-repo/my-api:v1.0.0",
+		},
+		{
+			name: "no registry name falls back to project",
+			service: serviceinfo.ServiceInfo{
+				Name:     "my-api",
+				Provider: "gcp",
+				Project:  "my-project",
+				Region:   "us-central1",
+			},
+			expected: "us-central1-docker.pkg.dev/my-project/my-project/my-api:v1.0.0",
+		},
+		{
+			name: "pasted full Artifact Registry host is not double-wrapped",
+			service: serviceinfo.ServiceInfo{
+				Name:         "my-api",
+				Provider:     "gcp",
+				Project:      "my-project",
+				Region:       "us-central1",
+				RegistryName: "us-docker.pkg.dev/my-project/repo",
+			},
+			expected: "us-docker.pkg.dev/my-project/repo/my-api:v1.0.0",
+		},
+		{
+			name: "pasted legacy gcr.io host is not double-wrapped",
+			service: serviceinfo.ServiceInfo{
+				Name:         "my-api",
+				Provider:     "gcp",
+				Project:      "my-project",
+				Region:       "us-central1",
+				RegistryName: "gcr.io/my-project",
+			},
+			expected: "gcr.io/my-project/my-api:v1.0.0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := build.ResolveImageName(tt.service, "", "v1.0.0")
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}

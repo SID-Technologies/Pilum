@@ -149,7 +149,7 @@ func (p *Pipeline) generateCommand(svc serviceinfo.ServiceInfo, step *recipe.Ste
 	}
 	ctx := registry.StepContext{
 		Service:      svc,
-		ImageName:    p.imageNames[svc.Name],
+		ImageName:    p.imageNames[svc.DisplayName()],
 		Tag:          p.options.Tag,
 		Registry:     svc.RegistryName,
 		TemplatePath: templatePath,

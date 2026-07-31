@@ -173,7 +173,11 @@ func TestRecipeValidateServiceMissingTemplate(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "requires field 'template'")
-	require.Contains(t, err.Error(), "https://github.com/sid-technologies/pilum/tree/main/_templates")
+	// _templates/<name> lives in the user's own project, not Pilum's repo —
+	// the message must not send people to a path that's never existed there.
+	require.Contains(t, err.Error(), "_templates/<name>")
+	require.Contains(t, err.Error(), "pilum init")
+	require.Contains(t, err.Error(), "https://github.com/sid-technologies/pilum/tree/main/examples")
 }
 
 func TestRecipeValidateServiceWithTemplate(t *testing.T) {

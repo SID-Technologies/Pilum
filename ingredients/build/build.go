@@ -85,6 +85,13 @@ func isRegistryName(registry string, service serviceinfo.ServiceInfo) bool {
 func generateProviderImageName(service serviceinfo.ServiceInfo, imageBase string) string {
 	switch service.Provider {
 	case "gcp":
+		// registry_name is documented and normally used as a bare Artifact
+		// Registry repository name (e.g. "romans-dev"), which gets slotted
+		// into the region-scoped path below. Tolerate a pasted full host
+		// (docker.pkg.dev or the legacy gcr.io) instead of double-wrapping it.
+		if host := service.RegistryName; strings.Contains(host, "docker.pkg.dev") || strings.Contains(host, "gcr.io") {
+			return fmt.Sprintf("%s/%s", strings.TrimSuffix(host, "/"), imageBase)
+		}
 		if service.Region != "" && service.Project != "" {
 			registryName := service.RegistryName
 			if registryName == "" {
