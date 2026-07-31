@@ -60,7 +60,9 @@ func (r *Recipe) ValidateService(svc *serviceinfo.ServiceInfo) error {
 			if field.Name == "template" {
 				return errors.New(
 					"recipe '%s' requires field '%s': %s\n"+
-						"  See available templates: https://github.com/sid-technologies/pilum/tree/main/_templates",
+						"  This is a Dockerfile in YOUR project at _templates/<name>, not something Pilum ships.\n"+
+						"  Run 'pilum init' to scaffold one automatically, or see example Dockerfiles per language: "+
+						"https://github.com/sid-technologies/pilum/tree/main/examples",
 					r.Name, field.Name, field.Description)
 			}
 			return errors.New("recipe '%s' requires field '%s': %s",

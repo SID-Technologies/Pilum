@@ -21,7 +21,7 @@ required_fields:
     type: string
 
   - name: registry_name
-    description: Docker registry prefix (e.g., us-docker.pkg.dev/my-project/repo)
+    description: Artifact Registry repository name (bare name, e.g. "my-repo" — not a full host/path)
     type: string
 
   - name: template

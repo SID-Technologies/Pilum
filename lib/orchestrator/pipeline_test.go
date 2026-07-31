@@ -146,6 +146,66 @@ func TestPipelineDryRun(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestPipelineMultiRegionImageNamesDoNotCollide guards against a regression
+// where imageNames was keyed by service Name alone. Multi-region instances
+// (as produced by serviceinfo.ExpandMultiRegion) share Name but must resolve
+// to different region-scoped image names — GCP's image host embeds the
+// region — so every region except whichever was computed last would silently
+// deploy against the wrong region's registry host.
+func TestPipelineMultiRegionImageNamesDoNotCollide(t *testing.T) {
+	t.Parallel()
+
+	services := []serviceinfo.ServiceInfo{
+		{
+			Name: "my-api", Provider: "gcp", Project: "my-project",
+			Region: "us-central1", RegistryName: "my-repo", Template: "go",
+			IsMultiRegion: true,
+		},
+		{
+			Name: "my-api", Provider: "gcp", Project: "my-project",
+			Region: "europe-west1", RegistryName: "my-repo", Template: "go",
+			IsMultiRegion: true,
+		},
+	}
+
+	recipes := []recipe.Info{
+		{
+			Provider: "gcp",
+			Recipe: recipe.Recipe{
+				Name:     "gcp-cloud-run",
+				Provider: "gcp",
+				Steps: []recipe.Step{
+					{Name: "build docker image", ExecutionMode: "root", Tags: []string{"build"}},
+					{Name: "deploy to cloud run", ExecutionMode: "root", Tags: []string{"deploy"}},
+				},
+			},
+		},
+	}
+
+	opts := types.PipelineOptions{Tag: "v1.0.0", DryRun: true}
+
+	pipeline := NewPipeline(services, recipes, opts)
+	err := pipeline.Run()
+	require.NoError(t, err)
+
+	commands := make(map[string]string) // "service (region)" -> deploy command
+	for _, entry := range pipeline.dryRunResults {
+		if entry.Step == "deploy to cloud run" {
+			commands[entry.Service] = entry.Command
+		}
+	}
+
+	usCentral := commands["my-api (us-central1)"]
+	euWest := commands["my-api (europe-west1)"]
+
+	require.NotEmpty(t, usCentral)
+	require.NotEmpty(t, euWest)
+	require.Contains(t, usCentral, "us-central1-docker.pkg.dev")
+	require.Contains(t, euWest, "europe-west1-docker.pkg.dev")
+	require.NotContains(t, usCentral, "europe-west1-docker.pkg.dev")
+	require.NotContains(t, euWest, "us-central1-docker.pkg.dev")
+}
+
 func TestPipelineDryRunWithExplicitCommands(t *testing.T) {
 	t.Parallel()
 

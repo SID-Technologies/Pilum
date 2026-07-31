@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sid-technologies/pilum/examples"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
@@ -171,6 +172,8 @@ func runInitNonInteractive(opts initOptions) error {
 		return errors.Wrap(err, "failed to load build template for %s", opts.language)
 	}
 
+	scaffoldDockerTemplate(recipe, opts.language, values)
+
 	// Generate and write
 	yaml := generateServiceYAML(opts.provider, opts.service, values, buildConfig)
 
@@ -253,9 +256,11 @@ func runInitInteractive(opts initOptions) error {
 		values["name"] = name
 	}
 
-	// Prompt for required fields from recipe
+	// Prompt for required fields from recipe. "template" is deferred until after
+	// the build language is known (see scaffoldDockerTemplate below) so we can
+	// scaffold the Dockerfile instead of asking for an arbitrary string here.
 	if recipe != nil {
-		if err := promptForFields(reader, recipe.GetRequiredFields(), values, true); err != nil {
+		if err := promptForFields(reader, nonTemplateFields(recipe.GetRequiredFields()), values, true); err != nil {
 			return err
 		}
 	}
@@ -285,6 +290,8 @@ func runInitInteractive(opts initOptions) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to load build template for %s", language)
 	}
+
+	scaffoldDockerTemplate(recipe, language, values)
 
 	// Step 8: Generate and write pilum.yaml
 	yaml := generateServiceYAML(provider, service, values, buildConfig)
@@ -417,6 +424,73 @@ func selectLanguage(reader *bufio.Reader) (string, error) {
 		return "", errors.New("unknown language '%s' - %s", language, suggestion)
 	}
 	return "", errors.New("unknown language '%s'", language)
+}
+
+// requiresTemplate reports whether a recipe has "template" as a required field.
+func requiresTemplate(r *recipe.Recipe) bool {
+	if r == nil {
+		return false
+	}
+	for _, field := range r.GetRequiredFields() {
+		if field.Name == "template" {
+			return true
+		}
+	}
+	return false
+}
+
+// nonTemplateFields drops "template" from a required-fields list so the
+// generic prompt loop skips it. The value is resolved later, once the build
+// language is known, by scaffoldDockerTemplate.
+func nonTemplateFields(fields []recipe.Field) []recipe.Field {
+	out := make([]recipe.Field, 0, len(fields))
+	for _, field := range fields {
+		if field.Name == "template" {
+			continue
+		}
+		out = append(out, field)
+	}
+	return out
+}
+
+// scaffoldDockerTemplate writes a starter _templates/<language> Dockerfile for
+// recipes that require one and sets values["template"] to match, so `pilum
+// init` produces a service that passes `pilum check` out of the box instead
+// of leaving the user to hand-write a Dockerfile with no guidance. It never
+// overwrites an existing template file, and if there's no example for the
+// chosen language it leaves "template" unset so the (informative) missing-
+// field error in `pilum check` explains what to do next.
+func scaffoldDockerTemplate(r *recipe.Recipe, language string, values map[string]string) {
+	if !requiresTemplate(r) {
+		return
+	}
+
+	name := language
+	path := filepath.Join("_templates", name)
+
+	if _, err := os.Stat(path); err == nil {
+		values["template"] = name
+		output.Dimmed("Using existing _templates/%s", name)
+		return
+	}
+
+	content, ok := examples.DockerfileFor(language)
+	if !ok {
+		output.Warning("No example Dockerfile for language '%s' - create _templates/<name> yourself and set 'template' in pilum.yaml", language)
+		return
+	}
+
+	if err := os.MkdirAll("_templates", 0750); err != nil {
+		output.Warning("Could not create _templates/: %s", err)
+		return
+	}
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		output.Warning("Could not write %s: %s", path, err)
+		return
+	}
+
+	values["template"] = name
+	output.Success("Created %s (edit it to match your service)", path)
 }
 
 func promptForFields(reader *bufio.Reader, fields []recipe.Field, values map[string]string, required bool) error {

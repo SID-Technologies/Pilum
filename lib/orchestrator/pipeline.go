@@ -17,7 +17,7 @@ import (
 type Pipeline struct {
 	services      []serviceinfo.ServiceInfo
 	recipes       map[string]recipe.Recipe
-	imageNames    map[string]string // service name -> image name
+	imageNames    map[string]string // service DisplayName() -> image name (region-qualified, since multi-region instances share Name)
 	options       types.PipelineOptions
 	output        *output.PipelineOutput
 	results       []types.TaskResult
@@ -96,10 +96,14 @@ func (p *Pipeline) Run() error {
 
 	p.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(p.services)))
 
-	// Pre-calculate image names for all services
+	// Pre-calculate image names for all services. Keyed by DisplayName(), not
+	// Name: multi-region instances of the same service share Name but must
+	// resolve to different region-scoped image names (GCP embeds the region
+	// in the registry host), so keying by Name alone would collide and leave
+	// every region reading whichever instance's image name was computed last.
 	for _, svc := range p.services {
 		_, imageName := build.GenerateBuildCommand(svc, svc.RegistryName, p.options.Tag)
-		p.imageNames[svc.Name] = imageName
+		p.imageNames[svc.DisplayName()] = imageName
 	}
 
 	// Execute step by step, tracking display number for runnable steps only.
