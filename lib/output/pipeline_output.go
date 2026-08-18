@@ -26,6 +26,7 @@ const (
 const (
 	symbolRunning = SymbolInfo
 	symbolSuccess = SymbolSuccess
+	symbolWarning = SymbolWarning
 	symbolFailure = SymbolFailure
 	symbolSkipped = SymbolSkipped
 	symbolDryRun  = SymbolDryRun
@@ -37,6 +38,19 @@ type PipelineOutput struct {
 	MaxNameLen   int
 	useColors    bool
 	serviceState map[string]string // tracks current state of each service
+
+	// Dependencies declared by a selected service but absent from this run.
+	// Recorded up front, reported in the summary: a notice printed before the
+	// deploy scrolls away behind progress output, and the last thing on screen
+	// ends up being an unqualified success line.
+	unbuiltDeps []UnbuiltDependency
+}
+
+// UnbuiltDependency is a dependency that was not part of the run, and so was
+// neither built nor updated.
+type UnbuiltDependency struct {
+	Service    string `json:"service"`
+	Dependency string `json:"dependency"`
 }
 
 // NewPipelineOutput creates a new pipeline output manager.
@@ -48,6 +62,15 @@ func NewPipelineOutput() *PipelineOutput {
 }
 
 // SetMaxNameLength sets the maximum service name length for alignment.
+// NoteUnbuiltDependency records a dependency excluded from this run so the
+// summary can report it.
+func (o *PipelineOutput) NoteUnbuiltDependency(service, dependency string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	o.unbuiltDeps = append(o.unbuiltDeps, UnbuiltDependency{Service: service, Dependency: dependency})
+}
+
 func (o *PipelineOutput) SetMaxNameLength(length int) {
 	o.MaxNameLen = length
 }
@@ -209,6 +232,9 @@ type JSONResult struct {
 	SuccessCount int            `json:"success_count"`
 	FailedCount  int            `json:"failed_count"`
 	Results      []JSONTaskInfo `json:"results"`
+	// Dependencies excluded from the run — present so automation can detect a
+	// partial deploy instead of reading success_count and assuming a full one.
+	UnbuiltDeps []UnbuiltDependency `json:"unbuilt_dependencies,omitempty"`
 }
 
 // JSONTaskInfo represents a single task result in JSON format.
@@ -272,6 +298,7 @@ func (o *PipelineOutput) PrintComplete(results []types.TaskResult) {
 			SuccessCount: successCount,
 			FailedCount:  failedCount,
 			Results:      jsonResults,
+			UnbuiltDeps:  o.unbuiltDeps,
 		}
 		data, _ := json.MarshalIndent(jsonOutput, "", "  ")
 		fmt.Println(string(data))
@@ -280,6 +307,11 @@ func (o *PipelineOutput) PrintComplete(results []types.TaskResult) {
 
 	// Quiet mode: just print a summary line
 	if IsQuiet() {
+		if len(o.unbuiltDeps) > 0 {
+			fmt.Printf("SKIPPED: %d dependenc%s not part of this run (not built): %s\n",
+				len(o.unbuiltDeps), plural(len(o.unbuiltDeps), "y", "ies"), o.unbuiltDepList())
+		}
+
 		if failedCount == 0 {
 			fmt.Printf("OK: %d/%d services completed in %s\n",
 				successCount, successCount+failedCount, FormatDuration(totalDuration))
@@ -306,8 +338,39 @@ func (o *PipelineOutput) PrintComplete(results []types.TaskResult) {
 		fmt.Printf("     Failed: %s\n", strings.Join(failedServices, ", "))
 	}
 
+	if len(o.unbuiltDeps) > 0 {
+		fmt.Printf("  %s%s%s %d dependenc%s NOT built or updated (not part of this run):\n",
+			colorWarning, symbolWarning, colorReset,
+			len(o.unbuiltDeps), plural(len(o.unbuiltDeps), "y", "ies"))
+
+		for _, d := range o.unbuiltDeps {
+			fmt.Printf("     %s → %s\n", d.Service, d.Dependency)
+		}
+
+		fmt.Println("     Include them explicitly if you expected a fresh build.")
+	}
+
 	fmt.Printf("     Total time: %s\n", FormatDuration(totalDuration))
 	fmt.Println()
+}
+
+// plural picks a suffix for n.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+
+	return many
+}
+
+// unbuiltDepList renders the skipped dependencies for single-line output.
+func (o *PipelineOutput) unbuiltDepList() string {
+	names := make([]string, 0, len(o.unbuiltDeps))
+	for _, d := range o.unbuiltDeps {
+		names = append(names, d.Dependency)
+	}
+
+	return strings.Join(names, ", ")
 }
 
 // padName pads a service name for alignment.

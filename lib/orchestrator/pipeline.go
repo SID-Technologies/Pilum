@@ -34,7 +34,7 @@ type Pipeline struct {
 // how a service kept redeploying from a stale pinned image for months while
 // every run printed a green success summary. Deploying a subset should be a
 // choice the operator sees, not an omission they infer.
-func warnUnbuiltDependencies(services []serviceinfo.ServiceInfo) {
+func (p *Pipeline) recordUnbuiltDependencies(services []serviceinfo.ServiceInfo) {
 	selected := make(map[string]bool, len(services))
 	for _, svc := range services {
 		selected[svc.Name] = true
@@ -46,10 +46,7 @@ func warnUnbuiltDependencies(services []serviceinfo.ServiceInfo) {
 				continue
 			}
 
-			output.Warning(
-				"%s depends on %s, which is not part of this run: it will NOT be built or updated. "+
-					"Include it explicitly if you expected a fresh build.",
-				svc.Name, dep)
+			p.output.NoteUnbuiltDependency(svc.Name, dep)
 		}
 	}
 }
@@ -74,8 +71,6 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 		output.Debugf("Services sorted by dependencies")
 	}
 
-	warnUnbuiltDependencies(services)
-
 	p := &Pipeline{
 		services:   sortedServices,
 		recipes:    make(map[string]recipe.Recipe),
@@ -84,6 +79,8 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 		output:     output.NewPipelineOutput(),
 		registry:   cmdRegistry,
 	}
+
+	p.recordUnbuiltDependencies(services)
 
 	// Index recipes by composite key (e.g., "gcp-cloud-run") and provider-only fallback
 	for _, rec := range recipes {
