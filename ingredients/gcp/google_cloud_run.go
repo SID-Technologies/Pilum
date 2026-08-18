@@ -20,7 +20,18 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		svc.Name,
 		"--region", svc.Region,
 		"--platform", "managed",
-		"--allow-unauthenticated",
+	}
+
+	// Always stated explicitly, never omitted. gcloud leaves the existing IAM
+	// policy alone when neither flag is passed, so a service intended to be
+	// private but deployed without the flag would keep whatever access it
+	// happened to have. Being explicit also means a deploy cannot quietly undo
+	// a lockdown someone applied by hand -- it either reasserts public access
+	// or removes it, and the config says which.
+	if cfg.AllowUnauthenticated {
+		cmd = append(cmd, "--allow-unauthenticated")
+	} else {
+		cmd = append(cmd, "--no-allow-unauthenticated")
 	}
 
 	cmd = appendServiceLevelFlags(cmd, cfg, svc.Project)

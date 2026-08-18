@@ -16,6 +16,16 @@ type CloudRunConfig struct {
 	Concurrency       int      // Max concurrent requests per instance (-1 for not set)
 	TimeoutSeconds    int      // Request timeout in seconds (-1 for not set)
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
+	// AllowUnauthenticated exposes the service to the public internet.
+	//
+	// Defaults to true because every service deployed before this option
+	// existed relies on it; flipping the default would silently lock out live
+	// traffic on the next deploy. Set it false for anything that should only
+	// be reachable by an authenticated caller -- and note that a deploy
+	// REASSERTS this, so a service locked down by hand is made public again
+	// the next time it ships unless the config says otherwise.
+	AllowUnauthenticated bool
+
 	// Port is the ingress container's listening port. Required by Cloud Run
 	// in multi-container mode (no default applies when sidecars are present);
 	// 0 means "not set" and the deploy command emitter falls back to 8080.
@@ -29,23 +39,25 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 	if len(cloudRunMap) == 0 {
 		// Return config with -1 for int fields to indicate "not set"
 		return CloudRunConfig{
-			MinInstances:   -1,
-			MaxInstances:   -1,
-			Concurrency:    -1,
-			TimeoutSeconds: -1,
+			MinInstances:         -1,
+			MaxInstances:         -1,
+			Concurrency:          -1,
+			TimeoutSeconds:       -1,
+			AllowUnauthenticated: true,
 		}
 	}
 
 	return CloudRunConfig{
-		MinInstances:      configutil.GetInt(cloudRunMap, "min_instances", -1),
-		MaxInstances:      configutil.GetInt(cloudRunMap, "max_instances", -1),
-		CPUThrottling:     configutil.GetBool(cloudRunMap, "cpu_throttling", false),
-		Memory:            configutil.GetString(cloudRunMap, "memory", ""),
-		CPU:               configutil.GetString(cloudRunMap, "cpu", ""),
-		Concurrency:       configutil.GetInt(cloudRunMap, "concurrency", -1),
-		TimeoutSeconds:    configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
-		CloudSQLInstances: configutil.GetStringSlice(cloudRunMap, "cloudsql_instances"),
-		Port:              configutil.GetInt(cloudRunMap, "port", 0),
+		MinInstances:         configutil.GetInt(cloudRunMap, "min_instances", -1),
+		MaxInstances:         configutil.GetInt(cloudRunMap, "max_instances", -1),
+		CPUThrottling:        configutil.GetBool(cloudRunMap, "cpu_throttling", false),
+		Memory:               configutil.GetString(cloudRunMap, "memory", ""),
+		CPU:                  configutil.GetString(cloudRunMap, "cpu", ""),
+		Concurrency:          configutil.GetInt(cloudRunMap, "concurrency", -1),
+		TimeoutSeconds:       configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
+		CloudSQLInstances:    configutil.GetStringSlice(cloudRunMap, "cloudsql_instances"),
+		Port:                 configutil.GetInt(cloudRunMap, "port", 0),
+		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", true),
 	}
 }
 
