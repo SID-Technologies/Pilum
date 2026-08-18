@@ -195,15 +195,17 @@ func TestGenerateGCPDeployCommandAllowUnauthenticated(t *testing.T) {
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
 
-	// Should have --allow-unauthenticated
+	// A service that does not ask to be public is deployed private. Exposing
+	// every service to the internet by default gets that wrong silently, and
+	// nothing in the deploy output would say so.
 	found := false
 	for _, arg := range cmd {
-		if arg == "--allow-unauthenticated" {
+		if arg == "--no-allow-unauthenticated" {
 			found = true
 			break
 		}
 	}
-	require.True(t, found, "--allow-unauthenticated flag not found")
+	require.True(t, found, "a service with no cloud_run config must deploy private")
 }
 
 func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
@@ -579,15 +581,36 @@ func TestGenerateGCPDeployCommandEnvVarDelimiterCollision(t *testing.T) {
 	t.Fatal("--set-env-vars flag not found")
 }
 
-// Every service deployed before this option existed relies on public access.
-// Defaulting to anything else would lock out live traffic on the next deploy.
-func TestGenerateGCPDeployCommand_DefaultsToPublic(t *testing.T) {
+// Secure by default: reaching the internet is a property a service must ask
+// for, so that a config which says nothing cannot silently publish one.
+func TestGenerateGCPDeployCommand_DefaultsToPrivate(t *testing.T) {
 	svc := serviceinfo.ServiceInfo{Name: "svc", Region: "us-central1"}
 
 	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
 
+	if !containsFlag(cmd, "--no-allow-unauthenticated") {
+		t.Error("a service that does not opt in must deploy private")
+	}
+
+	if containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("must not expose a service that never asked to be public")
+	}
+}
+
+// Edge services still opt in explicitly.
+func TestGenerateGCPDeployCommand_OptsIntoPublic(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{
+		Name:   "svc",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{"allow_unauthenticated": true},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
 	if !containsFlag(cmd, "--allow-unauthenticated") {
-		t.Error("public access must remain the default")
+		t.Error("allow_unauthenticated:true must expose the service")
 	}
 }
 

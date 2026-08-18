@@ -18,12 +18,14 @@ type CloudRunConfig struct {
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
 	// AllowUnauthenticated exposes the service to the public internet.
 	//
-	// Defaults to true because every service deployed before this option
-	// existed relies on it; flipping the default would silently lock out live
-	// traffic on the next deploy. Set it false for anything that should only
-	// be reachable by an authenticated caller -- and note that a deploy
-	// REASSERTS this, so a service locked down by hand is made public again
-	// the next time it ships unless the config says otherwise.
+	// Defaults to FALSE. A deploy tool that publishes every service to the
+	// internet unless told otherwise gets that wrong silently and at scale --
+	// nothing in the output says a service became reachable by anyone. Public
+	// access is a deliberate property of a handful of edge services, so it is
+	// declared per service.
+	//
+	// Note that a deploy REASSERTS this either way, so a service locked down by
+	// hand is reopened on its next ship unless the config says so.
 	AllowUnauthenticated bool
 
 	// Port is the ingress container's listening port. Required by Cloud Run
@@ -39,11 +41,10 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 	if len(cloudRunMap) == 0 {
 		// Return config with -1 for int fields to indicate "not set"
 		return CloudRunConfig{
-			MinInstances:         -1,
-			MaxInstances:         -1,
-			Concurrency:          -1,
-			TimeoutSeconds:       -1,
-			AllowUnauthenticated: true,
+			MinInstances:   -1,
+			MaxInstances:   -1,
+			Concurrency:    -1,
+			TimeoutSeconds: -1,
 		}
 	}
 
@@ -57,7 +58,7 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		TimeoutSeconds:       configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
 		CloudSQLInstances:    configutil.GetStringSlice(cloudRunMap, "cloudsql_instances"),
 		Port:                 configutil.GetInt(cloudRunMap, "port", 0),
-		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", true),
+		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", false),
 	}
 }
 
