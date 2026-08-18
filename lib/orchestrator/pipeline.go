@@ -26,6 +26,31 @@ type Pipeline struct {
 	dryRunResults []types.DryRunEntry
 }
 
+// warnUnbuiltDependencies reports dependencies that nothing in this run
+// provides.
+//
+// Selecting a subset is normal -- `pilum deploy <svc>` is a supported thing to
+// do -- but it silently means the dependency is NOT built or updated. That is
+// how a service kept redeploying from a stale pinned image for months while
+// every run printed a green success summary. Deploying a subset should be a
+// choice the operator sees, not an omission they infer.
+func (p *Pipeline) recordUnbuiltDependencies(services []serviceinfo.ServiceInfo) {
+	selected := make(map[string]bool, len(services))
+	for _, svc := range services {
+		selected[svc.Name] = true
+	}
+
+	for _, svc := range services {
+		for _, dep := range svc.DependsOn {
+			if selected[dep] {
+				continue
+			}
+
+			p.output.NoteUnbuiltDependency(svc.Name, dep)
+		}
+	}
+}
+
 // NewPipeline creates a new deployment pipeline.
 func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts types.PipelineOptions) *Pipeline {
 	// Initialize command registry with default handlers
@@ -35,8 +60,12 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 	// Sort services by dependencies (topological order)
 	sortedServices, err := serviceinfo.SortByDependencies(services)
 	if err != nil {
-		// Log warning but continue with original order
-		output.Warning("Could not sort by dependencies: %v", err)
+		// Only real graph defects (cycles) reach here now. Order is unusable,
+		// so say so plainly rather than filing it under "warning" next to a
+		// success summary.
+		output.Error("Dependency order could not be resolved: %v", err)
+		output.Error("Deploying in declaration order — dependent services may run before what they depend on.")
+
 		sortedServices = services
 	} else if hasDependencies(services) {
 		output.Debugf("Services sorted by dependencies")
@@ -50,6 +79,8 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 		output:     output.NewPipelineOutput(),
 		registry:   cmdRegistry,
 	}
+
+	p.recordUnbuiltDependencies(services)
 
 	// Index recipes by composite key (e.g., "gcp-cloud-run") and provider-only fallback
 	for _, rec := range recipes {

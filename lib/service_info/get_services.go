@@ -547,10 +547,13 @@ func SortByDependencies(services []ServiceInfo) ([]ServiceInfo, error) {
 		servicesByName[svc.Name] = append(servicesByName[svc.Name], svc)
 	}
 
-	// Validate that all dependencies exist
-	if err := g.ValidateDependencies(); err != nil {
-		return nil, err
-	}
+	// Deliberately NOT validating that every dependency is present. This
+	// function sorts whatever set the caller selected, and `pilum deploy <svc>`
+	// legitimately selects one service whose dependencies were not included.
+	// Treating that as an error made the caller fall back to unsorted order and
+	// warn -- which read as a failure while the deploy proceeded and reported
+	// success. Out-of-set dependencies are satisfied by definition here (they
+	// are not part of this run); TopologicalSort still catches real cycles.
 
 	// Get topological order
 	order, err := g.TopologicalSort()

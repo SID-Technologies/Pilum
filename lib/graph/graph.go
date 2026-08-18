@@ -43,10 +43,23 @@ func (g *Graph) AddNode(name string, dependsOn []string) {
 // TopologicalSort returns nodes in dependency order (dependencies first).
 // Returns an error if a circular dependency is detected.
 func (g *Graph) TopologicalSort() ([]string, error) {
-	// Calculate in-degree for each node
+	// Calculate in-degree, counting only dependencies that are actually in this
+	// graph. A dependency outside it is satisfied by definition -- it is not
+	// part of this run -- and matches how CalculateDepths already treats them.
+	// Counting it here would leave the node permanently above zero in-degree
+	// and report a deliberate subset deploy as a circular dependency.
 	inDegree := make(map[string]int)
+
 	for name := range g.nodes {
-		inDegree[name] = len(g.nodes[name].DependsOn)
+		degree := 0
+
+		for _, dep := range g.nodes[name].DependsOn {
+			if _, exists := g.nodes[dep]; exists {
+				degree++
+			}
+		}
+
+		inDegree[name] = degree
 	}
 
 	// Find nodes with no dependencies (in-degree 0)
