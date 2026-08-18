@@ -1294,3 +1294,51 @@ region: us-east-1
 	require.True(t, providers["gcp"])
 	require.True(t, providers["aws"])
 }
+
+// Deploying a subset is a supported operation: `pilum deploy <svc>` selects one
+// service whose dependencies were not included. Treating that as an error made
+// the caller abandon sorting and print a failure line, while the deploy went
+// ahead from a stale pinned image and reported success.
+func TestSortByDependencies_SubsetWithOutOfSetDependency(t *testing.T) {
+	services := []serviceinfo.ServiceInfo{
+		{Name: "statio-mcp-github", DependsOn: []string{"statio-mcp-github-image", "sid-otel-collector"}},
+	}
+
+	sorted, err := serviceinfo.SortByDependencies(services)
+	if err != nil {
+		t.Fatalf("a subset deploy must not error on out-of-set dependencies: %v", err)
+	}
+
+	if len(sorted) != 1 || sorted[0].Name != "statio-mcp-github" {
+		t.Fatalf("expected the selected service back, got %+v", sorted)
+	}
+}
+
+// In-set dependencies must still order correctly.
+func TestSortByDependencies_OrdersInSetDependencies(t *testing.T) {
+	services := []serviceinfo.ServiceInfo{
+		{Name: "app", DependsOn: []string{"image"}},
+		{Name: "image"},
+	}
+
+	sorted, err := serviceinfo.SortByDependencies(services)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sorted[0].Name != "image" || sorted[1].Name != "app" {
+		t.Errorf("dependency must be deployed first; got %s then %s", sorted[0].Name, sorted[1].Name)
+	}
+}
+
+// A genuine cycle is still an error — dropping validation must not lose that.
+func TestSortByDependencies_StillRejectsCycles(t *testing.T) {
+	services := []serviceinfo.ServiceInfo{
+		{Name: "a", DependsOn: []string{"b"}},
+		{Name: "b", DependsOn: []string{"a"}},
+	}
+
+	if _, err := serviceinfo.SortByDependencies(services); err == nil {
+		t.Error("a dependency cycle must still be reported")
+	}
+}
