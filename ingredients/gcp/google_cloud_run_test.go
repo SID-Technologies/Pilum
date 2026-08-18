@@ -578,3 +578,48 @@ func TestGenerateGCPDeployCommandEnvVarDelimiterCollision(t *testing.T) {
 
 	t.Fatal("--set-env-vars flag not found")
 }
+
+// Every service deployed before this option existed relies on public access.
+// Defaulting to anything else would lock out live traffic on the next deploy.
+func TestGenerateGCPDeployCommand_DefaultsToPublic(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{Name: "svc", Region: "us-central1"}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
+	if !containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("public access must remain the default")
+	}
+}
+
+// A deploy must be able to REMOVE public access, not merely decline to add it:
+// omitting the flag leaves the existing IAM policy untouched, so a service
+// locked down by hand was silently made public again on the next deploy.
+func TestGenerateGCPDeployCommand_CanLockDown(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{
+		Name:   "svc",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{"allow_unauthenticated": false},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
+	if !containsFlag(cmd, "--no-allow-unauthenticated") {
+		t.Error("allow_unauthenticated:false must emit --no-allow-unauthenticated")
+	}
+
+	if containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("must not also pass the public flag")
+	}
+}
+
+func containsFlag(args []string, want string) bool {
+	for _, a := range args {
+		if a == want {
+			return true
+		}
+	}
+
+	return false
+}
