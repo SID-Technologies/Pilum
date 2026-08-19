@@ -195,15 +195,17 @@ func TestGenerateGCPDeployCommandAllowUnauthenticated(t *testing.T) {
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
 
-	// Should have --allow-unauthenticated
+	// A service that does not ask to be public is deployed private. Exposing
+	// every service to the internet by default gets that wrong silently, and
+	// nothing in the deploy output would say so.
 	found := false
 	for _, arg := range cmd {
-		if arg == "--allow-unauthenticated" {
+		if arg == "--no-allow-unauthenticated" {
 			found = true
 			break
 		}
 	}
-	require.True(t, found, "--allow-unauthenticated flag not found")
+	require.True(t, found, "a service with no cloud_run config must deploy private")
 }
 
 func TestGenerateGCPDeployCommandSingleSecret(t *testing.T) {
@@ -577,4 +579,70 @@ func TestGenerateGCPDeployCommandEnvVarDelimiterCollision(t *testing.T) {
 	}
 
 	t.Fatal("--set-env-vars flag not found")
+}
+
+// Secure by default: reaching the internet is a property a service must ask
+// for, so that a config which says nothing cannot silently publish one.
+func TestGenerateGCPDeployCommand_DefaultsToPrivate(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{Name: "svc", Region: "us-central1"}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
+	if !containsFlag(cmd, "--no-allow-unauthenticated") {
+		t.Error("a service that does not opt in must deploy private")
+	}
+
+	if containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("must not expose a service that never asked to be public")
+	}
+}
+
+// Edge services still opt in explicitly.
+func TestGenerateGCPDeployCommand_OptsIntoPublic(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{
+		Name:   "svc",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{"allow_unauthenticated": true},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
+	if !containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("allow_unauthenticated:true must expose the service")
+	}
+}
+
+// A deploy must be able to REMOVE public access, not merely decline to add it:
+// omitting the flag leaves the existing IAM policy untouched, so a service
+// locked down by hand was silently made public again on the next deploy.
+func TestGenerateGCPDeployCommand_CanLockDown(t *testing.T) {
+	svc := serviceinfo.ServiceInfo{
+		Name:   "svc",
+		Region: "us-central1",
+		Config: map[string]any{
+			"cloud_run": map[string]any{"allow_unauthenticated": false},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(svc, "img")
+
+	if !containsFlag(cmd, "--no-allow-unauthenticated") {
+		t.Error("allow_unauthenticated:false must emit --no-allow-unauthenticated")
+	}
+
+	if containsFlag(cmd, "--allow-unauthenticated") {
+		t.Error("must not also pass the public flag")
+	}
+}
+
+func containsFlag(args []string, want string) bool {
+	for _, a := range args {
+		if a == want {
+			return true
+		}
+	}
+
+	return false
 }
