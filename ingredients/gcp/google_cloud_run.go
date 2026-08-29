@@ -7,9 +7,6 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
-// GenerateGCPDeployCommand builds the gcloud invocation for a Cloud Run deploy.
-// With sidecars, emits per-container flag groups; gcloud requires all
-// service-level flags before the first --container.
 func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []string {
 	cfg := ParseCloudRunConfig(svc.Config)
 
@@ -22,12 +19,6 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		"--platform", "managed",
 	}
 
-	// Always stated explicitly, never omitted. gcloud leaves the existing IAM
-	// policy alone when neither flag is passed, so a service intended to be
-	// private but deployed without the flag would keep whatever access it
-	// happened to have. Being explicit also means a deploy cannot quietly undo
-	// a lockdown someone applied by hand -- it either reasserts public access
-	// or removes it, and the config says which.
 	if cfg.AllowUnauthenticated {
 		cmd = append(cmd, "--allow-unauthenticated")
 	} else {
@@ -66,6 +57,21 @@ func appendServiceLevelFlags(cmd []string, cfg CloudRunConfig, project string) [
 
 	if len(cfg.CloudSQLInstances) > 0 {
 		cmd = append(cmd, "--add-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
+	}
+
+	if cfg.Ingress != "" {
+		cmd = append(cmd, "--ingress", cfg.Ingress)
+	}
+
+	if cfg.VPCConnector != "" {
+		cmd = append(cmd, "--vpc-connector", cfg.VPCConnector)
+
+		egress := cfg.VPCEgress
+		if egress == "" {
+			egress = "all-traffic"
+		}
+
+		cmd = append(cmd, "--vpc-egress", egress)
 	}
 
 	if project != "" {
@@ -164,7 +170,6 @@ func ingressContainerName(svc serviceinfo.ServiceInfo) string {
 	return svc.Name
 }
 
-// ingressContainerPort defaults to 8080 to match single-container Cloud Run.
 func ingressContainerPort(cfg CloudRunConfig) int {
 	if cfg.Port > 0 {
 		return cfg.Port
