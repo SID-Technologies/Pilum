@@ -16,22 +16,20 @@ type CloudRunConfig struct {
 	Concurrency       int      // Max concurrent requests per instance (-1 for not set)
 	TimeoutSeconds    int      // Request timeout in seconds (-1 for not set)
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
-	// AllowUnauthenticated exposes the service to the public internet.
-	//
-	// Defaults to FALSE. A deploy tool that publishes every service to the
-	// internet unless told otherwise gets that wrong silently and at scale --
-	// nothing in the output says a service became reachable by anyone. Public
-	// access is a deliberate property of a handful of edge services, so it is
-	// declared per service.
-	//
-	// Note that a deploy REASSERTS this either way, so a service locked down by
-	// hand is reopened on its next ship unless the config says so.
+	Port              int      // Port is the ingress container's listening port. Required by Cloud Run in multi-container mode
+
+	// AllowUnauthenticated exposes the service to the public internet.Defaults to FALSE.
 	AllowUnauthenticated bool
 
-	// Port is the ingress container's listening port. Required by Cloud Run
-	// in multi-container mode (no default applies when sidecars are present);
-	// 0 means "not set" and the deploy command emitter falls back to 8080.
-	Port int
+	// Ingress is who may REACH the service: "all", "internal-and-cloud-load-balancing", or "internal".
+	Ingress string
+
+	// VPCConnector routes the service's outbound traffic through a Serverless
+	// VPC Access connector. Empty leaves the setting untouched.
+	VPCConnector string
+
+	// VPCEgress selects WHICH traffic takes the connector: "all-traffic" or "private-ranges-only".
+	VPCEgress string
 }
 
 // ParseCloudRunConfig extracts Cloud Run configuration from the raw service config.
@@ -58,6 +56,9 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		TimeoutSeconds:       configutil.GetInt(cloudRunMap, "timeout_seconds", -1),
 		CloudSQLInstances:    configutil.GetStringSlice(cloudRunMap, "cloudsql_instances"),
 		Port:                 configutil.GetInt(cloudRunMap, "port", 0),
+		Ingress:              configutil.GetString(cloudRunMap, "ingress", ""),
+		VPCConnector:         configutil.GetString(cloudRunMap, "vpc_connector", ""),
+		VPCEgress:            configutil.GetString(cloudRunMap, "vpc_egress", ""),
 		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", false),
 	}
 }

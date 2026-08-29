@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: golangci-lint
         require_serial: true
-        entry: golangci-lint run --fix --timeout=2m
+        entry: env GOTOOLCHAIN=go1.25.11 golangci-lint run --fix --timeout=2m
 
   - repo: local
     hooks:
