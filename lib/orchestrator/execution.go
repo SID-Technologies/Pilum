@@ -1,7 +1,9 @@
 package orchestrator
 
 import (
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +22,8 @@ import (
 func (p *Pipeline) executeTasksParallel(tasks []stepTask) error {
 	var wg sync.WaitGroup
 	resultChan := make(chan types.TaskResult, len(tasks))
-	semaphore := make(chan struct{}, p.getWorkerCount())
+	plan := p.planWorkers(tasks)
+	semaphore := make(chan struct{}, plan.workers)
 
 	// Create and start spinner manager
 	spinner := output.NewSpinnerManager()
@@ -43,7 +46,7 @@ func (p *Pipeline) executeTasksParallel(tasks []stepTask) error {
 
 			startTime := time.Now()
 
-			result := p.executeTask(task.service, task.step)
+			result := p.executeTask(task.service, task.step, plan.threads)
 			result.Duration = time.Since(startTime)
 
 			spinner.Complete(task.service.DisplayName(), result.Success, result.Duration, result.Error)
@@ -76,52 +79,122 @@ func (p *Pipeline) executeTasksParallel(tasks []stepTask) error {
 	return nil
 }
 
-// getWorkerCount returns the number of workers to use.
-// When auto (MaxWorkers=0), takes the minimum of:
-//   - CPU cores (1 worker per core)
-//   - Memory budget (total system memory / max per-build memory estimate)
-//   - Number of services
-func (p *Pipeline) getWorkerCount() int {
-	if p.options.MaxWorkers > 0 {
-		output.Info("Using %d workers (explicit)", p.options.MaxWorkers)
-		return p.options.MaxWorkers
-	}
+const (
+	// defaultBuildCPUs is how many cores one build is assumed to use when
+	// resources.cpu is unset. go build, docker build (BuildKit) and bundlers
+	// are all internally parallel, so charging one core per build (Bazel's
+	// single-threaded default) oversubscribes the machine N-fold.
+	defaultBuildCPUs = 2
+
+	// maxIOWorkers caps steps that mostly wait on the network (push, deploy,
+	// execute). They use little local CPU, so they get their own, larger
+	// limit instead of competing for cores (as Pants does for remote work).
+	maxIOWorkers = 16
+)
+
+// ioBoundTags mark steps that wait on a registry or cloud API.
+var ioBoundTags = []string{"push", "deploy", "execute"}
+
+// workerPlan is how a step's tasks are scheduled.
+type workerPlan struct {
+	workers int
+	// threads is GOMAXPROCS for each task: the core budget split across
+	// concurrent builds, so N builds don't each assume the whole machine.
+	// 0 leaves GOMAXPROCS alone.
+	threads int
+}
+
+// planWorkers decides concurrency for one step's tasks.
+//
+// CPU-bound steps (tagged "build", or untagged) are budgeted by cores and
+// memory, where each build costs resources.cpu cores (default 2). Steps that
+// invoke docker are sized from the docker daemon, which on Docker Desktop is
+// a VM smaller than the host. I/O-bound steps get a flat, larger limit.
+// --max-workers overrides the worker count for every step.
+func (p *Pipeline) planWorkers(tasks []stepTask) workerPlan {
+	cpuBound := p.isCPUBound(tasks)
 
 	cpus := runtime.NumCPU()
-	w := cpus
+	memMB := sysinfo.TotalMemoryMB()
+	source := "host"
+	if cpuBound && p.dockerResources.CPUs > 0 && p.tasksInvokeDocker(tasks) {
+		cpus = p.dockerResources.CPUs
+		if p.dockerResources.MemoryMB > 0 {
+			memMB = p.dockerResources.MemoryMB
+		}
+		source = "docker"
+	}
+
+	if p.options.MaxWorkers > 0 {
+		plan := workerPlan{workers: p.options.MaxWorkers}
+		if cpuBound {
+			plan.threads = max(1, cpus/plan.workers)
+		}
+		output.Info("Using %d workers (explicit)", plan.workers)
+		return plan
+	}
+
+	if !cpuBound {
+		w := max(1, min(len(tasks), maxIOWorkers))
+		output.Info("Using %d workers (network-bound step, %d tasks)", w, len(tasks))
+		return workerPlan{workers: w}
+	}
+
+	perBuild := min(p.maxBuildCPUs(), cpus)
+	w := cpus / perBuild
 
 	// Memory-based limit: find the most expensive build language across services
-	// and calculate how many can run concurrently within system memory.
-	memMB := sysinfo.TotalMemoryMB()
+	// and calculate how many can run concurrently within available memory.
+	memWorkers := 0
 	if memMB > 0 {
-		maxPerBuild := p.maxBuildMemoryMB()
-		if maxPerBuild > 0 {
+		if maxPerBuild := p.maxBuildMemoryMB(); maxPerBuild > 0 {
 			// Reserve ~25% for OS and other processes (similar to Bazel's 0.67 factor)
 			available := memMB * 75 / 100
-			memWorkers := available / maxPerBuild
-			if memWorkers < 1 {
-				memWorkers = 1
-			}
-			if memWorkers < w {
-				output.Info("Memory constraint: %dMB available, ~%dMB per build → %d workers",
-					available, maxPerBuild, memWorkers)
-				w = memWorkers
-			}
+			memWorkers = max(1, available/maxPerBuild)
+			w = min(w, memWorkers)
 		}
 	}
 
-	// Cap by number of services
-	if w > len(p.services) {
-		w = len(p.services)
-	}
+	w = max(1, min(w, len(tasks)))
+	threads := max(1, cpus/w)
 
-	if w < 1 {
-		w = 1
-	}
+	output.Info("Using %d workers (%s: %d CPUs ÷ %d per build, %dMB RAM → %d by memory, %d tasks; GOMAXPROCS=%d)",
+		w, source, cpus, perBuild, memMB, memWorkers, len(tasks), threads)
+	return workerPlan{workers: w, threads: threads}
+}
 
-	output.Info("Using %d workers (auto: %d CPUs, %dMB RAM, %d services)",
-		w, cpus, memMB, len(p.services))
-	return w
+// isCPUBound reports whether a step's tasks compete for local cores.
+// Untagged steps are treated as CPU-bound, the safe assumption.
+func (p *Pipeline) isCPUBound(tasks []stepTask) bool {
+	for _, t := range tasks {
+		if p.stepHasAnyTag(t.step, []string{"build"}) || !p.stepHasAnyTag(t.step, ioBoundTags) {
+			return true
+		}
+	}
+	return false
+}
+
+// tasksInvokeDocker reports whether any task runs the docker CLI.
+func (p *Pipeline) tasksInvokeDocker(tasks []stepTask) bool {
+	for _, t := range tasks {
+		if invokesDocker(p.generateCommand(t.service, t.step)) {
+			return true
+		}
+	}
+	return false
+}
+
+// maxBuildCPUs returns the highest declared resources.cpu across services,
+// or defaultBuildCPUs when none is set.
+func (p *Pipeline) maxBuildCPUs() int {
+	maxCPU := 0
+	for _, svc := range p.services {
+		maxCPU = max(maxCPU, svc.BuildConfig.Resources.CPU)
+	}
+	if maxCPU == 0 {
+		return defaultBuildCPUs
+	}
+	return maxCPU
 }
 
 // maxBuildMemoryMB returns the highest estimated build memory across all services.
@@ -141,8 +214,9 @@ func (p *Pipeline) maxBuildMemoryMB() int {
 	return maxMem
 }
 
-// executeTask runs a single task.
-func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step) types.TaskResult {
+// executeTask runs a single task. threads > 0 sets GOMAXPROCS for the command
+// unless the step, service, or caller's environment already sets it.
+func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step, threads int) types.TaskResult {
 	result := types.TaskResult{
 		ServiceName: svc.DisplayName(),
 		StepName:    step.Name,
@@ -181,6 +255,9 @@ func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step) t
 	}
 	for k, v := range step.EnvVars {
 		envVars[k] = v
+	}
+	if _, set := envVars["GOMAXPROCS"]; threads > 0 && !set && os.Getenv("GOMAXPROCS") == "" {
+		envVars["GOMAXPROCS"] = strconv.Itoa(threads)
 	}
 
 	taskInfo := workers.NewTaskInfo(

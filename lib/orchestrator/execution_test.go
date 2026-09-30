@@ -1,68 +1,131 @@
 package orchestrator
 
 import (
+	"os"
 	"runtime"
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/sysinfo"
 	"github.com/sid-technologies/pilum/lib/templates"
 	"github.com/sid-technologies/pilum/lib/types"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestPipelineGetWorkerCount(t *testing.T) {
+// planTasks builds n tasks of one step for services sharing a build config.
+func planTasks(n int, step *recipe.Step, bc serviceinfo.BuildConfig) (*Pipeline, []stepTask) {
+	services := make([]serviceinfo.ServiceInfo, n)
+	tasks := make([]stepTask, n)
+	for i := range services {
+		services[i] = serviceinfo.ServiceInfo{Name: "svc", Provider: "test", BuildConfig: bc}
+		tasks[i] = stepTask{service: services[i], step: step}
+	}
+	return NewPipeline(services, nil, types.PipelineOptions{}), tasks
+}
+
+func TestPlanWorkers(t *testing.T) {
 	t.Parallel()
 
 	cpus := runtime.NumCPU()
+	buildStep := &recipe.Step{Name: "build binary", Command: "true", Tags: []string{"build"}}
+	deployStep := &recipe.Step{Name: "deploy", Command: "true", Tags: []string{"deploy"}}
+	goBuild := serviceinfo.BuildConfig{Language: "go"}
 
-	t.Run("explicit max workers", func(t *testing.T) {
+	t.Run("explicit max workers on build step splits cores", func(t *testing.T) {
 		t.Parallel()
-		services := make([]serviceinfo.ServiceInfo, 10)
-		for i := range services {
-			services[i] = serviceinfo.ServiceInfo{Name: "svc"}
-		}
-		pipeline := NewPipeline(services, nil, types.PipelineOptions{MaxWorkers: 8})
-		require.Equal(t, 8, pipeline.getWorkerCount())
+		p, tasks := planTasks(10, buildStep, goBuild)
+		p.options.MaxWorkers = 8
+		plan := p.planWorkers(tasks)
+		require.Equal(t, 8, plan.workers)
+		require.Equal(t, max(1, cpus/8), plan.threads)
 	})
 
-	t.Run("auto caps at service count when fewer than CPUs", func(t *testing.T) {
+	t.Run("explicit max workers on deploy step leaves GOMAXPROCS alone", func(t *testing.T) {
 		t.Parallel()
-		services := []serviceinfo.ServiceInfo{{Name: "svc"}}
-		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
-		require.Equal(t, 1, pipeline.getWorkerCount())
+		p, tasks := planTasks(10, deployStep, goBuild)
+		p.options.MaxWorkers = 8
+		require.Equal(t, workerPlan{workers: 8}, p.planWorkers(tasks))
 	})
 
-	t.Run("auto worker count is at least 1", func(t *testing.T) {
+	t.Run("network-bound steps get the larger IO limit", func(t *testing.T) {
 		t.Parallel()
-		services := []serviceinfo.ServiceInfo{{
-			Name: "svc",
-			BuildConfig: serviceinfo.BuildConfig{
-				Language:  "java",
-				Resources: serviceinfo.BuildResources{Memory: 999999}, // absurdly high
-			},
-		}}
-		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
-		require.GreaterOrEqual(t, pipeline.getWorkerCount(), 1)
+		p, tasks := planTasks(100, deployStep, goBuild)
+		require.Equal(t, workerPlan{workers: maxIOWorkers}, p.planWorkers(tasks))
+
+		p, tasks = planTasks(3, &recipe.Step{Name: "publish", Tags: []string{"push"}}, goBuild)
+		require.Equal(t, workerPlan{workers: 3}, p.planWorkers(tasks))
 	})
 
-	t.Run("auto uses min of CPU and memory", func(t *testing.T) {
+	t.Run("builds are charged default CPUs and never oversubscribe", func(t *testing.T) {
 		t.Parallel()
-		// With many services and no explicit resources, worker count
-		// should never exceed CPU count
-		services := make([]serviceinfo.ServiceInfo, 100)
-		for i := range services {
-			services[i] = serviceinfo.ServiceInfo{
-				Name:        "svc",
-				BuildConfig: serviceinfo.BuildConfig{Language: "go"},
-			}
-		}
-		pipeline := NewPipeline(services, nil, types.PipelineOptions{})
-		w := pipeline.getWorkerCount()
-		require.LessOrEqual(t, w, cpus)
-		require.GreaterOrEqual(t, w, 1)
+		p, tasks := planTasks(100, buildStep, goBuild)
+		plan := p.planWorkers(tasks)
+		require.GreaterOrEqual(t, plan.workers, 1)
+		require.LessOrEqual(t, plan.workers, max(1, cpus/defaultBuildCPUs))
+		require.LessOrEqual(t, plan.workers*plan.threads, max(cpus, plan.threads))
 	})
+
+	t.Run("resources.cpu raises the per-build cost", func(t *testing.T) {
+		t.Parallel()
+		p, tasks := planTasks(10, buildStep, serviceinfo.BuildConfig{
+			Language:  "go",
+			Resources: serviceinfo.BuildResources{CPU: cpus},
+		})
+		require.Equal(t, workerPlan{workers: 1, threads: cpus}, p.planWorkers(tasks))
+	})
+
+	t.Run("single build gets every core", func(t *testing.T) {
+		t.Parallel()
+		p, tasks := planTasks(1, buildStep, goBuild)
+		require.Equal(t, workerPlan{workers: 1, threads: cpus}, p.planWorkers(tasks))
+	})
+
+	t.Run("untagged steps are treated as CPU-bound", func(t *testing.T) {
+		t.Parallel()
+		p, tasks := planTasks(1, &recipe.Step{Name: "custom", Command: "true"}, goBuild)
+		require.Positive(t, p.planWorkers(tasks).threads)
+	})
+
+	t.Run("docker steps are sized from the daemon", func(t *testing.T) {
+		t.Parallel()
+		dockerStep := &recipe.Step{Name: "image", Command: []string{"docker", "build", "."}, Tags: []string{"build"}}
+		p, tasks := planTasks(100, dockerStep, goBuild)
+		p.dockerResources = sysinfo.DockerResources{CPUs: 4, MemoryMB: 100000}
+		require.Equal(t, workerPlan{workers: 2, threads: 2}, p.planWorkers(tasks))
+	})
+
+	t.Run("memory limit still applies", func(t *testing.T) {
+		t.Parallel()
+		p, tasks := planTasks(10, buildStep, serviceinfo.BuildConfig{
+			Language:  "java",
+			Resources: serviceinfo.BuildResources{Memory: 999999}, // absurdly high
+		})
+		require.Equal(t, 1, p.planWorkers(tasks).workers)
+	})
+}
+
+func TestExecuteTaskSetsGOMAXPROCS(t *testing.T) {
+	t.Parallel()
+
+	if os.Getenv("GOMAXPROCS") != "" {
+		t.Skip("GOMAXPROCS set in the test environment takes precedence")
+	}
+
+	p := NewPipeline(nil, nil, types.PipelineOptions{Timeout: 5})
+	svc := serviceinfo.ServiceInfo{Name: "svc", Provider: "test"}
+
+	step := &recipe.Step{Name: "check", Command: `[ "$GOMAXPROCS" = "3" ]`}
+	require.True(t, p.executeTask(svc, step, 3).Success)
+
+	// An explicit step env var wins over the computed value.
+	step = &recipe.Step{Name: "check", Command: `[ "$GOMAXPROCS" = "7" ]`, EnvVars: map[string]string{"GOMAXPROCS": "7"}}
+	require.True(t, p.executeTask(svc, step, 3).Success)
+
+	// threads == 0 leaves it unset.
+	step = &recipe.Step{Name: "check", Command: `[ -z "$GOMAXPROCS" ]`}
+	require.True(t, p.executeTask(svc, step, 0).Success)
 }
 
 func TestPipelineMaxBuildMemoryMB(t *testing.T) {
@@ -116,7 +179,7 @@ func TestPipelineExecuteTaskNilCommand(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0"})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	// Nil command should return success
 	require.True(t, result.Success)
@@ -142,7 +205,7 @@ func TestPipelineExecuteTaskWithSimpleCommand(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 	require.Nil(t, result.Error)
@@ -164,7 +227,7 @@ func TestPipelineExecuteTaskWithStringCommand(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 	require.Nil(t, result.Error)
@@ -194,7 +257,7 @@ func TestPipelineExecuteTaskWithEnvVars(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
@@ -216,7 +279,7 @@ func TestPipelineExecuteTaskServiceDirMode(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
@@ -237,7 +300,7 @@ func TestPipelineExecuteTaskWithStepTimeout(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
@@ -259,7 +322,7 @@ func TestPipelineExecuteTaskWithStepRetries(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10, Retries: 1})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
@@ -360,7 +423,7 @@ func TestPipelineExecuteTaskWithBuildFlags(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
@@ -381,7 +444,7 @@ func TestPipelineExecuteTaskEmptyExecutionMode(t *testing.T) {
 	}
 
 	pipeline := NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0", Timeout: 10})
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success)
 }
