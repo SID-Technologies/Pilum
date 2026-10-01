@@ -2,14 +2,30 @@ package output
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // Spinner frames - a nice smooth animation.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
+// liveSpinner is the spinner block currently animating, if any. Output
+// functions print above it instead of into it (see emit).
+var liveSpinner atomic.Pointer[SpinnerManager]
+
 // SpinnerManager manages multiple spinners for concurrent tasks.
+//
+// The live block is redrawn by moving the cursor up over it, so the manager
+// must know exactly how many terminal rows it occupies. Two rules keep that
+// count true: every spinner line is exactly one row (errors are flattened and
+// lines are cut to the terminal width, since a wrapped or multi-line row makes
+// every later frame drift down and repeat), and anything else printed while
+// the block is live goes above it via printAbove.
 type SpinnerManager struct {
 	mu       sync.Mutex
 	spinners map[string]*serviceSpinner
@@ -18,6 +34,7 @@ type SpinnerManager struct {
 	stopped  bool
 	wg       sync.WaitGroup
 	ciMode   bool // true when running in CI - disables animation
+	drawn    int  // terminal rows the live block currently occupies
 }
 
 type serviceSpinner struct {
@@ -48,6 +65,8 @@ func (sm *SpinnerManager) Start() {
 		return
 	}
 
+	liveSpinner.Store(sm)
+
 	sm.wg.Add(1)
 	go func() {
 		defer sm.wg.Done()
@@ -65,7 +84,8 @@ func (sm *SpinnerManager) Start() {
 	}()
 }
 
-// Stop halts the spinner animation.
+// Stop halts the spinner animation. The block stays live (output still goes
+// above it) until RenderFinal draws the final state.
 func (sm *SpinnerManager) Stop() {
 	sm.mu.Lock()
 	if sm.stopped {
@@ -89,11 +109,8 @@ func (sm *SpinnerManager) AddSpinner(serviceName, stepName string, maxNameLen in
 		padded = serviceName + fmt.Sprintf("%*s", maxNameLen-len(serviceName), "")
 	}
 
-	sm.spinners[serviceName] = &serviceSpinner{
-		name:     padded,
-		stepName: stepName,
-		frame:    0,
-	}
+	s := &serviceSpinner{name: padded, stepName: stepName}
+	sm.spinners[serviceName] = s
 	sm.order = append(sm.order, serviceName)
 
 	// In CI mode, print a static "running" indicator
@@ -105,11 +122,8 @@ func (sm *SpinnerManager) AddSpinner(serviceName, stepName string, maxNameLen in
 		return
 	}
 
-	// Print initial line with spinner
-	fmt.Printf("  %s%s%s %s %s%s%s\n",
-		colorWarning, spinnerFrames[0], colorReset,
-		padded,
-		colorMuted, stepName, colorReset)
+	fmt.Print(sm.line(s, false, terminalColumns()))
+	sm.drawn++
 }
 
 // Complete marks a spinner as complete.
@@ -125,46 +139,32 @@ func (sm *SpinnerManager) Complete(serviceName string, success bool, duration ti
 	}
 }
 
-// render updates all spinner displays.
+// render redraws the live block with the next animation frame.
 func (sm *SpinnerManager) render() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// Move cursor up for each spinner and redraw
-	count := len(sm.order)
-	if count == 0 {
+	if len(sm.order) == 0 {
 		return
 	}
-
-	// Move up
-	fmt.Printf("\033[%dA", count)
-
-	for _, key := range sm.order {
-		s := sm.spinners[key]
-		if s.done {
-			if s.success {
-				fmt.Printf("\033[2K  %s%s%s %s %s(%s)%s\n",
-					colorSuccess, symbolSuccess, colorReset,
-					s.name,
-					colorMuted, FormatDuration(s.duration), colorReset)
-			} else {
-				errMsg := ""
-				if s.err != nil {
-					errMsg = s.err.Error()
-				}
-				fmt.Printf("\033[2K  %s%s%s %s %sfailed: %s%s\n",
-					colorError, symbolFailure, colorReset,
-					s.name,
-					colorError, errMsg, colorReset)
-			}
-		} else {
+	for _, s := range sm.spinners {
+		if !s.done {
 			s.frame = (s.frame + 1) % len(spinnerFrames)
-			fmt.Printf("\033[2K  %s%s%s %s %s%s%s\n",
-				colorWarning, spinnerFrames[s.frame], colorReset,
-				s.name,
-				colorMuted, s.stepName, colorReset)
 		}
 	}
+	fmt.Print(sm.clearSeq() + sm.frame(false))
+	sm.drawn = len(sm.order)
+}
+
+// printAbove writes s above the live block: clear the block, print s, redraw.
+func (sm *SpinnerManager) printAbove(w io.Writer, s string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	fmt.Print(sm.clearSeq())
+	_, _ = fmt.Fprint(w, s)
+	fmt.Print(sm.frame(false))
+	sm.drawn = len(sm.order)
 }
 
 // RenderFinal prints the final state of all spinners (for when animation stops).
@@ -172,12 +172,13 @@ func (sm *SpinnerManager) RenderFinal() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	count := len(sm.order)
-	if count == 0 {
+	if len(sm.order) == 0 {
+		liveSpinner.CompareAndSwap(sm, nil)
 		return
 	}
 
-	// In CI mode, just print completion status (no cursor manipulation)
+	// In CI mode, just print completion status (no cursor manipulation).
+	// Nothing is redrawn afterwards, so the full multi-line error is fine here.
 	if sm.ciMode {
 		for _, key := range sm.order {
 			s := sm.spinners[key]
@@ -205,33 +206,9 @@ func (sm *SpinnerManager) RenderFinal() {
 		return
 	}
 
-	// Move up and clear (interactive mode)
-	fmt.Printf("\033[%dA", count)
-
-	for _, key := range sm.order {
-		s := sm.spinners[key]
-		if s.success {
-			fmt.Printf("\033[2K  %s%s%s %s %s(%s)%s\n",
-				colorSuccess, symbolSuccess, colorReset,
-				s.name,
-				colorMuted, FormatDuration(s.duration), colorReset)
-		} else if s.done {
-			errMsg := ""
-			if s.err != nil {
-				errMsg = s.err.Error()
-			}
-			fmt.Printf("\033[2K  %s%s%s %s %sfailed: %s%s\n",
-				colorError, symbolFailure, colorReset,
-				s.name,
-				colorError, errMsg, colorReset)
-		} else {
-			// Still running when stopped - mark as interrupted
-			fmt.Printf("\033[2K  %s%s%s %s %s(interrupted)%s\n",
-				colorWarning, symbolRunning, colorReset,
-				s.name,
-				colorMuted, colorReset)
-		}
-	}
+	fmt.Print(sm.clearSeq() + sm.frame(true))
+	sm.drawn = 0 // final lines stay on screen; nothing will move over them
+	liveSpinner.CompareAndSwap(sm, nil)
 }
 
 // Clear removes all spinners.
@@ -240,4 +217,95 @@ func (sm *SpinnerManager) Clear() {
 	defer sm.mu.Unlock()
 	sm.spinners = make(map[string]*serviceSpinner)
 	sm.order = nil
+	sm.drawn = 0
+	liveSpinner.CompareAndSwap(sm, nil)
+}
+
+// clearSeq moves the cursor to the top of the live block and clears from
+// there to the end of the screen. Callers hold sm.mu.
+func (sm *SpinnerManager) clearSeq() string {
+	if sm.drawn == 0 {
+		return ""
+	}
+	return fmt.Sprintf("\033[%dA\r\033[J", sm.drawn)
+}
+
+// frame renders every spinner as one row each. final marks unfinished
+// spinners as interrupted. Callers hold sm.mu.
+func (sm *SpinnerManager) frame(final bool) string {
+	width := terminalColumns()
+	var b strings.Builder
+	for _, key := range sm.order {
+		b.WriteString(sm.line(sm.spinners[key], final, width))
+	}
+	return b.String()
+}
+
+// line renders one spinner as exactly one terminal row.
+func (*SpinnerManager) line(s *serviceSpinner, final bool, width int) string {
+	var symbolColor, symbol, textColor, text string
+	switch {
+	case s.done && s.success:
+		symbolColor, symbol = colorSuccess, symbolSuccess
+		textColor, text = colorMuted, "("+FormatDuration(s.duration)+")"
+	case s.done:
+		errMsg := ""
+		if s.err != nil {
+			errMsg = s.err.Error()
+		}
+		symbolColor, symbol = colorError, symbolFailure
+		textColor, text = colorError, "failed: "+errMsg
+	case final:
+		symbolColor, symbol = colorWarning, symbolRunning
+		textColor, text = colorMuted, "(interrupted)"
+	default:
+		symbolColor, symbol = colorWarning, spinnerFrames[s.frame]
+		textColor, text = colorMuted, s.stepName
+	}
+
+	// Visible layout: "  " + symbol + " " + name + " " + text. Keep one column
+	// spare so the cursor never lands on the wrap boundary.
+	budget := width - 1 - (2 + 1 + 1 + len([]rune(s.name)) + 1)
+	text = fitOneRow(text, budget)
+
+	return fmt.Sprintf("\033[2K  %s%s%s %s %s%s%s\n",
+		symbolColor, symbol, colorReset, s.name, textColor, text, colorReset)
+}
+
+// fitOneRow flattens s to a single line and cuts it to at most budget runes.
+func fitOneRow(s string, budget int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if budget <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= budget {
+		return s
+	}
+	if budget == 1 {
+		return "…"
+	}
+	return string(r[:budget-1]) + "…"
+}
+
+// terminalColumns is stdout's width, falling back to $COLUMNS, then 80.
+func terminalColumns() int {
+	if w := terminalWidth(); w > 0 {
+		return w
+	}
+	if w, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && w > 0 {
+		return w
+	}
+	return 80
+}
+
+// emit writes s to w, or above the live spinner block when one is animating,
+// so messages printed mid-step (errors, warnings, debug) don't land inside
+// the block and throw off its redraw.
+func emit(w io.Writer, s string) {
+	if sm := liveSpinner.Load(); sm != nil {
+		sm.printAbove(w, s)
+		return
+	}
+	_, _ = fmt.Fprint(w, s)
 }
