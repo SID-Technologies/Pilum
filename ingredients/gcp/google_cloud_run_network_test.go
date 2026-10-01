@@ -121,3 +121,24 @@ func TestNetworkFlagsComeBeforeContainers(t *testing.T) {
 		}
 	}
 }
+
+// A service that runs code it did not write must not run as the project's
+// default compute account. service_account was supported for jobs only, so a
+// service deployed from a pilum.yaml that asked for one ran as the default.
+func TestServiceAccountIsPassedToGcloud(t *testing.T) {
+	t.Parallel()
+
+	got := deployCmd(map[string]any{"service_account": "mcp-runtime@statio-499700.iam.gserviceaccount.com"})
+	if !strings.Contains(got, "--service-account mcp-runtime@statio-499700.iam.gserviceaccount.com") {
+		t.Fatalf("service account not passed to gcloud: %s", got)
+	}
+}
+
+// Absent, it is left to Cloud Run rather than set to something.
+func TestAbsentServiceAccountEmitsNoFlag(t *testing.T) {
+	t.Parallel()
+
+	if got := deployCmd(map[string]any{}); strings.Contains(got, "--service-account") {
+		t.Fatalf("emitted --service-account with none configured: %s", got)
+	}
+}

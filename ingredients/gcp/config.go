@@ -30,6 +30,11 @@ type CloudRunConfig struct {
 
 	// VPCEgress selects WHICH traffic takes the connector: "all-traffic" or "private-ranges-only".
 	VPCEgress string
+
+	// ServiceAccount is the identity the service runs as. Empty leaves it to
+	// Cloud Run, which means the project's default compute account — broad by
+	// default, so anything that runs code it did not write should set this.
+	ServiceAccount string
 }
 
 // ParseCloudRunConfig extracts Cloud Run configuration from the raw service config.
@@ -58,6 +63,7 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		Port:                 configutil.GetInt(cloudRunMap, "port", 0),
 		Ingress:              configutil.GetString(cloudRunMap, "ingress", ""),
 		VPCConnector:         configutil.GetString(cloudRunMap, "vpc_connector", ""),
+		ServiceAccount:       configutil.GetString(cloudRunMap, "service_account", ""),
 		VPCEgress:            configutil.GetString(cloudRunMap, "vpc_egress", ""),
 		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", false),
 	}

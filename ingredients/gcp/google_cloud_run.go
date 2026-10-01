@@ -63,6 +63,10 @@ func appendServiceLevelFlags(cmd []string, cfg CloudRunConfig, project string) [
 		cmd = append(cmd, "--ingress", cfg.Ingress)
 	}
 
+	if cfg.ServiceAccount != "" {
+		cmd = append(cmd, "--service-account", cfg.ServiceAccount)
+	}
+
 	if cfg.VPCConnector != "" {
 		cmd = append(cmd, "--vpc-connector", cfg.VPCConnector)
 
