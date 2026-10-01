@@ -1,18 +1,12 @@
 module github.com/sid-technologies/pilum
 
-go 1.25.0
-
-// Pin the build toolchain to a patched Go release. govulncheck reports
-// stdlib vulns against the TOOLCHAIN version, not the `go` directive above —
-// so this is what makes vuln checks pass. Bump deliberately when newer
-// patches drop.
-toolchain go1.25.11
+go 1.26.0
 
 require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.12.0
-	golang.org/x/sys v0.44.0
+	golang.org/x/sys v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
