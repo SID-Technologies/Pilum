@@ -25,5 +25,5 @@ func Debugf(msg string, args ...any) {
 		return
 	}
 	formatted := fmt.Sprintf(msg, args...)
-	fmt.Fprintf(os.Stderr, "%s[debug] %s%s\n", Muted, formatted, Reset)
+	emit(os.Stderr, fmt.Sprintf("%s[debug] %s%s\n", Muted, formatted, Reset))
 }

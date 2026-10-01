@@ -26,6 +26,7 @@ func TestRegisterDefaultHandlers(t *testing.T) {
 		{"build docker image", "", true},
 		{"publish to registry", "", true},
 		{"deploy to cloud run", "gcp", true},
+		{"route traffic to latest", "gcp", true},
 
 		// GCP Cloud Run Job handlers (exact step names from recipe)
 		{"deploy job", "gcp", true},
@@ -166,6 +167,25 @@ func TestDeployToCloudRunHandlerExecution(t *testing.T) {
 	require.Equal(t, "gcloud", cmd[0])
 	require.Equal(t, "run", cmd[1])
 	require.Equal(t, "deploy", cmd[2])
+}
+
+func TestRouteTrafficToLatestHandlerExecution(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	handler, found := reg.GetHandler("route traffic to latest", "gcp")
+	require.True(t, found)
+
+	cmd, ok := handler(registry.StepContext{
+		Service: serviceinfo.ServiceInfo{Name: "api", Region: "us-central1", Project: "proj"},
+	}).([]string)
+	require.True(t, ok)
+	require.Equal(t, []string{
+		"gcloud", "run", "services", "update-traffic", "api",
+		"--to-latest", "--region", "us-central1", "--project", "proj",
+	}, cmd)
 }
 
 func TestHomebrewBuildBinariesHandlerExecution(t *testing.T) {

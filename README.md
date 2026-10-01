@@ -175,6 +175,24 @@ steps:
 
 See [recipes/README.md](recipes/README.md) for full documentation.
 
+## Rollback
+
+Roll a service back to the version before the one currently deployed:
+
+```bash
+pilum rollback api --dry-run          # Show what would change
+pilum rollback api                    # Asks for confirmation
+pilum rollback api --to api-00041-xyz # A specific revision
+pilum rollback api --yes              # No prompt (required in CI)
+```
+
+- **Cloud Run services** move 100% of traffic to the previous healthy revision. Nothing is rebuilt, and that revision's full config comes back with it. Running rollback again steps back one more revision.
+- **Cloud Run jobs** point the job at the image of its previous execution (or `--to <tag>`), keeping the job's current config.
+- The previous version is read from GCP, not from local history, so it works from any machine, including CI.
+- The next `pilum deploy` sends traffic to the new revision again: Cloud Run recipes end with a `route traffic to latest` step. This also resets any traffic split set up by hand.
+
+Other providers are not supported yet.
+
 ## Deployment Locks
 
 Pilum prevents concurrent deployments using a lock file at `.pilum/deploy.lock`. If you run `pilum deploy` while another deploy is in progress, the second invocation will fail with details about who holds the lock.
@@ -299,6 +317,7 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | `pilum build [services...]` | `b`, `make` | Build step only |
 | `pilum publish [services...]` | `p` | Build and push (no deploy) |
 | `pilum push [services...]` | `ps` | Push images to registry only |
+| `pilum rollback <services...>` | | Roll back to the previous version (Cloud Run) |
 
 ### Configuration Commands
 
@@ -343,7 +362,7 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | `--debug` | `-d` | `false` | Enable debug logging |
 | `--timeout` | `-T` | `60` | Command timeout in seconds |
 | `--retries` | `-r` | `3` | Number of retries on failure |
-| `--max-workers` | | `0` (auto) | Maximum parallel workers |
+| `--max-workers` | | `0` (auto) | Parallel workers. Auto: build steps use CPUs ÷ `resources.cpu` (default 2), capped by memory and sized from the Docker VM for docker steps; push/deploy steps use up to 16 |
 | `--only-tags` | | | Only run steps with these tags |
 | `--exclude-tags` | | | Exclude steps with these tags |
 | `--env` | `-e` | | Environment to apply (merges overrides) |

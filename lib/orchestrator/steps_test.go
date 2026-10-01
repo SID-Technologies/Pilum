@@ -617,7 +617,7 @@ func TestPipelineExecuteTaskTypedNilCommandIsSuccess(t *testing.T) {
 		Timeout:       5,
 	}
 
-	result := pipeline.executeTask(svc, step)
+	result := pipeline.executeTask(svc, step, 0)
 
 	require.True(t, result.Success, "typed nil command should be treated as skip (success)")
 	require.Nil(t, result.Error)

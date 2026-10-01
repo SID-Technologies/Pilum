@@ -10,6 +10,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/registry"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/sysinfo"
 	"github.com/sid-technologies/pilum/lib/types"
 )
 
@@ -24,6 +25,10 @@ type Pipeline struct {
 	resultsMu     sync.Mutex
 	registry      *registry.CommandRegistry
 	dryRunResults []types.DryRunEntry
+
+	// dockerResources is what the docker daemon reports (the VM on Docker
+	// Desktop). Zero when no step needs docker or on dry runs.
+	dockerResources sysinfo.DockerResources
 }
 
 // warnUnbuiltDependencies reports dependencies that nothing in this run
@@ -125,8 +130,6 @@ func (p *Pipeline) Run() error {
 	// Count how many steps will actually run (after tag filtering)
 	runnableSteps := p.countRunnableSteps(maxSteps)
 
-	p.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(p.services)))
-
 	// Pre-calculate image names for all services. Keyed by DisplayName(), not
 	// Name: multi-region instances of the same service share Name but must
 	// resolve to different region-scoped image names (GCP embeds the region
@@ -136,6 +139,13 @@ func (p *Pipeline) Run() error {
 		_, imageName := build.GenerateBuildCommand(svc, svc.RegistryName, p.options.Tag)
 		p.imageNames[svc.DisplayName()] = imageName
 	}
+
+	// Runs after image names are known so generated docker commands are complete.
+	if err := p.preflight(maxSteps); err != nil {
+		return err
+	}
+
+	p.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(p.services)))
 
 	// Execute step by step, tracking display number for runnable steps only.
 	//

@@ -203,27 +203,11 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 
 	// Acquire deployment lock (skip for dry-runs)
 	if !opts.DryRun && projectRoot != "" {
-		serviceNames := make([]string, len(services))
-		for i, svc := range services {
-			serviceNames[i] = svc.Name
+		release, lockErr := acquireLock(projectRoot, cmdName, services, opts.Force)
+		if lockErr != nil {
+			return lockErr
 		}
-		if lockErr := lock.Acquire(projectRoot, cmdName, serviceNames, opts.Force); lockErr != nil {
-			return exitcodes.WithCode(exitcodes.Lock, lockErr)
-		}
-		defer lock.Release(projectRoot)
-
-		// Handle SIGINT/SIGTERM to release the lock on Ctrl+C or kill.
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			sig := <-sigCh
-			lock.Release(projectRoot)
-			// Re-raise the signal so the process exits with the correct status.
-			signal.Reset(sig)
-			p, _ := os.FindProcess(os.Getpid())
-			_ = p.Signal(sig)
-		}()
-		defer signal.Stop(sigCh)
+		defer release()
 	}
 
 	// GitHub commit status (opt-in via flag or auto-detected in CI)
@@ -303,6 +287,39 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return exitcodes.WithCode(exitcodes.Deploy, runErr)
 	}
 	return nil
+}
+
+// acquireLock takes the project deployment lock and releases it on return or
+// on SIGINT/SIGTERM. Call the returned func (typically deferred) to release.
+func acquireLock(projectRoot, cmdName string, services []serviceinfo.ServiceInfo, force bool) (func(), error) {
+	serviceNames := make([]string, len(services))
+	for i, svc := range services {
+		serviceNames[i] = svc.Name
+	}
+	if err := lock.Acquire(projectRoot, cmdName, serviceNames, force); err != nil {
+		return nil, exitcodes.WithCode(exitcodes.Lock, err)
+	}
+
+	// Handle SIGINT/SIGTERM to release the lock on Ctrl+C or kill.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig, ok := <-sigCh
+		if !ok {
+			return
+		}
+		lock.Release(projectRoot)
+		// Re-raise the signal so the process exits with the correct status.
+		signal.Reset(sig)
+		p, _ := os.FindProcess(os.Getpid())
+		_ = p.Signal(sig)
+	}()
+
+	return func() {
+		signal.Stop(sigCh)
+		close(sigCh)
+		lock.Release(projectRoot)
+	}, nil
 }
 
 // recordHistory saves a pipeline run to the history file.

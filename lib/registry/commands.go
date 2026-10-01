@@ -64,6 +64,12 @@ func registerGCPCloudRunHandlers(reg *CommandRegistry) {
 	reg.Register("deploy to cloud run", "gcp", func(ctx StepContext) any {
 		return gcp.GenerateGCPDeployCommand(ctx.Service, ctx.ImageName)
 	})
+
+	// Step 5: Send traffic to the new revision (undoes any rollback pin).
+	// Shared with the from-image recipe.
+	reg.Register("route traffic to latest", "gcp", func(ctx StepContext) any {
+		return gcp.GenerateRouteToLatestCommand(ctx.Service)
+	})
 }
 
 // registerGCPCloudRunJobHandlers registers handlers for GCP Cloud Run Job recipe steps.
