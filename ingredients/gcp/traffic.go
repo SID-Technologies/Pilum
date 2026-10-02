@@ -13,7 +13,13 @@ import (
 // revisions that receive no traffic until someone runs --to-latest. Without
 // this step the deploy after a rollback reports success while production keeps
 // serving the rolled-back revision.
+//
+// Returns nil (step skipped) for a no_traffic deploy: routing would undo it.
 func GenerateRouteToLatestCommand(svc serviceinfo.ServiceInfo) []string {
+	if ParseCloudRunConfig(svc.Config).NoTraffic {
+		return nil
+	}
+
 	cmd := []string{
 		"gcloud", "run", "services", "update-traffic", svc.Name,
 		"--to-latest",

@@ -78,6 +78,14 @@ func appendServiceLevelFlags(cmd []string, cfg CloudRunConfig, project string) [
 		cmd = append(cmd, "--vpc-egress", egress)
 	}
 
+	if cfg.NoTraffic {
+		cmd = append(cmd, "--no-traffic")
+	}
+
+	if cfg.Tag != "" {
+		cmd = append(cmd, "--tag", cfg.Tag)
+	}
+
 	if project != "" {
 		cmd = append(cmd, "--project", project)
 	}

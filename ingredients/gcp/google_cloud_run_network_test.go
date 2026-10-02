@@ -142,3 +142,41 @@ func TestAbsentServiceAccountEmitsNoFlag(t *testing.T) {
 		t.Fatalf("emitted --service-account with none configured: %s", got)
 	}
 }
+
+// A staged deploy: the revision exists and has its own tagged URL, but serves
+// no production traffic until someone moves it.
+func TestNoTrafficAndTagArePassedToGcloud(t *testing.T) {
+	t.Parallel()
+
+	got := deployCmd(map[string]any{"no_traffic": true, "tag": "staging"})
+	if !strings.Contains(got, "--no-traffic") || !strings.Contains(got, "--tag staging") {
+		t.Fatalf("no-traffic/tag not passed: %s", got)
+	}
+}
+
+func TestTrafficFlagsAbsentByDefault(t *testing.T) {
+	t.Parallel()
+
+	if got := deployCmd(map[string]any{}); strings.Contains(got, "--no-traffic") || strings.Contains(got, "--tag") {
+		t.Fatalf("emitted traffic flags with none configured: %s", got)
+	}
+}
+
+// Routing to latest after a no_traffic deploy would put the staged revision in
+// production — the exact thing no_traffic exists to prevent.
+func TestRouteToLatestSkippedForNoTraffic(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name: "s", Region: "us-central1",
+		Config: map[string]any{"cloud_run": map[string]any{"no_traffic": true}},
+	}
+	if cmd := GenerateRouteToLatestCommand(svc); cmd != nil {
+		t.Fatalf("route-to-latest ran for a no_traffic deploy: %v", cmd)
+	}
+
+	svc.Config = map[string]any{}
+	if cmd := GenerateRouteToLatestCommand(svc); cmd == nil {
+		t.Fatal("route-to-latest skipped for a normal deploy")
+	}
+}
