@@ -35,6 +35,13 @@ type CloudRunConfig struct {
 	// Cloud Run, which means the project's default compute account — broad by
 	// default, so anything that runs code it did not write should set this.
 	ServiceAccount string
+
+	// NoTraffic deploys a revision that serves nothing until traffic is moved
+	// to it, and skips routing traffic to latest. Fails on a service's first deploy.
+	NoTraffic bool
+
+	// Tag names the new revision so it has its own URL (TAG---service-…).
+	Tag string
 }
 
 // ParseCloudRunConfig extracts Cloud Run configuration from the raw service config.
@@ -64,6 +71,8 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		Ingress:              configutil.GetString(cloudRunMap, "ingress", ""),
 		VPCConnector:         configutil.GetString(cloudRunMap, "vpc_connector", ""),
 		ServiceAccount:       configutil.GetString(cloudRunMap, "service_account", ""),
+		NoTraffic:            configutil.GetBool(cloudRunMap, "no_traffic", false),
+		Tag:                  configutil.GetString(cloudRunMap, "tag", ""),
 		VPCEgress:            configutil.GetString(cloudRunMap, "vpc_egress", ""),
 		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", false),
 	}
