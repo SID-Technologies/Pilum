@@ -332,6 +332,10 @@
           "description": "Serve the ingress container end-to-end over HTTP/2 (cleartext h2c) by passing --use-http2. The container must speak h2c. Unset or false passes nothing, leaving the service's current setting untouched — removing it does not turn HTTP/2 off (use gcloud run services update --no-use-http2).",
           "default": false
         },
+        "service_account": {
+          "type": "string",
+          "description": "Service account email the service runs as (--service-account). Needed to read mounted secrets on a new service, which otherwise runs as the project's default compute account. Unset passes nothing, so an existing service keeps its current identity."
+        },
         "concurrency": {
           "type": "integer",
           "description": "Maximum concurrent requests per instance",

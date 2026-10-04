@@ -1,6 +1,7 @@
 package registry_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/registry"
@@ -193,6 +194,45 @@ func TestDeployFromImageHandler_UseHTTP2AndPort(t *testing.T) {
 	require.Contains(t, cmd, image)
 	require.Contains(t, cmd, "--use-http2")
 	require.Contains(t, cmd, "--port=8080")
+}
+
+// A from-image service mounting secrets fails its first deploy unless it runs as an identity that can read them.
+func TestDeployFromImageHandler_ServiceAccount(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	handler, found := reg.GetHandler("deploy from image", "gcp")
+	require.True(t, found)
+
+	const sa = "mcp-runtime@p.iam.gserviceaccount.com"
+
+	for name, sidecars := range map[string][]serviceinfo.Sidecar{
+		"single container": nil,
+		"multi container":  {{Name: "proxy", Image: "sidecar:latest"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd, ok := handler(registry.StepContext{
+				Service: serviceinfo.ServiceInfo{
+					Name:     "app",
+					Region:   "us-central1",
+					Image:    "us-central1-docker.pkg.dev/p/r/app:v1",
+					Config:   map[string]any{"cloud_run": map[string]any{"service_account": sa, "port": 8080}},
+					Sidecars: sidecars,
+				},
+			}).([]string)
+			require.True(t, ok)
+
+			at := slices.Index(cmd, "--service-account")
+			require.NotEqual(t, -1, at, "no --service-account: %v", cmd)
+			require.Less(t, at+1, len(cmd))
+			require.Equal(t, sa, cmd[at+1])
+			require.Less(t, at, slices.Index(cmd, "--image"), "--service-account must precede the container flags: %v", cmd)
+		})
+	}
 }
 
 func TestRouteTrafficToLatestHandlerExecution(t *testing.T) {
