@@ -239,6 +239,18 @@ Required environment variables (set automatically in GitHub Actions):
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+## Cloud Run: Port and HTTP/2
+
+Both options are opt-in; leaving them out passes nothing to `gcloud`, so existing services keep their current settings.
+
+```yaml
+cloud_run:
+  port: 8080       # --port; always sent with sidecars (default 8080), otherwise only when set
+  use_http2: true  # --use-http2: end-to-end HTTP/2 (h2c) to the ingress container
+```
+
+With `use_http2`, the container must serve cleartext HTTP/2 (h2c). Removing the key later does not turn HTTP/2 off; run `gcloud run services update <name> --no-use-http2`. Both work for `gcp-cloud-run` and `gcp-cloud-run-from-image`.
+
 ## Environment Overrides
 
 Define per-environment configuration that merges with your base config:

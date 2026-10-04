@@ -16,7 +16,7 @@ type CloudRunConfig struct {
 	Concurrency       int      // Max concurrent requests per instance (-1 for not set)
 	TimeoutSeconds    int      // Request timeout in seconds (-1 for not set)
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
-	Port              int      // Port is the ingress container's listening port. Required by Cloud Run in multi-container mode
+	Port              int      // Port is the ingress container's listening port. Required by Cloud Run in multi-container mode; opt-in for single-container
 
 	// AllowUnauthenticated exposes the service to the public internet.Defaults to FALSE.
 	AllowUnauthenticated bool
@@ -42,6 +42,9 @@ type CloudRunConfig struct {
 
 	// Tag names the new revision so it has its own URL (TAG---service-…).
 	Tag string
+
+	// UseHTTP2 serves the ingress container end-to-end over HTTP/2 (h2c). False leaves the setting untouched.
+	UseHTTP2 bool
 }
 
 // ParseCloudRunConfig extracts Cloud Run configuration from the raw service config.
@@ -73,6 +76,7 @@ func ParseCloudRunConfig(config map[string]any) CloudRunConfig {
 		ServiceAccount:       configutil.GetString(cloudRunMap, "service_account", ""),
 		NoTraffic:            configutil.GetBool(cloudRunMap, "no_traffic", false),
 		Tag:                  configutil.GetString(cloudRunMap, "tag", ""),
+		UseHTTP2:             configutil.GetBool(cloudRunMap, "use_http2", false),
 		VPCEgress:            configutil.GetString(cloudRunMap, "vpc_egress", ""),
 		AllowUnauthenticated: configutil.GetBool(cloudRunMap, "allow_unauthenticated", false),
 	}

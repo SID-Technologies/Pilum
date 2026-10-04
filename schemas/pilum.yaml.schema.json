@@ -325,7 +325,12 @@
         },
         "port": {
           "type": "integer",
-          "description": "Port the ingress container listens on. Required when `sidecars:` is set (Cloud Run does not infer a default port in multi-container mode); ignored in single-container deploys, which use the implicit Cloud Run default."
+          "description": "Port the ingress container listens on. Required when `sidecars:` is set (Cloud Run does not infer a default port in multi-container mode; falls back to 8080). Single-container deploys pass --port only when this is set, otherwise the service keeps its current port."
+        },
+        "use_http2": {
+          "type": "boolean",
+          "description": "Serve the ingress container end-to-end over HTTP/2 (cleartext h2c) by passing --use-http2. The container must speak h2c. Unset or false passes nothing, leaving the service's current setting untouched — removing it does not turn HTTP/2 off (use gcloud run services update --no-use-http2).",
+          "default": false
         },
         "concurrency": {
           "type": "integer",
