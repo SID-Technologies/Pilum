@@ -63,16 +63,8 @@ func GenerateDeployJobCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		cmd = append(cmd, "--set-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
 	}
 
-	// Add secrets if provided
-	if len(svc.Secrets) > 0 {
-		var secretsStrs []string
-		for _, secret := range svc.Secrets {
-			secretStr := fmt.Sprintf("%s=%s", secret.Name, toGcloudSecretRef(secret.Value))
-			secretsStrs = append(secretsStrs, secretStr)
-		}
-		secretsJoined := strings.Join(secretsStrs, ",")
-		cmd = append(cmd, "--set-secrets", secretsJoined)
-	}
+	cmd = append(cmd, envVarFlags(svc.EnvVars)...)
+	cmd = append(cmd, secretFlags(svc.Secrets)...)
 
 	// Add project if set
 	if svc.Project != "" {

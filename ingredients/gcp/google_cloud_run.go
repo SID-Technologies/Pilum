@@ -113,13 +113,8 @@ func appendSingleContainerFlags(cmd []string, svc serviceinfo.ServiceInfo, image
 		cmd = append(cmd, "--cpu", cfg.CPU)
 	}
 
-	if len(svc.EnvVars) > 0 {
-		cmd = append(cmd, "--set-env-vars", joinEnvVars(svc.EnvVars))
-	}
-
-	if len(svc.Secrets) > 0 {
-		cmd = append(cmd, "--set-secrets", joinSecretRefs(svc.Secrets))
-	}
+	cmd = append(cmd, envVarFlags(svc.EnvVars)...)
+	cmd = append(cmd, secretFlags(svc.Secrets)...)
 
 	return cmd
 }
@@ -142,13 +137,8 @@ func appendMultiContainerFlags(cmd []string, svc serviceinfo.ServiceInfo, imageN
 		cmd = append(cmd, "--cpu", cfg.CPU)
 	}
 
-	if len(svc.EnvVars) > 0 {
-		cmd = append(cmd, "--set-env-vars", joinEnvVars(svc.EnvVars))
-	}
-
-	if len(svc.Secrets) > 0 {
-		cmd = append(cmd, "--set-secrets", joinSecretRefs(svc.Secrets))
-	}
+	cmd = append(cmd, envVarFlags(svc.EnvVars)...)
+	cmd = append(cmd, secretFlags(svc.Secrets)...)
 
 	for _, sc := range svc.Sidecars {
 		cmd = appendSidecarFlags(cmd, sc)
@@ -169,13 +159,8 @@ func appendSidecarFlags(cmd []string, sc serviceinfo.Sidecar) []string {
 		cmd = append(cmd, "--cpu", sc.CPU)
 	}
 
-	if len(sc.EnvVars) > 0 {
-		cmd = append(cmd, "--set-env-vars", joinEnvVars(sc.EnvVars))
-	}
-
-	if len(sc.Secrets) > 0 {
-		cmd = append(cmd, "--set-secrets", joinSecretRefs(sc.Secrets))
-	}
+	cmd = append(cmd, envVarFlags(sc.EnvVars)...)
+	cmd = append(cmd, secretFlags(sc.Secrets)...)
 
 	if len(sc.DependsOn) > 0 {
 		cmd = append(cmd, fmt.Sprintf("--depends-on=%s", strings.Join(sc.DependsOn, ",")))
@@ -190,6 +175,24 @@ func appendSidecarFlags(cmd []string, sc serviceinfo.Sidecar) []string {
 	}
 
 	return cmd
+}
+
+// envVarFlags always states the full set: omitting the flag keeps the previous revision's env vars.
+func envVarFlags(envs []serviceinfo.EnvVars) []string {
+	if len(envs) == 0 {
+		return []string{"--clear-env-vars"}
+	}
+
+	return []string{"--set-env-vars", joinEnvVars(envs)}
+}
+
+// secretFlags always states the full set: omitting the flag keeps a removed secret mounted.
+func secretFlags(secrets []serviceinfo.Secrets) []string {
+	if len(secrets) == 0 {
+		return []string{"--clear-secrets"}
+	}
+
+	return []string{"--set-secrets", joinSecretRefs(secrets)}
 }
 
 func ingressContainerName(svc serviceinfo.ServiceInfo) string {
