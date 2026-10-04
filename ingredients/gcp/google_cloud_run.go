@@ -96,6 +96,15 @@ func appendServiceLevelFlags(cmd []string, cfg CloudRunConfig, project string) [
 func appendSingleContainerFlags(cmd []string, svc serviceinfo.ServiceInfo, imageName string, cfg CloudRunConfig) []string {
 	cmd = append(cmd, "--image", imageName)
 
+	// Unset keeps whatever port the service already has.
+	if cfg.Port > 0 {
+		cmd = append(cmd, fmt.Sprintf("--port=%d", cfg.Port))
+	}
+
+	if cfg.UseHTTP2 {
+		cmd = append(cmd, "--use-http2")
+	}
+
 	if cfg.Memory != "" {
 		cmd = append(cmd, "--memory", cfg.Memory)
 	}
@@ -119,6 +128,11 @@ func appendMultiContainerFlags(cmd []string, svc serviceinfo.ServiceInfo, imageN
 	cmd = append(cmd, "--container", ingressContainerName(svc))
 	cmd = append(cmd, "--image", imageName)
 	cmd = append(cmd, fmt.Sprintf("--port=%d", ingressContainerPort(cfg)))
+
+	// --use-http2 is a container flag in gcloud, so it belongs to the ingress container's group.
+	if cfg.UseHTTP2 {
+		cmd = append(cmd, "--use-http2")
+	}
 
 	if cfg.Memory != "" {
 		cmd = append(cmd, "--memory", cfg.Memory)

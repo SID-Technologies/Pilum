@@ -169,6 +169,32 @@ func TestDeployToCloudRunHandlerExecution(t *testing.T) {
 	require.Equal(t, "deploy", cmd[2])
 }
 
+// The from-image recipe must honor use_http2 and port, not just the build recipe.
+func TestDeployFromImageHandler_UseHTTP2AndPort(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	handler, found := reg.GetHandler("deploy from image", "gcp")
+	require.True(t, found)
+
+	const image = "us-central1-docker.pkg.dev/p/r/app:v1"
+
+	cmd, ok := handler(registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Name:   "app",
+			Region: "us-central1",
+			Image:  image,
+			Config: map[string]any{"cloud_run": map[string]any{"port": 8080, "use_http2": true}},
+		},
+	}).([]string)
+	require.True(t, ok)
+	require.Contains(t, cmd, image)
+	require.Contains(t, cmd, "--use-http2")
+	require.Contains(t, cmd, "--port=8080")
+}
+
 func TestRouteTrafficToLatestHandlerExecution(t *testing.T) {
 	t.Parallel()
 

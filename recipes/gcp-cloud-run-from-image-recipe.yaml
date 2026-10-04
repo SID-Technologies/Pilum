@@ -58,9 +58,14 @@ optional_fields:
     default: "300"
 
   - name: cloud_run.port
-    description: Ingress container port. Required when `sidecars:` is set.
+    description: Ingress container port. Required when `sidecars:` is set (falls back to 8080 there); single-container deploys pass --port only when set.
     type: int
     default: "8080"
+
+  - name: cloud_run.use_http2
+    description: Serve the ingress container end-to-end over HTTP/2 (cleartext h2c) via --use-http2. The container must speak h2c. Unset passes nothing, so removing it later does not turn HTTP/2 off.
+    type: bool
+    default: "false"
 
   - name: sidecars
     description: Auxiliary containers to co-deploy in the same Cloud Run revision.
