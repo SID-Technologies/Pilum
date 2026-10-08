@@ -38,3 +38,24 @@ func TestBuildConfigHasResources(t *testing.T) {
 			"language %s should declare resources.memory in its build template", lang)
 	}
 }
+
+func TestCanonicalAliases(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "node", Canonical("nodejs"))
+	require.Equal(t, "node", Canonical(" TypeScript "))
+	require.Equal(t, "go", Canonical("golang"))
+	require.Equal(t, "bun", Canonical("bun"))
+	require.Equal(t, "zig", Canonical("Zig"), "unknown languages pass through")
+}
+
+func TestAliasesResolveTemplates(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 1536, MemoryForLanguage("nodejs"), "the examples' spelling finds the node template")
+	require.Contains(t, GetAvailableLanguages(), "bun")
+
+	cfg, err := GetBuildConfig("bun")
+	require.NoError(t, err)
+	require.Equal(t, "bun run build", cfg.Cmd)
+}

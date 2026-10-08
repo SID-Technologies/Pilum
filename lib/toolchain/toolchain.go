@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strings"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/shellutil"
+	"github.com/sid-technologies/pilum/lib/templates"
 )
 
 // Plan is a warm command for one group of services.
@@ -30,6 +30,9 @@ type Plan struct {
 	// directory for Cmd to run in instead, for tools whose only way to fill
 	// their cache also writes into the project.
 	Isolate []string
+	// Tool names the group in output when it's more specific than the
+	// toolchain, e.g. "pnpm" for node.
+	Tool string
 }
 
 // Group is the services that share a workspace and warm together.
@@ -60,21 +63,11 @@ type Toolchain interface {
 	Plan(g Group) (Plan, bool)
 }
 
-var registry = []Toolchain{golang{}}
+var registry = []Toolchain{golang{}, node{}}
 
-// aliases maps build.language spellings to canonical names.
-var aliases = map[string]string{
-	"golang": "go",
-}
-
-// Canonical normalizes a build.language value.
+// Canonical normalizes a build.language value, e.g. "nodejs" to "node".
 func Canonical(language string) string {
-	lang := strings.ToLower(strings.TrimSpace(language))
-	canonical, ok := aliases[lang]
-	if ok {
-		return canonical
-	}
-	return lang
+	return templates.Canonical(language)
 }
 
 // Resolve finds the toolchain and workspace root for a service directory. A

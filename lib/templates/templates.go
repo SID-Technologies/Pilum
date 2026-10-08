@@ -28,6 +28,28 @@ type BuildConfig struct {
 	Flags     map[string]any    `yaml:"flags"`
 }
 
+// languageAliases maps other spellings of build.language to the name of a
+// template in builds/.
+var languageAliases = map[string]string{
+	"golang":     "go",
+	"nodejs":     "node",
+	"javascript": "node",
+	"js":         "node",
+	"typescript": "node",
+	"ts":         "node",
+}
+
+// Canonical normalizes a build.language value to its template name. Unknown
+// languages pass through, lowercased.
+func Canonical(language string) string {
+	lang := strings.ToLower(strings.TrimSpace(language))
+	canonical, ok := languageAliases[lang]
+	if ok {
+		return canonical
+	}
+	return lang
+}
+
 // DefaultBuildMemoryMB is the fallback when language is unknown or has no template.
 const DefaultBuildMemoryMB = 1024
 
@@ -69,7 +91,7 @@ func GetAvailableLanguages() []string {
 
 // GetBuildConfig loads the build configuration for a specific language.
 func GetBuildConfig(language string) (*BuildConfig, error) {
-	filename := filepath.Join("builds", language+".yaml")
+	filename := filepath.Join("builds", Canonical(language)+".yaml")
 	data, err := buildsFS.ReadFile(filename)
 	if err != nil {
 		return nil, err
