@@ -1,0 +1,6 @@
+# Kotlin build configuration (Gradle wrapper)
+language: kotlin
+version: "21"
+cmd: "./gradlew build -x test"
+resources:
+  memory: 3072 # 3 GB — Gradle daemon + Kotlin compiler

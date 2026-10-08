@@ -64,7 +64,25 @@ type Toolchain interface {
 	Plan(g Group) (Plan, bool)
 }
 
-var registry = []Toolchain{golang{}, node{}, python{}}
+// registry is checked in order; a Gradle build that also has a pom.xml
+// warms as Gradle.
+var registry = []Toolchain{golang{}, node{}, python{}, rust{}, gradle{}, maven{}, dotnet{}}
+
+// owner is implemented by toolchains whose manifest has no fixed name, such
+// as .NET's *.csproj.
+type owner interface {
+	Owns(svcDir string) bool
+}
+
+// owns reports whether svcDir holds the toolchain's manifest.
+func owns(tc Toolchain, svcDir string) bool {
+	o, ok := tc.(owner)
+	if ok {
+		return o.Owns(svcDir)
+	}
+	_, found := nearest([]string{svcDir}, tc.Manifests()...)
+	return found
+}
 
 // Canonical normalizes a build.language value, e.g. "nodejs" to "node".
 func Canonical(language string) string {
@@ -82,8 +100,7 @@ func Resolve(svcDir, bound, language string) (Toolchain, string, bool) {
 		if lang != "" && !slices.Contains(tc.Languages(), lang) {
 			continue
 		}
-		_, owns := nearest([]string{svcDir}, tc.Manifests()...)
-		if lang == "" && !owns {
+		if lang == "" && !owns(tc, svcDir) {
 			continue
 		}
 		root, ok := tc.Root(svcDir, bound)

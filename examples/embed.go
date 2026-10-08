@@ -16,7 +16,9 @@ var dockerfiles embed.FS
 // to its example service directory name.
 var languageDirs = map[string]string{
 	"bun":    "bun-service",
+	"dotnet": "dotnet-service",
 	"go":     "go-service",
+	"java":   "java-service",
 	"node":   "nodejs-service",
 	"python": "python-service",
 	"rust":   "rust-service",

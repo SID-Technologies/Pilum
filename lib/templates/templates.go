@@ -37,6 +37,11 @@ var languageAliases = map[string]string{
 	"js":         "node",
 	"typescript": "node",
 	"ts":         "node",
+	"csharp":     "dotnet",
+	"c#":         "dotnet",
+	"fsharp":     "dotnet",
+	"f#":         "dotnet",
+	".net":       "dotnet",
 }
 
 // Canonical normalizes a build.language value to its template name. Unknown
