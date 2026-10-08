@@ -41,3 +41,21 @@ func FindProjectRoot() (string, error) {
 		dir = parentDir
 	}
 }
+
+// RepoRoot returns the nearest directory at or above dir that holds .git (a
+// directory, or a file in worktrees), or dir itself outside a repository.
+// Searches for workspace files stop here, so a lockfile in some unrelated
+// parent directory is never picked up.
+func RepoRoot(dir string) string {
+	for current := dir; ; {
+		_, err := os.Stat(filepath.Join(current, ".git"))
+		if err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return dir
+		}
+		current = parent
+	}
+}

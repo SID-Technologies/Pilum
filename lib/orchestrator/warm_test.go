@@ -175,3 +175,146 @@ func TestPipelineDryRunShowsWarm(t *testing.T) {
 
 	require.Equal(t, types.DryRunEntry{Service: "a,b", Step: warmStepName, Command: "go build ./..."}, p.dryRunResults[0])
 }
+
+// goModule writes a Go module with a main package per service under root and
+// returns root.
+func goModule(t *testing.T, services ...string) string {
+	t.Helper()
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/m\n\ngo 1.21\n"), 0o600))
+	for _, svc := range services {
+		dir := filepath.Join(root, "services", svc)
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o600))
+	}
+	return root
+}
+
+func autoGoService(root, name string, env ...serviceinfo.EnvVars) serviceinfo.ServiceInfo {
+	return serviceinfo.ServiceInfo{
+		Name:        name,
+		Provider:    "test",
+		Path:        filepath.Join(root, "services", name),
+		BuildConfig: serviceinfo.BuildConfig{Language: "go", Cmd: "go build -o ./dist", EnvVars: env},
+	}
+}
+
+func TestWarmGroupsAutoGo(t *testing.T) {
+	t.Parallel()
+
+	root := goModule(t, "api", "auth", "cli")
+	linux := serviceinfo.EnvVars{Name: "GOOS", Value: "linux"}
+	services := []serviceinfo.ServiceInfo{
+		autoGoService(root, "api", linux),
+		autoGoService(root, "auth", linux),
+		// Different target, so a different cache: alone, it isn't worth warming.
+		autoGoService(root, "cli", serviceinfo.EnvVars{Name: "GOOS", Value: "darwin"}),
+	}
+
+	p := NewPipeline(services, warmRecipe("true"), types.PipelineOptions{})
+	groups := p.warmGroups(p.findMaxSteps())
+
+	require.Len(t, groups, 1)
+	g := groups[0]
+	require.True(t, g.auto)
+	require.Equal(t, "go build ./services/api ./services/auth", g.cmd)
+	require.Equal(t, root, g.dir)
+	require.Equal(t, map[string]string{"GOOS": "linux"}, g.env)
+	require.Equal(t, "go (2 services, auto)", g.label())
+}
+
+func TestWarmGroupsAutoSkips(t *testing.T) {
+	t.Parallel()
+
+	root := goModule(t, "a", "b", "c", "d")
+
+	optedOut := autoGoService(root, "a")
+	optedOut.BuildConfig.WarmDisabled = true
+	dockerOnly := autoGoService(root, "b")
+	dockerOnly.BuildConfig.Cmd = ""
+	explicit := autoGoService(root, "c")
+	explicit.BuildConfig.Warm = "echo custom"
+
+	p := NewPipeline([]serviceinfo.ServiceInfo{optedOut, dockerOnly, explicit, autoGoService(root, "d")},
+		warmRecipe("true"), types.PipelineOptions{})
+	groups := p.warmGroups(p.findMaxSteps())
+
+	require.Len(t, groups, 1, "only the explicit warm: d is alone, a opted out, b builds in its Dockerfile")
+	require.False(t, groups[0].auto)
+	require.Equal(t, "echo custom", groups[0].cmd)
+}
+
+func TestPipelineAutoWarmCompilesWithoutTouchingTheProject(t *testing.T) {
+	t.Parallel()
+
+	root := goModule(t, "api", "auth")
+	before := snapshot(t, root)
+
+	services := []serviceinfo.ServiceInfo{autoGoService(root, "api"), autoGoService(root, "auth")}
+	p := NewPipeline(services, warmRecipe("true"), types.PipelineOptions{Timeout: 120})
+	require.NoError(t, p.Run())
+
+	require.Equal(t, before, snapshot(t, root), "warming writes only to Go's cache")
+}
+
+// snapshot lists every file under root.
+func snapshot(t *testing.T, root string) []string {
+	t.Helper()
+	var files []string
+	err := filepath.WalkDir(root, func(p string, _ os.DirEntry, err error) error {
+		files = append(files, p)
+		return err
+	})
+	require.NoError(t, err)
+	return files
+}
+
+func TestIsolatedCopy(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "apps/web"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "lock"), []byte("l"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "apps/web/package.json"), []byte("{}"), 0o600))
+
+	tmp, err := isolatedCopy(root, []string{"lock", "apps/web/package.json", "missing.rc"})
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tmp) })
+
+	data, err := os.ReadFile(filepath.Join(tmp, "apps/web/package.json"))
+	require.NoError(t, err)
+	require.Equal(t, "{}", string(data))
+	require.FileExists(t, filepath.Join(tmp, "lock"))
+	require.NoFileExists(t, filepath.Join(tmp, "missing.rc"), "optional files are skipped")
+}
+
+func TestRunWarmIsolatedRunsInACopyAndCleansUp(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "lock"), []byte("l"), 0o600))
+	log := filepath.Join(t.TempDir(), "log")
+
+	p := NewPipeline(nil, nil, types.PipelineOptions{})
+	g := &warmGroup{cmd: "pwd > " + log + " && test -f lock", dir: root, isolate: []string{"lock"}, timeout: 10, services: []string{"web"}}
+	require.NoError(t, p.runWarm(g))
+
+	ran := readLog(t, log)[0]
+	require.NotEqual(t, root, ran)
+	require.NoDirExists(t, ran, "the copy is removed")
+}
+
+func TestPipelineDryRunShowsAutoWarm(t *testing.T) {
+	t.Parallel()
+
+	root := goModule(t, "api", "auth")
+	services := []serviceinfo.ServiceInfo{autoGoService(root, "api"), autoGoService(root, "auth")}
+	p := NewPipeline(services, warmRecipe("true"), types.PipelineOptions{DryRun: true})
+	require.NoError(t, p.Run())
+
+	require.Equal(t, types.DryRunEntry{
+		Service: "api,auth",
+		Step:    warmStepName,
+		Command: "(cd " + root + " && go build ./services/api ./services/auth)",
+	}, p.dryRunResults[0])
+}

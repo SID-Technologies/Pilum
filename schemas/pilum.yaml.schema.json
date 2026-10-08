@@ -234,8 +234,8 @@
           "description": "Custom build command (overrides default for the language)"
         },
         "warm": {
-          "type": "string",
-          "description": "Command that fills the language's shared build cache (e.g. 'go build ./...', 'pnpm install --frozen-lockfile'). Runs once per run before the builds start; services with the same warm, warm_dir and build env_vars share one run."
+          "type": ["string", "boolean"],
+          "description": "Unset (or true): Pilum warms the build cache automatically when it recognizes the toolchain (Go: one go build of every service package in the module) and two or more services share it. A string: a command that fills the language's shared build cache (e.g. 'pnpm install --frozen-lockfile'), run once per run before the builds start; services with the same warm, warm_dir and build env_vars share one run. false: never warm this service."
         },
         "warm_dir": {
           "type": "string",

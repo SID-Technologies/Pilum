@@ -258,3 +258,18 @@ func TestFindProjectRootMultipleConfigs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resolvePath(t, tmpDir), root)
 }
+
+func TestRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	repo := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(repo, ".git"), 0o755))
+	deep := filepath.Join(repo, "services", "api")
+	require.NoError(t, os.MkdirAll(deep, 0o755))
+	require.Equal(t, repo, path.RepoRoot(deep))
+
+	// Worktrees have a .git file, not a directory.
+	worktree := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(worktree, ".git"), []byte("gitdir: x"), 0o600))
+	require.Equal(t, worktree, path.RepoRoot(worktree))
+}
