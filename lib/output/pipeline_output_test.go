@@ -3,6 +3,7 @@ package output
 import (
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/sid-technologies/pilum/lib/types"
 
@@ -431,4 +432,12 @@ func TestPipelineOutputConcurrentAccess(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		<-done
 	}
+}
+
+func TestRuleIsWholeCharacters(t *testing.T) {
+	t.Parallel()
+
+	r := rule(40)
+	require.True(t, utf8.ValidString(r), "a byte slice would split a character")
+	require.Equal(t, 40, utf8.RuneCountInString(r))
 }

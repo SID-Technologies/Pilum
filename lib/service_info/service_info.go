@@ -33,6 +33,12 @@ type BuildConfig struct {
 	Flags      []BuildFlag    `yaml:"flags"`
 	VersionVar string         `yaml:"version_var"` // Go variable path for version injection (e.g., "main.version")
 	Resources  BuildResources `yaml:"resources"`
+
+	// Warm fills the language's shared build cache once per run, before the
+	// per-service builds start. Services with the same Warm, WarmDir and build
+	// env share a single run.
+	Warm    string `yaml:"warm"`
+	WarmDir string `yaml:"warm_dir"` // relative to the project root; default is the root
 }
 
 type RuntimeConfig struct {
@@ -336,6 +342,8 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		Language:   configutil.GetString(buildMap, "language", ""),
 		Version:    configutil.GetString(buildMap, "version", ""),
 		Cmd:        configutil.GetString(buildMap, "cmd", ""),
+		Warm:       configutil.GetString(buildMap, "warm", ""),
+		WarmDir:    configutil.GetString(buildMap, "warm_dir", ""),
 		VersionVar: configutil.GetString(buildMap, "version_var", ""),
 		Resources:  resources,
 	}

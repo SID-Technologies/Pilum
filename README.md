@@ -312,6 +312,41 @@ Wave 2: api           ✓ (2.9s)
 
 Build steps always run in flat parallel (no wave ordering). Use `--no-deps` to disable.
 
+## Warming Build Caches
+
+Parallel builds against a cold cache each compile the same shared dependencies: four Go services building at once compile the same modules four times. `build.warm` fills the cache once, before any service builds:
+
+```yaml
+# services/*/pilum.yaml (Go)
+build:
+  language: go
+  warm: go build ./...
+  cmd: go build -o ./dist .
+  env_vars:
+    GOOS: linux
+    GOARCH: amd64
+
+# apps/*/pilum.yaml (Node)
+build:
+  language: node
+  warm: pnpm install --frozen-lockfile
+  cmd: pnpm build
+```
+
+```
+━━━ Warming build caches ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ go (10 services)    41.2s
+  ✓ node (3 services)   12.8s
+```
+
+- **Once per command, not per service.** Services with the same `warm`, `warm_dir` and build `env_vars` share one run. The env is part of the match because a cache filled for one `GOOS`/`GOARCH` misses for another.
+- **Every language before any build.** Distinct warm commands run concurrently, and the build step starts when all have finished.
+- **Runs from the project root.** Set `warm_dir` (relative to the root) when a service's module or lockfile lives elsewhere.
+- **Only when building.** Skipped when no build step runs (`--only-tags deploy`), and with `--no-warm`.
+- **Best effort.** A failed warm is reported and the builds still run, cold, so any real error surfaces from the build itself.
+
+Use the same `env_vars` and build tags the build uses, so the entries the warm run creates are the ones the build looks up. With a warm cache, the warm run takes about a second.
+
 ## Editor Support
 
 Pilum provides a JSON Schema for `pilum.yaml` that enables autocompletion, validation, and inline documentation in supported editors.
@@ -393,6 +428,7 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | `--only-changed` | | `false` | Only deploy services with changes since base branch |
 | `--since` | | | Git ref to compare against (default: main or master) |
 | `--no-deps` | | `false` | Disable dependency-based deployment ordering |
+| `--no-warm` | | `false` | Skip `build.warm`, the shared cache fill before builds |
 | `--force` | `-f` | `false` | Override deployment lock |
 | `--github-status` | | `false` | Post commit status to GitHub |
 

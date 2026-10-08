@@ -88,6 +88,12 @@ func (o *PipelineOutput) PrintHeader(message string) {
 	fmt.Println()
 }
 
+// rule is a header line n characters wide. "━" is three bytes, so a byte
+// slice of a longer rule would cut a character in half.
+func rule(n int) string {
+	return strings.Repeat("━", n)
+}
+
 // PrintStepHeader prints a step header with separator.
 func (o *PipelineOutput) PrintStepHeader(stepNum, totalSteps int, stepName string) {
 	if IsQuiet() || IsJSON() {
@@ -96,8 +102,19 @@ func (o *PipelineOutput) PrintStepHeader(stepNum, totalSteps int, stepName strin
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	line := strings.Repeat("━", 50)
-	fmt.Printf("\n%s%s Step %d/%d: %s %s%s\n", colorPrimary, line[:3], stepNum, totalSteps, stepName, line[:40], colorReset)
+	fmt.Printf("\n%s%s Step %d/%d: %s %s%s\n", colorPrimary, rule(3), stepNum, totalSteps, stepName, rule(40), colorReset)
+}
+
+// PrintPhaseHeader prints the header of a phase that runs outside the
+// numbered steps, such as warming build caches.
+func (o *PipelineOutput) PrintPhaseHeader(name string) {
+	if IsQuiet() || IsJSON() {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	fmt.Printf("\n%s%s %s %s%s\n", colorPrimary, rule(3), name, rule(40), colorReset)
 }
 
 // PrintRunning prints a running status for a service.
@@ -324,8 +341,7 @@ func (o *PipelineOutput) PrintComplete(results []types.TaskResult) {
 
 	// Normal/verbose mode: print full summary
 	fmt.Println()
-	line := strings.Repeat("━", 50)
-	fmt.Printf("%s%s Complete %s%s\n", colorPrimary, line[:3], line[:40], colorReset)
+	fmt.Printf("%s%s Complete %s%s\n", colorPrimary, rule(3), rule(40), colorReset)
 
 	if failedCount == 0 {
 		fmt.Printf("  %s%s%s %d/%d services completed successfully\n",
