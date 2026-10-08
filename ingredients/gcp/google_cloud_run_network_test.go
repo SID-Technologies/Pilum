@@ -1,6 +1,7 @@
 package gcp
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -140,6 +141,84 @@ func TestAbsentServiceAccountEmitsNoFlag(t *testing.T) {
 
 	if got := deployCmd(map[string]any{}); strings.Contains(got, "--service-account") {
 		t.Fatalf("emitted --service-account with none configured: %s", got)
+	}
+}
+
+const testServiceAccount = "mcp-runtime@statio-499700.iam.gserviceaccount.com"
+
+// serviceAccountIndex returns where --service-account sits, failing on a missing value or a repeat.
+func serviceAccountIndex(t *testing.T, cmd []string) int {
+	t.Helper()
+
+	at := -1
+	for i, a := range cmd {
+		if a != "--service-account" {
+			continue
+		}
+
+		if at != -1 {
+			t.Fatalf("--service-account emitted twice: %v", cmd)
+		}
+
+		at = i
+	}
+
+	if at == -1 || at+1 >= len(cmd) || cmd[at+1] != testServiceAccount {
+		t.Fatalf("--service-account %s not emitted: %v", testServiceAccount, cmd)
+	}
+
+	return at
+}
+
+// The identity is a revision flag: it must precede the container flags, not ride along with them.
+func TestServiceAccountPrecedesImageInSingleContainerDeploy(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:   "statio-mcp-example",
+		Region: "us-central1",
+		Config: map[string]any{"cloud_run": map[string]any{"service_account": testServiceAccount}},
+	}
+
+	cmd := GenerateGCPDeployCommand(svc, "img:latest")
+	at := serviceAccountIndex(t, cmd)
+
+	if image := slices.Index(cmd, "--image"); image == -1 || at > image {
+		t.Fatalf("--service-account at %d is not before --image at %d: %v", at, image, cmd)
+	}
+}
+
+// Inside a --container group gcloud rejects it; after a sidecar's group it would read as that sidecar's.
+func TestServiceAccountPrecedesContainerGroupsInMultiContainerDeploy(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "statio-mcp-example",
+		Region:   "us-central1",
+		Config:   map[string]any{"cloud_run": map[string]any{"service_account": testServiceAccount, "port": 8080}},
+		Sidecars: []serviceinfo.Sidecar{{Name: "proxy", Image: "sidecar:latest"}},
+	}
+
+	cmd := GenerateGCPDeployCommand(svc, "img:latest")
+	at := serviceAccountIndex(t, cmd)
+
+	if first := slices.Index(cmd, "--container"); first == -1 || at > first {
+		t.Fatalf("--service-account at %d is not before the first --container at %d: %v", at, first, cmd)
+	}
+}
+
+func TestAbsentServiceAccountEmitsNoFlagInMultiContainerDeploy(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "statio-mcp-example",
+		Region:   "us-central1",
+		Config:   map[string]any{"cloud_run": map[string]any{"port": 8080}},
+		Sidecars: []serviceinfo.Sidecar{{Name: "proxy", Image: "sidecar:latest"}},
+	}
+
+	if cmd := GenerateGCPDeployCommand(svc, "img:latest"); slices.Index(cmd, "--service-account") != -1 {
+		t.Fatalf("emitted --service-account with none configured: %v", cmd)
 	}
 }
 

@@ -67,6 +67,10 @@ optional_fields:
     type: bool
     default: "false"
 
+  - name: cloud_run.service_account
+    description: Service account email the service runs as (--service-account). Needed to read mounted secrets on a new service, which otherwise runs as the default compute account. Unset passes nothing, so an existing service keeps its identity.
+    type: string
+
   - name: sidecars
     description: Auxiliary containers to co-deploy in the same Cloud Run revision.
     type: list

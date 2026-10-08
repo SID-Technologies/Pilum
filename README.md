@@ -251,6 +251,17 @@ cloud_run:
 
 With `use_http2`, the container must serve cleartext HTTP/2 (h2c). Removing the key later does not turn HTTP/2 off; run `gcloud run services update <name> --no-use-http2`. Both work for `gcp-cloud-run` and `gcp-cloud-run-from-image`.
 
+## Cloud Run: Service Identity
+
+`service_account` sets the identity the service's revisions run as (`--service-account`). Without it, a new service runs as the project's default compute account, which has no access to your secrets, so a first deploy that mounts `secrets:` fails with "Permission denied on secret".
+
+```yaml
+cloud_run:
+  service_account: api-runtime@my-project.iam.gserviceaccount.com
+```
+
+The account needs `roles/secretmanager.secretAccessor` on each mounted secret, and whoever runs `pilum deploy` needs `roles/iam.serviceAccountUser` on the account. Leaving the key out passes nothing, so an existing service keeps its current identity; removing it later does not revert to the default. Works for `gcp-cloud-run` and `gcp-cloud-run-from-image`, including deploys with `sidecars:` (the identity applies to every container in the revision). Cloud Run jobs use `job.service_account`.
+
 ## Environment Overrides
 
 Define per-environment configuration that merges with your base config:
