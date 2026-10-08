@@ -147,6 +147,10 @@ func (p *Pipeline) Run() error {
 
 	p.output.PrintHeader(fmt.Sprintf("Deploying %d service(s)", len(p.services)))
 
+	// Fill shared build caches once, so parallel builds don't each compile
+	// the same dependencies.
+	p.warm(maxSteps)
+
 	// Execute step by step, tracking display number for runnable steps only.
 	//
 	// Failure handling: once any step fails, we still attempt every remaining

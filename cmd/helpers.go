@@ -40,6 +40,7 @@ type deploymentOptions struct {
 	OnlyChanged  bool
 	Since        string
 	NoDeps       bool
+	NoWarm       bool
 	Env          string
 	Provider     string
 	RecipePath   string
@@ -61,6 +62,7 @@ func getDeploymentOptions() deploymentOptions {
 		OnlyChanged:  viper.GetBool("only-changed"),
 		Since:        viper.GetString("since"),
 		NoDeps:       viper.GetBool("no-deps"),
+		NoWarm:       viper.GetBool("no-warm"),
 		Env:          viper.GetString("env"),
 		Provider:     viper.GetString("provider"),
 		RecipePath:   viper.GetString("recipe-path"),
@@ -79,6 +81,7 @@ func (o deploymentOptions) toPipelineOptions() types.PipelineOptions {
 		OnlyTags:    o.OnlyTags,
 		ExcludeTags: o.ExcludeTags,
 		NoDeps:      o.NoDeps,
+		NoWarm:      o.NoWarm,
 	}
 }
 
@@ -97,6 +100,7 @@ func bindFlagsForDeploymentCommands(cmd *cobra.Command) error {
 		"only-changed",
 		"since",
 		"no-deps",
+		"no-warm",
 		"env",
 		"provider",
 		"recipe-path",
@@ -127,6 +131,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	cmd.Flags().Bool("only-changed", false, "Only deploy services with changes since base branch")
 	cmd.Flags().String("since", "", "Git ref to compare against (default: main or master)")
 	cmd.Flags().Bool("no-deps", false, "Disable dependency-based deployment ordering")
+	cmd.Flags().Bool("no-warm", false, "Skip build.warm, the shared cache fill before builds")
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
 	cmd.Flags().String("provider", "", "Filter services by provider (e.g., gcp, aws, azure)")
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")

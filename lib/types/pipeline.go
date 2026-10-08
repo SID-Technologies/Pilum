@@ -34,4 +34,5 @@ type PipelineOptions struct {
 	ExcludeTags  []string // Exclude steps with these tags (e.g., "deploy")
 	OnlyTags     []string // Only run steps with these tags (e.g., "deploy")
 	NoDeps       bool     // Disable wave-based deployment ordering
+	NoWarm       bool     // Skip the build.warm phase
 }

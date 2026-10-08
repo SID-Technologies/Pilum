@@ -185,7 +185,7 @@ func TestSchemaBuildDefProperties(t *testing.T) {
 	build := defs["build"].(map[string]any)
 	props := build["properties"].(map[string]any)
 
-	expectedFields := []string{"language", "version", "cmd", "version_var", "output", "output_dir", "env_vars", "flags", "platforms"}
+	expectedFields := []string{"language", "version", "cmd", "version_var", "output", "output_dir", "env_vars", "flags", "platforms", "warm", "warm_dir"}
 	for _, field := range expectedFields {
 		_, exists := props[field]
 		require.True(t, exists, "build def should have property %s", field)
