@@ -1,0 +1,6 @@
+# PHP build configuration (Composer)
+language: php
+version: "8.3"
+cmd: "composer install --no-dev --optimize-autoloader --no-interaction"
+resources:
+  memory: 1024 # 1 GB — Composer's dependency solver
