@@ -590,3 +590,31 @@ func TestNewServiceInfoWithRegions(t *testing.T) {
 	require.Contains(t, svc.Regions, "europe-west1")
 	require.Contains(t, svc.Regions, "asia-east1")
 }
+
+func TestParseBuildConfigWarm(t *testing.T) {
+	t.Parallel()
+
+	cmd := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{"warm": "go build ./..."}}, ".")
+	require.Equal(t, "go build ./...", cmd.BuildConfig.Warm)
+	require.False(t, cmd.BuildConfig.WarmDisabled)
+
+	off := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{"warm": false}}, ".")
+	require.True(t, off.BuildConfig.WarmDisabled)
+	require.Empty(t, off.BuildConfig.Warm)
+
+	auto := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{"warm": true}}, ".")
+	require.False(t, auto.BuildConfig.WarmDisabled, "true means the automatic default")
+}
+
+func TestParseBuildConfigFlagsSorted(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{"flags": map[string]any{
+		"tags": "netgo", "ldflags": []any{"-s", "-w"}, "gcflags": "all=-N",
+	}}}, ".")
+	var args []string
+	for _, f := range svc.BuildConfig.Flags {
+		args = append(args, f.Arg())
+	}
+	require.Equal(t, []string{"-gcflags='all=-N'", "-ldflags='-s -w'", "-tags='netgo'"}, args)
+}

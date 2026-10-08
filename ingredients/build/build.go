@@ -40,8 +40,7 @@ func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string)
 			continue
 		}
 
-		vals := strings.Join(flag.Values, " ")
-		command = fmt.Sprintf("%s -%s='%s'", command, flag.Name, vals)
+		command += " " + flag.Arg()
 	}
 
 	return []string{"/bin/sh", "-c", command}, imageName
@@ -135,8 +134,7 @@ func GenerateBuildCommandString(service serviceinfo.ServiceInfo) string {
 		if len(flag.Values) == 0 {
 			continue
 		}
-		vals := strings.Join(flag.Values, " ")
-		command = fmt.Sprintf("%s -%s='%s'", command, flag.Name, vals)
+		command += " " + flag.Arg()
 	}
 
 	return command

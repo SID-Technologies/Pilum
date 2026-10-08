@@ -1,6 +1,10 @@
 package serviceinfo
 
 import (
+	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 )
@@ -20,6 +24,11 @@ type BuildFlag struct {
 	Values []string `yaml:"values"` // e.g., ["-s", "-w"]
 }
 
+// Arg renders the flag as build commands pass it: -name='v1 v2'.
+func (f BuildFlag) Arg() string {
+	return fmt.Sprintf("-%s='%s'", f.Name, strings.Join(f.Values, " "))
+}
+
 type BuildResources struct {
 	Memory int `yaml:"memory"` // Estimated build memory in MB (0 = use language default)
 	CPU    int `yaml:"cpu"`    // Estimated CPU cores needed (0 = 1)
@@ -36,9 +45,11 @@ type BuildConfig struct {
 
 	// Warm fills the language's shared build cache once per run, before the
 	// per-service builds start. Services with the same Warm, WarmDir and build
-	// env share a single run.
-	Warm    string `yaml:"warm"`
-	WarmDir string `yaml:"warm_dir"` // relative to the project root; default is the root
+	// env share a single run. Unset, Pilum warms automatically when it
+	// recognizes the toolchain; `warm: false` opts out.
+	Warm         string `yaml:"warm"`
+	WarmDir      string `yaml:"warm_dir"` // relative to the project root; default is the root
+	WarmDisabled bool   `yaml:"-"`
 }
 
 type RuntimeConfig struct {
@@ -342,10 +353,18 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		Language:   configutil.GetString(buildMap, "language", ""),
 		Version:    configutil.GetString(buildMap, "version", ""),
 		Cmd:        configutil.GetString(buildMap, "cmd", ""),
-		Warm:       configutil.GetString(buildMap, "warm", ""),
 		WarmDir:    configutil.GetString(buildMap, "warm_dir", ""),
 		VersionVar: configutil.GetString(buildMap, "version_var", ""),
 		Resources:  resources,
+	}
+
+	// warm is a command, or false to opt out of automatic warming.
+	switch warm := buildMap["warm"].(type) {
+	case string:
+		bc.Warm = warm
+	case bool:
+		bc.WarmDisabled = !warm
+	default:
 	}
 
 	// Parse build env vars
@@ -376,6 +395,8 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 			bc.Flags = append(bc.Flags, BuildFlag{Name: flagName, Values: values})
 		}
 	}
+	// Map order is random; sorted flags keep commands, and cache keys, stable.
+	slices.SortFunc(bc.Flags, func(a, b BuildFlag) int { return strings.Compare(a.Name, b.Name) })
 
 	return bc
 }
