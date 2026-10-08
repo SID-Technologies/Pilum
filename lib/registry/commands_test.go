@@ -612,3 +612,101 @@ func TestNpmPublishPackageHandlerExecution(t *testing.T) {
 	require.Contains(t, cmd, "NODE_AUTH_TOKEN")
 	require.Contains(t, cmd, "@sid-technologies")
 }
+
+func migStepContext(tag string) registry.StepContext {
+	return registry.StepContext{
+		Service: serviceinfo.ServiceInfo{
+			Name:     "statio-egress-proxy",
+			Type:     "gcp-mig-container",
+			Provider: "gcp",
+			Project:  "statio-499700",
+			Region:   "us-central1",
+			Image:    "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy",
+			Config: map[string]any{"mig": map[string]any{
+				"name":          "egress-proxy-mig",
+				"zone":          "us-central1-a",
+				"template_base": "egress-proxy-tpl",
+			}},
+		},
+		ImageName: "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy:" + tag,
+		Tag:       tag,
+	}
+}
+
+func TestMIGContainerHandlers(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+	ctx := migStepContext("v1.2.0")
+
+	handler, found := reg.GetHandler("create instance template", "gcp")
+	require.True(t, found)
+	cmd, ok := handler(ctx).([]string)
+	require.True(t, ok)
+	require.NotEmpty(t, cmd[0], "runs the current pilum binary")
+	require.Equal(t, []string{
+		"mig-template",
+		"--project", "statio-499700",
+		"--mig", "egress-proxy-mig",
+		"--name", "egress-proxy-tpl-v1-2-0",
+		"--image", "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy:v1.2.0",
+		"--image-key", "container-image",
+		"--zone", "us-central1-a",
+	}, cmd[1:])
+
+	handler, found = reg.GetHandler("start rolling update", "gcp")
+	require.True(t, found)
+	require.Equal(t, []string{
+		"gcloud", "compute", "instance-groups", "managed", "rolling-action", "start-update", "egress-proxy-mig",
+		"--version", "template=egress-proxy-tpl-v1-2-0",
+		"--max-surge", "1",
+		"--max-unavailable", "0",
+		"--zone", "us-central1-a",
+		"--project", "statio-499700",
+	}, handler(ctx))
+
+	handler, found = reg.GetHandler("wait for stable", "gcp")
+	require.True(t, found)
+	require.Equal(t, []string{
+		"gcloud", "compute", "instance-groups", "managed", "wait-until", "egress-proxy-mig",
+		"--stable",
+		"--timeout", "600",
+		"--zone", "us-central1-a",
+		"--project", "statio-499700",
+	}, handler(ctx))
+}
+
+func TestMIGContainerHandlersRegionalTemplate(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+	ctx := migStepContext("v2")
+	ctx.Service.Config["mig"] = map[string]any{
+		"name":            "egress-proxy-mig",
+		"region":          "us-central1",
+		"template_base":   "egress-proxy-tpl",
+		"template_region": "us-central1",
+	}
+
+	handler, _ := reg.GetHandler("create instance template", "gcp")
+	cmd, ok := handler(ctx).([]string)
+	require.True(t, ok)
+	require.Equal(t, []string{"--region", "us-central1", "--template-region", "us-central1"}, cmd[len(cmd)-4:])
+}
+
+func TestMIGContainerHandlersRejectLatestTag(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+	ctx := migStepContext("latest")
+
+	// No command means the step fails rather than reusing <base>-latest.
+	for _, step := range []string{"create instance template", "start rolling update"} {
+		handler, found := reg.GetHandler(step, "gcp")
+		require.True(t, found)
+		require.Nil(t, handler(ctx), step)
+	}
+}

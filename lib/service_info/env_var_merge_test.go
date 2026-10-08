@@ -131,3 +131,19 @@ func TestEnvVars_MalformedNestedValue_SkippedNotFatal(t *testing.T) {
 	require.Equal(t, "ok", got["GOOD"])
 	require.NotContains(t, got, "BAD")
 }
+
+func TestNewServiceInfoMergesMIGEnvVars(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.NewServiceInfo(map[string]any{
+		"name":     "proxy",
+		"type":     "gcp-mig-container",
+		"env_vars": map[string]any{"PORT": "3128"},
+		"mig": map[string]any{
+			"env_vars": map[string]any{"PORT": "9999", "LOG_LEVEL": "info"},
+		},
+	}, ".")
+
+	require.Equal(t, map[string]string{"PORT": "3128", "LOG_LEVEL": "info"}, envVarMap(t, svc.EnvVars),
+		"top-level wins, like cloud_run.env_vars")
+}

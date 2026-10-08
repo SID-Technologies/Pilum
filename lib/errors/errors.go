@@ -5,6 +5,7 @@ package errors
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/output"
 
@@ -25,7 +26,8 @@ func New(msg string, attrs ...any) error {
 }
 
 // Wrap returns a new error wrapping the provided with additional
-// structured fields.
+// structured fields. Like New, msg is a format string when it contains verbs
+// ("describing %s", name); attrs without verbs are kept as attributes only.
 //
 //nolint:wrapcheck,inamedparam // This function does custom wrapping and errors.
 func Wrap(err error, msg string, attrs ...any) error {
@@ -38,13 +40,18 @@ func Wrap(err error, msg string, attrs ...any) error {
 		return wrapper.Wrap(msg, attrs...)
 	}
 
+	formatted := msg
+	if len(attrs) > 0 && strings.Contains(msg, "%") {
+		formatted = fmt.Sprintf(msg, attrs...)
+	}
+
 	var inner structured
 	if As(err, &inner) {
 		attrs = append(attrs, inner.attrs...) // Append inner attributes
 	}
 
 	return structured{
-		err:   pkgerrors.Wrap(err, msg),
+		err:   pkgerrors.Wrap(err, formatted),
 		attrs: attrs,
 	}
 }

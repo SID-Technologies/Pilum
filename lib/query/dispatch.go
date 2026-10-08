@@ -2,6 +2,8 @@ package query
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/sid-technologies/pilum/ingredients/aws"
 	"github.com/sid-technologies/pilum/ingredients/azure"
@@ -18,6 +20,8 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) ([]string, error) {
 		return gcp.GenerateStatusCommand(svc), nil
 	case "gcp-cloud-run-job":
 		return gcp.GenerateJobStatusCommand(svc), nil
+	case "gcp-mig-container":
+		return gcp.GenerateMIGDescribeCommand(svc), nil
 	case "azure-container-apps":
 		return azure.GenerateStatusCommand(svc), nil
 	case "aws-lambda":
@@ -47,6 +51,10 @@ func GenerateLogsCommand(svc serviceinfo.ServiceInfo, lines int, follow bool) ([
 		return gcp.GenerateLogsCommand(svc, lines, follow), nil
 	case "gcp-cloud-run-job":
 		return gcp.GenerateJobLogsCommand(svc, lines, follow), nil
+	case "gcp-mig-container":
+		// Not the provider fallback: that reads Cloud Run logs for a service
+		// with this name, which doesn't exist.
+		return nil, errors.New("logs are not supported for gcp-mig-container yet; use Cloud Logging for the MIG's instances")
 	case "azure-container-apps":
 		return azure.GenerateLogsCommand(svc, follow), nil
 	case "aws-lambda":
@@ -73,6 +81,8 @@ func ParseStatusResponse(jsonOutput string, svc serviceinfo.ServiceInfo) Service
 	switch svc.Type {
 	case "gcp-cloud-run", "gcp-cloud-run-job":
 		return parseGCPStatus(jsonOutput, svc)
+	case "gcp-mig-container":
+		return parseMIGStatus(jsonOutput, svc)
 	case "azure-container-apps":
 		return parseAzureStatus(jsonOutput, svc)
 	case "aws-lambda":
@@ -151,6 +161,57 @@ func parseGCPStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatu
 			}
 		}
 	}
+
+	return status
+}
+
+// parseMIGStatus reads `gcloud compute instance-groups managed describe`.
+// Ready means the group is stable and every instance runs the target
+// template; anything else is a rollout (or autohealing) in progress.
+func parseMIGStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatus {
+	cfg := gcp.ParseMIGConfig(svc.Config)
+	status := ServiceStatus{
+		Name:     svc.DisplayName(),
+		Provider: svc.Provider,
+		Region:   cfg.Zone,
+		Status:   "Unknown",
+	}
+	if status.Region == "" {
+		status.Region = cfg.Region
+	}
+
+	var mig struct {
+		InstanceTemplate string `json:"instanceTemplate"`
+		TargetSize       int    `json:"targetSize"`
+		CurrentActions   struct {
+			None int `json:"none"`
+		} `json:"currentActions"`
+		Versions []struct {
+			InstanceTemplate string `json:"instanceTemplate"`
+		} `json:"versions"`
+		Status struct {
+			IsStable      bool `json:"isStable"`
+			VersionTarget struct {
+				IsReached bool `json:"isReached"`
+			} `json:"versionTarget"`
+		} `json:"status"`
+	}
+	err := json.Unmarshal([]byte(jsonOutput), &mig)
+	if err != nil {
+		return status
+	}
+
+	status.Status = "Updating"
+	if mig.Status.IsStable && mig.Status.VersionTarget.IsReached {
+		status.Status = "Ready"
+	}
+
+	template := mig.InstanceTemplate
+	if len(mig.Versions) == 1 {
+		template = mig.Versions[0].InstanceTemplate
+	}
+	status.Template = template[strings.LastIndex(template, "/")+1:]
+	status.Replicas = fmt.Sprintf("%d/%d", mig.CurrentActions.None, mig.TargetSize)
 
 	return status
 }

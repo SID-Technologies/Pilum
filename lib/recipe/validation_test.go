@@ -481,3 +481,43 @@ func TestRecipeStruct(t *testing.T) {
 	require.Len(t, recipe.RequiredFields, 1)
 	require.Len(t, recipe.Steps, 2)
 }
+
+func TestMIGContainerRecipeValidation(t *testing.T) {
+	t.Parallel()
+
+	infos, err := LoadEmbeddedRecipes()
+	require.NoError(t, err)
+	var rec *Recipe
+	for i := range infos {
+		if infos[i].Recipe.Name == "gcp-mig-container" {
+			rec = &infos[i].Recipe
+		}
+	}
+	require.NotNil(t, rec)
+
+	// The example config from the spec, plus the Dockerfile template the build needs.
+	config := map[string]any{
+		"name":     "statio-egress-proxy",
+		"type":     "gcp-mig-container",
+		"project":  "statio-499700",
+		"region":   "us-central1",
+		"image":    "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy",
+		"template": "egress-proxy.dockerfile",
+		"mig": map[string]any{
+			"name":          "egress-proxy-mig",
+			"zone":          "us-central1-a",
+			"template_base": "egress-proxy-tpl",
+		},
+	}
+	svc := serviceinfo.NewServiceInfo(config, ".")
+	require.Equal(t, "gcp", svc.Provider)
+	require.NoError(t, rec.ValidateService(svc))
+
+	// A regional MIG satisfies the location too.
+	config["mig"] = map[string]any{"name": "egress-proxy-mig", "region": "us-central1", "template_base": "egress-proxy-tpl"}
+	require.NoError(t, rec.ValidateService(serviceinfo.NewServiceInfo(config, ".")))
+
+	config["mig"] = map[string]any{"name": "egress-proxy-mig", "template_base": "egress-proxy-tpl"}
+	err = rec.ValidateService(serviceinfo.NewServiceInfo(config, "."))
+	require.ErrorContains(t, err, "mig.location")
+}

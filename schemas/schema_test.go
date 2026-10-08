@@ -250,3 +250,49 @@ func findConditionalRule(allOf []any, provider string) map[string]any {
 
 	return nil
 }
+
+func TestSchemaMIGContainer(t *testing.T) {
+	t.Parallel()
+
+	schema := loadSchema(t)
+	props := schema["properties"].(map[string]any)
+
+	typeEnum := props["type"].(map[string]any)["enum"].([]any)
+	require.Contains(t, typeEnum, "gcp-mig-container")
+	require.Equal(t, "#/$defs/mig", props["mig"].(map[string]any)["$ref"])
+
+	envProps := props["environments"].(map[string]any)["additionalProperties"].(map[string]any)["properties"].(map[string]any)
+	require.Contains(t, envProps, "mig")
+
+	mig := schema["$defs"].(map[string]any)["mig"].(map[string]any)
+	migProps := mig["properties"].(map[string]any)
+	for _, field := range []string{
+		"name", "zone", "region", "template_base", "image_metadata_key",
+		"template_region", "max_surge", "max_unavailable", "wait_timeout",
+		"machine_type", "network", "subnet", "external_ip", "network_tags", "service_account", "env_vars",
+	} {
+		require.Contains(t, migProps, field)
+	}
+	require.Equal(t, []any{"name", "template_base"}, mig["required"])
+	require.Len(t, mig["oneOf"], 2, "exactly one of zone or region")
+	require.Equal(t, "container-image", migProps["image_metadata_key"].(map[string]any)["default"])
+	require.Equal(t, false, mig["additionalProperties"])
+
+	// The type has its own required fields...
+	var rule map[string]any
+	for _, item := range schema["allOf"].([]any) {
+		candidate := item.(map[string]any)
+		ifProps := candidate["if"].(map[string]any)["properties"].(map[string]any)
+		typeBlock, ok := ifProps["type"].(map[string]any)
+		if ok && typeBlock["const"] == "gcp-mig-container" {
+			rule = candidate
+		}
+	}
+	require.NotNil(t, rule, "allOf should contain a rule for gcp-mig-container")
+	required := rule["then"].(map[string]any)["required"].([]any)
+	require.ElementsMatch(t, []any{"project", "region", "image", "template", "mig"}, required)
+
+	// ...and is exempt from the gcp rule's registry_name: it pushes to `image`.
+	gcp := findConditionalRule(schema["allOf"].([]any), "gcp")
+	require.NotNil(t, gcp["if"].(map[string]any)["not"])
+}

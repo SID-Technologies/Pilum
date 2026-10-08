@@ -126,7 +126,8 @@ type ServiceInfo struct {
 	ImageName string `yaml:"image_name"`
 	Version   string `yaml:"version"`
 
-	// Image is the pre-built image ref for gcp-cloud-run-from-image deploys.
+	// Image is the pre-built image ref for gcp-cloud-run-from-image deploys,
+	// or the repository (no tag) that gcp-mig-container builds and pushes to.
 	Image string `yaml:"image"`
 }
 
@@ -185,7 +186,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 	provider := configutil.GetString(config, "provider", "")
 	if provider == "" {
 		switch serviceType {
-		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp-artifact-registry-image", "gcp-cloud-run-from-image", "gcp":
+		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp-artifact-registry-image", "gcp-cloud-run-from-image", "gcp-mig-container", "gcp":
 			provider = "gcp"
 		case "aws-lambda", "aws-ecs", "aws":
 			provider = "aws"
@@ -229,11 +230,11 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 }
 
 // mergeEnvVarSources merges top-level env_vars with target-specific nested
-// blocks (cloud_run.env_vars, etc.). Top-level wins on key conflicts.
+// blocks (cloud_run.env_vars, mig.env_vars, etc.). Top-level wins on key conflicts.
 func mergeEnvVarSources(config map[string]any) []EnvVars {
 	merged := make(map[string]string)
 
-	for _, nestedKey := range []string{"cloud_run", "container_app", "lambda"} {
+	for _, nestedKey := range []string{"cloud_run", "container_app", "lambda", "mig"} {
 		nested := configutil.MapFromAny(config[nestedKey])
 		for k, v := range configutil.MapFromAny(nested["env_vars"]) {
 			val, ok := v.(string)

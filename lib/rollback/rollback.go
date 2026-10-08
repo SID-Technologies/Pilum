@@ -13,6 +13,7 @@ import (
 
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/lib/migtemplate"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
@@ -26,6 +27,10 @@ const (
 	// KindJob points the job at an earlier image. Jobs have no revisions or
 	// traffic, so the job keeps its current config.
 	KindJob Kind = "job"
+	// KindMIG rolls a managed instance group onto an earlier instance
+	// template. Templates are immutable, so that version's full config comes
+	// back, not just its image.
+	KindMIG Kind = "mig"
 )
 
 // KindFor returns how svc is rolled back, or false if its target is unsupported.
@@ -36,6 +41,8 @@ func KindFor(svc serviceinfo.ServiceInfo) (Kind, bool) {
 		return KindService, true
 	case "gcp-cloud-run-job":
 		return KindJob, true
+	case "gcp-mig-container":
+		return KindMIG, true
 	}
 	return "", false
 }
@@ -45,10 +52,16 @@ type Plan struct {
 	Service string   `json:"service"`
 	Region  string   `json:"region,omitempty"`
 	Kind    Kind     `json:"kind"`
-	From    string   `json:"from"` // serving revision (service) or current image (job)
-	To      string   `json:"to"`   // target revision (service) or image (job)
+	From    string   `json:"from"` // serving revision (service), current image (job) or template (mig)
+	To      string   `json:"to"`   // target revision (service), image (job) or template (mig)
 	ToImage string   `json:"to_image,omitempty"`
 	Command []string `json:"command"`
+
+	// Wait, if set, runs after Command and must succeed for the rollback to
+	// count. A MIG rollback is a rolling update that takes minutes, so it
+	// waits for the group to be stable, with WaitTimeout seconds to do so.
+	Wait        []string `json:"wait,omitempty"`
+	WaitTimeout int      `json:"-"`
 }
 
 // Runner executes a read-only query command and returns its stdout.
@@ -65,9 +78,12 @@ func NewPlan(svc serviceinfo.ServiceInfo, to string, run Runner) (Plan, error) {
 
 	plan := Plan{Service: svc.DisplayName(), Region: svc.Region, Kind: kind}
 	var err error
-	if kind == KindJob {
+	switch kind {
+	case KindJob:
 		err = planJob(&plan, svc, to, run)
-	} else {
+	case KindMIG:
+		err = planMIG(&plan, svc, to, run)
+	default:
 		err = planService(&plan, svc, to, run)
 	}
 	if err != nil {
@@ -144,6 +160,136 @@ func planJob(plan *Plan, svc serviceinfo.ServiceInfo, to string, run Runner) err
 	plan.ToImage = target
 	plan.Command = gcp.GenerateJobSetImageCommand(svc, target)
 	return nil
+}
+
+func planMIG(plan *Plan, svc serviceinfo.ServiceInfo, to string, run Runner) error {
+	cfg := gcp.ParseMIGConfig(svc.Config)
+
+	described, err := run(gcp.GenerateMIGDescribeCommand(svc))
+	if err != nil {
+		return errors.Wrap(err, "describing MIG %s", cfg.Name)
+	}
+	current, err := migtemplate.CurrentTemplate(described)
+	if err != nil {
+		return errors.Wrap(err, "instance group %s", cfg.Name)
+	}
+
+	listed, err := run(gcp.GenerateListMIGTemplatesCommand(svc))
+	if err != nil {
+		return errors.Wrap(err, "listing templates for %s", svc.DisplayName())
+	}
+	templates, err := ParseTemplates(listed, cfg.TemplateRegion, cfg.ImageMetadataKey)
+	if err != nil {
+		return errors.Wrap(err, "parsing templates for %s", svc.DisplayName())
+	}
+
+	if to != "" {
+		if to, err = templateTarget(cfg.TemplateBase, to); err != nil {
+			return err
+		}
+	}
+	target, err := SelectTemplate(templates, migtemplate.TemplateName(current), to)
+	if err != nil {
+		return errors.Wrap(err, "%s", svc.DisplayName())
+	}
+
+	plan.From = migtemplate.TemplateName(current)
+	plan.To = target.Name
+	plan.ToImage = target.Image
+	plan.Command = gcp.GenerateMIGRollingUpdateCommand(svc, target.Name)
+	plan.Wait = gcp.GenerateMIGWaitStableCommand(svc)
+	plan.WaitTimeout = cfg.WaitTimeout + migWaitGrace
+	return nil
+}
+
+// migWaitGrace lets gcloud's own wait timeout fire (with its clearer error)
+// before the worker kills the process.
+const migWaitGrace = 60
+
+// templateTarget turns a --to value into a template name: a name in the
+// family (the base, or <base>-...) is used as is, anything else is a tag.
+func templateTarget(base, to string) (string, error) {
+	if to == base || strings.HasPrefix(to, base+"-") {
+		return to, nil
+	}
+	return gcp.MIGTemplateName(base, to)
+}
+
+// ParseTemplates parses `gcloud compute instance-templates list --format json`,
+// keeping templates in the given scope (region, or "" for global). Image is
+// the template's imageKey metadata value, empty if unset.
+func ParseTemplates(listJSON, region, imageKey string) ([]Revision, error) {
+	var raw []struct {
+		Name              string    `json:"name"`
+		SelfLink          string    `json:"selfLink"`
+		CreationTimestamp time.Time `json:"creationTimestamp"`
+		Properties        struct {
+			Metadata struct {
+				Items []struct {
+					Key   string `json:"key"`
+					Value string `json:"value"`
+				} `json:"items"`
+			} `json:"metadata"`
+		} `json:"properties"`
+	}
+	err := json.Unmarshal([]byte(listJSON), &raw)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid templates JSON")
+	}
+
+	templates := make([]Revision, 0, len(raw))
+	for _, t := range raw {
+		if migtemplate.TemplateRegion(t.SelfLink) != region {
+			continue
+		}
+		rev := Revision{Name: t.Name, Created: t.CreationTimestamp, Ready: true}
+		for _, item := range t.Properties.Metadata.Items {
+			if item.Key == imageKey {
+				rev.Image = item.Value
+			}
+		}
+		templates = append(templates, rev)
+	}
+	return templates, nil
+}
+
+// SelectTemplate picks the template to roll back to: to if set, otherwise the
+// newest one created before current, so repeated rollbacks keep stepping back.
+func SelectTemplate(templates []Revision, current, to string) (Revision, error) {
+	if to != "" {
+		if to == current {
+			return Revision{}, errors.New("instance group already runs template %s", to)
+		}
+		for _, t := range templates {
+			if t.Name == to {
+				return t, nil
+			}
+		}
+		return Revision{}, errors.New("template %s not found", to)
+	}
+
+	var currentCreated time.Time
+	found := false
+	for _, t := range templates {
+		if t.Name == current {
+			currentCreated, found = t.Created, true
+			break
+		}
+	}
+	if !found {
+		return Revision{}, errors.New("current template %s is not in the mig.template_base family; pass --to <template>", current)
+	}
+
+	var best Revision
+	for _, t := range templates {
+		if t.Created.Before(currentCreated) && t.Created.After(best.Created) {
+			best = t
+		}
+	}
+	if best.Name == "" {
+		return Revision{}, errors.New("no template older than %s to roll back to", current)
+	}
+	return best, nil
 }
 
 // Revision is one deployed version of a Cloud Run service or job execution.
@@ -232,7 +378,8 @@ func ServingRevision(serviceJSONOutput string) (string, error) {
 // ParseRevisions parses `gcloud run revisions list --format json`.
 func ParseRevisions(listJSON string) ([]Revision, error) {
 	var raw []revisionJSON
-	if err := json.Unmarshal([]byte(listJSON), &raw); err != nil {
+	err := json.Unmarshal([]byte(listJSON), &raw)
+	if err != nil {
 		return nil, errors.Wrap(err, "invalid revisions JSON")
 	}
 	revisions := make([]Revision, len(raw))
@@ -314,7 +461,8 @@ func JobImage(jobJSONOutput string) (string, error) {
 // ParseExecutions parses `gcloud run jobs executions list --format json`.
 func ParseExecutions(listJSON string) ([]Revision, error) {
 	var raw []executionJSON
-	if err := json.Unmarshal([]byte(listJSON), &raw); err != nil {
+	err := json.Unmarshal([]byte(listJSON), &raw)
+	if err != nil {
 		return nil, errors.Wrap(err, "invalid executions JSON")
 	}
 	executions := make([]Revision, len(raw))

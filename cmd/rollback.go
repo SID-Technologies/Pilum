@@ -43,6 +43,10 @@ with it. The next 'pilum deploy' sends traffic to the new revision again.
 Cloud Run jobs: points the job at the image of its previous execution,
 keeping the job's current config.
 
+Managed instance groups (gcp-mig-container): rolls the group onto the
+previous instance template (no surge beyond mig.max_surge, nothing taken
+down early) and waits until it is stable. --to takes a template name or tag.
+
 The previous version is read from the cloud provider, so this works from any
 machine, including CI. Asks for confirmation unless --yes is passed.`,
 		Example: `  pilum rollback api                      # Previous revision
@@ -66,7 +70,7 @@ machine, including CI. Asks for confirmation unless --yes is passed.`,
 		}),
 	}
 
-	cmd.Flags().String("to", "", "Target revision (services) or image tag/reference (jobs); default: previous version")
+	cmd.Flags().String("to", "", "Target revision (services), image tag/reference (jobs) or template name/tag (MIGs); default: previous version")
 	cmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt (required when not interactive)")
 	cmd.Flags().BoolP("dry-run", "D", false, "Show the rollback plan without changing anything")
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
@@ -115,7 +119,7 @@ func runRollback(args []string) (any, error) {
 	for _, svc := range services {
 		if _, ok := rollback.KindFor(svc); !ok {
 			return nil, exitcodes.WithCode(exitcodes.InvalidArgs,
-				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs",
+				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs, GCP MIGs",
 					svc.DisplayName(), svc.RecipeKey()))
 		}
 	}
@@ -130,6 +134,9 @@ func runRollback(args []string) (any, error) {
 	if dryRun {
 		for _, p := range plans {
 			output.Dimmed("  %s: %s", p.Service, output.FormatCommand(p.Command))
+			if len(p.Wait) > 0 {
+				output.Dimmed("  %s: %s", p.Service, output.FormatCommand(p.Wait))
+			}
 		}
 		return plans, nil
 	}
@@ -205,6 +212,10 @@ func executeRollbacks(plans []rollback.Plan, timeout int, debug bool) []rollback
 			defer wg.Done()
 			start := time.Now()
 			ok, err := workers.CommandWorker(workers.NewTaskInfo(plan.Command, "", plan.Service, "root", nil, nil, timeout, debug, 1))
+			if ok && len(plan.Wait) > 0 {
+				ok, err = workers.CommandWorker(workers.NewTaskInfo(plan.Wait, "", plan.Service, "root", nil, nil,
+					max(timeout, plan.WaitTimeout), debug, 1))
+			}
 			results[idx] = rollbackResult{
 				Plan:     plan,
 				Success:  ok,
@@ -227,7 +238,7 @@ func printRollbackPlan(plans []rollback.Plan) {
 	output.Header("Rollback plan")
 	for _, p := range plans {
 		fmt.Printf("  %-24s %s%s%s → %s\n", p.Service, output.Muted, p.From, output.Reset, p.To)
-		if p.Kind == rollback.KindService && p.ToImage != "" {
+		if p.Kind != rollback.KindJob && p.ToImage != "" {
 			fmt.Printf("  %-24s %s%s%s\n", "", output.Muted, p.ToImage, output.Reset)
 		}
 	}

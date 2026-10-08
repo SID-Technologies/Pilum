@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/sid-technologies/pilum/ingredients/build"
+	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recipe"
@@ -200,10 +201,34 @@ func (p *Pipeline) validateServices() error {
 		}
 
 		// Check for matching recipe
-		if _, exists := p.getRecipeForService(svc); !exists {
+		rec, exists := p.getRecipeForService(svc)
+		if !exists {
 			return errors.New("service '%s' (recipe key '%s') has no matching recipe",
 				svc.Name, svc.RecipeKey())
 		}
+
+		err := p.validateMIGTemplateName(svc, rec)
+		if err != nil {
+			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
+		}
+	}
+	return nil
+}
+
+// validateMIGTemplateName rejects a tag that can't name a release template
+// (such as "latest") before anything is built. Its handlers would otherwise
+// return no command, which the pipeline treats as a step that succeeded.
+func (p *Pipeline) validateMIGTemplateName(svc serviceinfo.ServiceInfo, rec recipe.Recipe) error {
+	if svc.RecipeKey() != "gcp-mig-container" {
+		return nil
+	}
+	for i := range rec.Steps {
+		if rec.Steps[i].Name != "create instance template" || p.shouldSkipStep(&rec.Steps[i]) {
+			continue
+		}
+		base := gcp.ParseMIGConfig(svc.Config).TemplateBase
+		_, err := gcp.MIGTemplateName(base, build.ResolveTag(svc, p.options.Tag))
+		return err
 	}
 	return nil
 }

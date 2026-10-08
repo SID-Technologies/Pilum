@@ -8,18 +8,22 @@ import (
 )
 
 // ResolveImageName returns the fully-qualified image reference.
-// CLI tag > service.Version > "latest". registry override > provider path.
+// CLI tag > service.Version > "latest". gcp-mig-container image > registry override > provider path.
 func ResolveImageName(service serviceinfo.ServiceInfo, registry, tag string) string {
 	imageBase := imageBaseName(service)
 
 	var imageName string
-	if registry != "" && !isRegistryName(registry, service) {
+	switch {
+	case service.Type == "gcp-mig-container" && service.Image != "":
+		// `image:` is the repository; the tag comes from --tag.
+		imageName = service.Image
+	case registry != "" && !isRegistryName(registry, service):
 		imageName = fmt.Sprintf("%s/%s", registry, imageBase)
-	} else {
+	default:
 		imageName = generateProviderImageName(service, imageBase)
 	}
 
-	return fmt.Sprintf("%s:%s", imageName, resolveTag(service, tag))
+	return fmt.Sprintf("%s:%s", imageName, ResolveTag(service, tag))
 }
 
 // GenerateBuildCommand returns the source-compile command and the image name.
@@ -54,10 +58,10 @@ func imageBaseName(service serviceinfo.ServiceInfo) string {
 	return service.Name
 }
 
-// resolveTag picks the image tag with CLI > pilum.yaml > "latest" precedence.
+// ResolveTag picks the image tag with CLI > pilum.yaml > "latest" precedence.
 // CLI wins so CI can inject git-sha tags; pilum.yaml `version:` wins over
 // "latest" so platform-image types can pin a deliberate version in source.
-func resolveTag(service serviceinfo.ServiceInfo, cliTag string) string {
+func ResolveTag(service serviceinfo.ServiceInfo, cliTag string) string {
 	if cliTag != "" {
 		return cliTag
 	}

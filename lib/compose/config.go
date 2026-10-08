@@ -1,8 +1,6 @@
 package compose
 
 import (
-	"fmt"
-
 	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 
@@ -55,7 +53,7 @@ func LoadDependencies() ([]Dependency, error) {
 
 		dep, err := parseDependency(m)
 		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("compose.dependencies[%d]", i))
+			return nil, errors.Wrap(err, "compose.dependencies[%d]", i)
 		}
 		deps = append(deps, dep)
 	}

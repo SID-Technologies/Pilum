@@ -96,6 +96,21 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		"provider":      func(s *serviceinfo.ServiceInfo) string { return s.Provider },
 		"template":      func(s *serviceinfo.ServiceInfo) string { return s.Template },
 		"registry_name": func(s *serviceinfo.ServiceInfo) string { return s.RegistryName },
+		"image":         func(s *serviceinfo.ServiceInfo) string { return s.Image },
+		"mig.name": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "mig", "name")
+		},
+		"mig.template_base": func(s *serviceinfo.ServiceInfo) string {
+			return configutil.GetNestedString(s.Config, "mig", "template_base")
+		},
+		// Not a real key: a MIG is zonal or regional, so one of the two is required.
+		"mig.location": func(s *serviceinfo.ServiceInfo) string {
+			zone := configutil.GetNestedString(s.Config, "mig", "zone")
+			if zone != "" {
+				return zone
+			}
+			return configutil.GetNestedString(s.Config, "mig", "region")
+		},
 		"homebrew.project_url": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "homebrew", "project_url")
 		},

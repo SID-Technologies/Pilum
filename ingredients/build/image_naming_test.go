@@ -89,3 +89,24 @@ func TestGenerateBuildCommand_DefaultsToLatest(t *testing.T) {
 	_, tag := extractImageName(t, fullImage)
 	require.Equal(t, "latest", tag)
 }
+
+func TestResolveImageName_MIGContainerUsesImageRepository(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name:     "statio-egress-proxy",
+		Type:     "gcp-mig-container",
+		Provider: "gcp",
+		Region:   "us-central1",
+		Project:  "statio-499700",
+		Image:    "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy",
+	}
+
+	require.Equal(t, "us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy:v2",
+		build.ResolveImageName(svc, svc.RegistryName, "v2"))
+
+	// Other types keep treating `image:` as something they don't build.
+	svc.Type = "gcp-cloud-run"
+	require.Equal(t, "us-central1-docker.pkg.dev/statio-499700/statio-499700/statio-egress-proxy:v2",
+		build.ResolveImageName(svc, svc.RegistryName, "v2"))
+}

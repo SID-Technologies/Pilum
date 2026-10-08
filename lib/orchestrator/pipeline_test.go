@@ -606,3 +606,32 @@ func TestPipelineMultiConfig_TwoServicesUnderSameParent(t *testing.T) {
 		require.True(t, r.Success, "service %s step %s should succeed", r.ServiceName, r.StepName)
 	}
 }
+
+func TestValidateMIGTemplateName(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name: "statio-egress-proxy", Provider: "gcp", Type: "gcp-mig-container",
+		Config: map[string]any{"mig": map[string]any{"template_base": "egress-proxy-tpl"}},
+	}
+	rec := recipe.Recipe{Steps: []recipe.Step{
+		{Name: "build docker image", Tags: []string{"build"}},
+		{Name: "create instance template", Tags: []string{"deploy"}},
+	}}
+
+	// "latest" can't name a release; fail before the build runs.
+	p := NewPipeline(nil, nil, types.PipelineOptions{})
+	require.ErrorContains(t, p.validateMIGTemplateName(svc, rec), "unique --tag")
+
+	p = NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.2.0"})
+	require.NoError(t, p.validateMIGTemplateName(svc, rec))
+
+	// Building or publishing alone doesn't need a release tag.
+	p = NewPipeline(nil, nil, types.PipelineOptions{OnlyTags: []string{"build"}})
+	require.NoError(t, p.validateMIGTemplateName(svc, rec))
+
+	// Other recipes are untouched.
+	svc.Type = "gcp-cloud-run"
+	p = NewPipeline(nil, nil, types.PipelineOptions{})
+	require.NoError(t, p.validateMIGTemplateName(svc, rec))
+}
