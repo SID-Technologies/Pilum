@@ -291,3 +291,70 @@ func TestParseStatusResponseInvalidJSON(t *testing.T) {
 
 	require.Equal(t, "Unknown", status.Status)
 }
+
+func migService() serviceinfo.ServiceInfo {
+	return serviceinfo.ServiceInfo{
+		Name:     "statio-egress-proxy",
+		Type:     "gcp-mig-container",
+		Provider: "gcp",
+		Project:  "statio-499700",
+		Region:   "us-central1",
+		Config: map[string]any{"mig": map[string]any{
+			"name": "egress-proxy-mig", "zone": "us-central1-a", "template_base": "egress-proxy-tpl",
+		}},
+	}
+}
+
+func TestGenerateStatusCommandMIG(t *testing.T) {
+	t.Parallel()
+
+	cmd, err := query.GenerateStatusCommand(migService())
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"gcloud", "compute", "instance-groups", "managed", "describe", "egress-proxy-mig",
+		"--format", "json",
+		"--zone", "us-central1-a",
+		"--project", "statio-499700",
+	}, cmd)
+}
+
+func TestGenerateLogsCommandMIGUnsupported(t *testing.T) {
+	t.Parallel()
+
+	_, err := query.GenerateLogsCommand(migService(), 50, false)
+	require.ErrorContains(t, err, "not supported for gcp-mig-container")
+}
+
+func TestParseStatusResponseMIG(t *testing.T) {
+	t.Parallel()
+
+	const tpl = "https://www.googleapis.com/compute/v1/projects/statio-499700/global/instanceTemplates/"
+
+	stable := `{
+	  "instanceTemplate": "` + tpl + `egress-proxy-tpl-v2",
+	  "targetSize": 3,
+	  "currentActions": {"none": 3, "creating": 0},
+	  "versions": [{"instanceTemplate": "` + tpl + `egress-proxy-tpl-v2"}],
+	  "status": {"isStable": true, "versionTarget": {"isReached": true}}
+	}`
+	got := query.ParseStatusResponse(stable, migService())
+	require.Equal(t, "Ready", got.Status)
+	require.Equal(t, "egress-proxy-tpl-v2", got.Template)
+	require.Equal(t, "3/3", got.Replicas)
+	require.Equal(t, "us-central1-a", got.Region)
+	require.Empty(t, got.Image)
+
+	// Mid-rollout: one surge instance being created on the new template.
+	rolling := `{
+	  "targetSize": 3,
+	  "currentActions": {"none": 2, "creating": 1},
+	  "versions": [{"instanceTemplate": "` + tpl + `egress-proxy-tpl-v3"}],
+	  "status": {"isStable": false, "versionTarget": {"isReached": false}}
+	}`
+	got = query.ParseStatusResponse(rolling, migService())
+	require.Equal(t, "Updating", got.Status)
+	require.Equal(t, "egress-proxy-tpl-v3", got.Template)
+	require.Equal(t, "2/3", got.Replicas)
+
+	require.Equal(t, "Unknown", query.ParseStatusResponse("not json", migService()).Status)
+}

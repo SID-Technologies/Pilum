@@ -128,6 +128,7 @@ Each recipe defines:
 |--------|----------|-------------|
 | `gcp-cloud-run` | `gcp` | Deploy to Google Cloud Run |
 | `gcp-cloud-run-job` | `gcp` | Deploy batch jobs to Google Cloud Run Jobs |
+| `gcp-mig-container` | `gcp` | Roll a new container image onto an existing managed instance group (COS + startup script) |
 | `aws-lambda` | `aws` | Deploy to AWS Lambda |
 | `azure-container-apps` | `azure` | Deploy to Azure Container Apps |
 | `cloudflare-pages` | `cloudflare` | Deploy to Cloudflare Pages |
@@ -188,10 +189,100 @@ pilum rollback api --yes              # No prompt (required in CI)
 
 - **Cloud Run services** move 100% of traffic to the previous healthy revision. Nothing is rebuilt, and that revision's full config comes back with it. Running rollback again steps back one more revision.
 - **Cloud Run jobs** point the job at the image of its previous execution (or `--to <tag>`), keeping the job's current config.
+- **Managed instance groups** (`gcp-mig-container`) roll back onto the newest `<template_base>` template older than the current one (or `--to <tag|template>`), with the same surge settings as a deploy, and wait until the group is stable.
 - The previous version is read from GCP, not from local history, so it works from any machine, including CI.
 - The next `pilum deploy` sends traffic to the new revision again: Cloud Run recipes end with a `route traffic to latest` step. This also resets any traffic split set up by hand.
 
 Other providers are not supported yet.
+
+## Managed Instance Groups
+
+`gcp-mig-container` ships new versions to a managed instance group that already exists. Pilum doesn't create the MIG, load balancer, health check, firewall rules or Cloud NAT; it builds the image, creates a new instance template for the release, and rolls the group onto it with no downtime.
+
+### How the container runs
+
+The template runs the container the way Google recommends now that the container startup agent is retired: a [Container-Optimized OS](https://cloud.google.com/container-optimized-os/docs) VM whose `startup-script` reads its configuration from instance metadata and runs `docker run`. Templates that still use `gce-container-declaration` (`create-with-container`) are refused, because [GCP stopped creating VMs from them on July 31, 2026](https://docs.cloud.google.com/compute/docs/containers/prepare-for-container-agent-shutdown).
+
+Each release, Pilum copies the MIG's current template and changes only what the service manages:
+
+| Metadata key | Set by Pilum | Holds |
+|---|---|---|
+| `container-image` (or `mig.image_metadata_key`) | Every release | The image to run. Must exist in the template. |
+| `container-env` | When `env_vars` or `mig.env_vars` are set | `KEY=VALUE` lines |
+| `container-secrets` | When `secrets` are set | `NAME=projects/<p>/secrets/<s>/versions/<v>` lines. References only, never values |
+
+A startup script that meets the contract:
+
+```bash
+#!/bin/bash
+# Runs on every boot. Pilum updates the metadata it reads in each release's template.
+set -euo pipefail
+md() { curl -sf -H 'Metadata-Flavor: Google' "http://metadata.google.internal/computeMetadata/v1/instance/$1"; }
+
+export HOME=/home/app && mkdir -p "$HOME"   # COS: the root filesystem is read-only
+IMAGE=$(md attributes/container-image)
+ENV_FILE=$HOME/container.env
+umask 077
+{ md attributes/container-env || true; echo; } > "$ENV_FILE"
+
+# Secrets are read from Secret Manager with the VM's service account,
+# which needs roles/secretmanager.secretAccessor on them.
+SECRETS=$(md attributes/container-secrets || true)
+if [ -n "$SECRETS" ]; then
+  TOKEN=$(md service-accounts/default/token | tr -d '\n ' | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
+  while IFS='=' read -r name ref; do
+    [ -n "$name" ] || continue
+    value=$(curl -sf -H "Authorization: Bearer $TOKEN" "https://secretmanager.googleapis.com/v1/$ref:access" \
+      | tr -d '\n ' | sed -E 's/.*"data":"([^"]+)".*/\1/' | base64 -d)
+    printf '%s=%s\n' "$name" "$value" >> "$ENV_FILE"
+  done <<< "$SECRETS"
+fi
+
+docker-credential-gcr configure-docker --registries="${IMAGE%%/*}"
+docker rm -f app 2>/dev/null || true
+docker run -d --name app --restart=always --network host --env-file "$ENV_FILE" "$IMAGE"
+```
+
+Env values and secrets must be single-line, since they go through an env file.
+
+### Configuration
+
+```yaml
+name: statio-egress-proxy
+type: gcp-mig-container
+project: statio-499700
+region: us-central1
+image: us-central1-docker.pkg.dev/statio-499700/statio/statio-egress-proxy  # no tag; it comes from --tag
+template: egress-proxy.dockerfile
+
+env_vars:                         # -> container-env
+  PORT: "3128"
+secrets:                          # -> container-secrets: name, name:version, or a full path
+  UPSTREAM_TOKEN: upstream-token:latest
+
+mig:
+  name: egress-proxy-mig
+  zone: us-central1-a             # or region: for a regional MIG
+  template_base: egress-proxy-tpl # each release creates <base>-<tag>
+
+  # Optional. Unset keeps what the current template has.
+  machine_type: e2-small
+  subnet: proxy-subnet            # in the MIG's region; or projects/<host>/regions/<r>/subnetworks/<s> for Shared VPC
+  external_ip: false              # outbound traffic then goes through Cloud NAT
+  network_tags: [egress-proxy]    # firewall rules target these
+  service_account: egress-proxy@statio-499700.iam.gserviceaccount.com
+
+  # Rollout. Defaults shown.
+  max_surge: 1                    # 3 for regional MIGs (must be 0 or at least the zone count)
+  max_unavailable: 0
+  wait_timeout: 600               # seconds; the deploy fails if the group isn't stable by then
+```
+
+VM settings left unset are copied from the current template, so a MIG set up by Terraform or a script keeps its configuration. Settings Pilum does manage replace the template's: removing every env var from `pilum.yaml` leaves the last `container-env` in place, so delete it from the template if you need it gone. There's no per-instance static IP, because MIG instances are replaced on every rollout; for a fixed outbound IP, reserve one on the Cloud NAT gateway.
+
+### Deploying
+
+`pilum deploy statio-egress-proxy --tag v1.4.2` builds and pushes the image, creates `egress-proxy-tpl-v1-4-2` from the current template, starts a rolling update (`--max-surge 1 --max-unavailable 0`), and fails unless the group is stable within `mig.wait_timeout`. Each release needs its own tag; `latest` is rejected. `pilum rollback` moves the group back to the previous template, and `pilum status` shows the template it runs.
 
 ## Deployment Locks
 

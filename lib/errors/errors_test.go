@@ -145,7 +145,7 @@ func TestWrapWithAdditionalAttributes(t *testing.T) {
 	t.Parallel()
 
 	inner := io.EOF
-	wrapped := errors.Wrap(inner, "context", "key", "value")
+	wrapped := errors.Wrap(inner, "context %s=%s", "key", "value")
 
 	require.True(t, errors.Is(wrapped, io.EOF))
 	require.Contains(t, wrapped.Error(), "context")
@@ -158,4 +158,12 @@ func TestWrapStandardLibraryError(t *testing.T) {
 
 	require.True(t, errors.Is(wrapped, io.EOF))
 	require.Equal(t, "wrapped EOF: EOF", wrapped.Error())
+}
+
+func TestWrapFormatsMessage(t *testing.T) {
+	t.Parallel()
+
+	wrapped := errors.Wrap(io.EOF, "service '%s' validation failed", "api")
+	require.Equal(t, "service 'api' validation failed: EOF", wrapped.Error())
+	require.True(t, errors.Is(wrapped, io.EOF))
 }

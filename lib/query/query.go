@@ -12,6 +12,7 @@ type ServiceStatus struct {
 	Region   string `json:"region,omitempty"`
 	Status   string `json:"status"`
 	Image    string `json:"image,omitempty"`
+	Template string `json:"template,omitempty"` // Instance template, for managed instance groups
 	URL      string `json:"url,omitempty"`
 	Replicas string `json:"replicas,omitempty"`
 	Updated  string `json:"updated,omitempty"`

@@ -1,0 +1,142 @@
+# Roll a new container image onto an existing GCP managed instance group
+# running Container-Optimized OS. Pilum doesn't create the MIG, load balancer,
+# firewall rules or NAT; it only ships new versions.
+#
+# The MIG's template runs the container from a startup script that reads the
+# image from instance metadata (container-image), which is Google's
+# replacement for the retired container startup agent
+# (gce-container-declaration / create-with-container). Pilum changes only
+# that metadata value.
+name: gcp-mig-container
+description: Roll a new container image onto an existing GCP managed instance group (COS + startup script)
+provider: gcp
+service: mig-container
+
+required_fields:
+  - name: project
+    description: GCP project ID
+    type: string
+
+  - name: region
+    description: GCP region (the image's Artifact Registry region)
+    type: string
+
+  - name: name
+    description: Pilum service name
+    type: string
+
+  - name: image
+    description: Image repository without a tag (e.g. us-central1-docker.pkg.dev/proj/repo/app); the tag comes from --tag
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
+  - name: mig.name
+    description: Name of the existing managed instance group
+    type: string
+
+  - name: mig.location
+    description: mig.zone for a zonal MIG, or mig.region for a regional one
+    type: string
+
+  - name: mig.template_base
+    description: Instance template name prefix; each release creates <base>-<tag>
+    type: string
+
+optional_fields:
+  - name: mig.image_metadata_key
+    description: Instance metadata key the template's startup script reads the image from
+    type: string
+    default: container-image
+
+  - name: mig.machine_type
+    description: Machine type for new VMs (e.g. e2-small). Unset keeps the template's.
+    type: string
+
+  - name: mig.network
+    description: VPC network name or resource path. Unset keeps the template's.
+    type: string
+
+  - name: mig.subnet
+    description: Subnetwork name (in the MIG's region) or resource path, e.g. for Shared VPC. Unset keeps the template's.
+    type: string
+
+  - name: mig.external_ip
+    description: false removes the VMs' external IP (egress then needs Cloud NAT); true adds an ephemeral one. Unset keeps the template's.
+    type: bool
+
+  - name: mig.network_tags
+    description: Network tags (firewall rules target these), replacing the template's. Unset keeps the template's.
+    type: list
+
+  - name: mig.service_account
+    description: Service account email the VMs run as. Unset keeps the template's.
+    type: string
+
+  - name: mig.env_vars
+    description: Container env vars, merged with top-level env_vars (top-level wins). Written to container-env metadata when set.
+    type: map
+
+  - name: mig.template_region
+    description: Create regional templates in this region instead of global ones. Must match the MIG's current template.
+    type: string
+
+  - name: mig.max_surge
+    description: Extra instances created during the rollout, fixed or percent (default 1 zonal, 3 regional; regional MIGs need 0 or at least their zone count)
+    type: string
+
+  - name: mig.max_unavailable
+    description: Instances allowed to be unavailable during the rollout (fixed or percent)
+    type: string
+    default: "0"
+
+  - name: mig.wait_timeout
+    description: Seconds to wait for the group to become stable before failing the deploy
+    type: int
+    default: "600"
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push
+
+  # Copies the MIG's current template with only its image metadata value
+  # changed. Safe to retry: an existing
+  # template with the same image is reused.
+  - name: create instance template
+    execution_mode: root
+    timeout: 300
+    default_retries: 2
+    tags:
+      - deploy
+
+  - name: start rolling update
+    execution_mode: root
+    timeout: 120
+    default_retries: 2
+    tags:
+      - deploy
+
+  # Fails the deploy if the group isn't stable within mig.wait_timeout. Keep
+  # this step's timeout above it, or the step is killed first.
+  - name: wait for stable
+    execution_mode: root
+    timeout: 900
+    tags:
+      - deploy

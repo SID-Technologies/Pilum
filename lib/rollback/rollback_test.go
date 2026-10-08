@@ -238,3 +238,137 @@ func TestNewPlanUnsupported(t *testing.T) {
 	_, err := NewPlan(serviceinfo.ServiceInfo{Name: "fn", Provider: "aws", Type: "aws-lambda"}, "", fakeRunner(nil))
 	require.ErrorContains(t, err, "not supported")
 }
+
+const tplLink = "https://www.googleapis.com/compute/v1/projects/statio-499700/global/instanceTemplates/"
+
+// Trimmed from `gcloud compute instance-templates list --format json`. The
+// base template is what the setup script created; the rest are releases.
+const templatesFixture = `[
+  {"name": "egress-proxy-tpl", "selfLink": "` + tplLink + `egress-proxy-tpl",
+   "creationTimestamp": "2026-09-01T10:00:00.000-07:00",
+   "properties": {"metadata": {"items": [{"key": "container-image", "value": "r/proxy:v0"}]}}},
+  {"name": "egress-proxy-tpl-v1", "selfLink": "` + tplLink + `egress-proxy-tpl-v1",
+   "creationTimestamp": "2026-09-02T10:00:00.000-07:00",
+   "properties": {"metadata": {"items": [{"key": "container-image", "value": "r/proxy:v1"}]}}},
+  {"name": "egress-proxy-tpl-v2", "selfLink": "` + tplLink + `egress-proxy-tpl-v2",
+   "creationTimestamp": "2026-09-03T10:00:00.000-07:00",
+   "properties": {"metadata": {"items": [{"key": "container-image", "value": "r/proxy:v2"}]}}},
+  {"name": "egress-proxy-tpl-v9", "selfLink": "https://www.googleapis.com/compute/v1/projects/statio-499700/regions/us-east1/instanceTemplates/egress-proxy-tpl-v9",
+   "creationTimestamp": "2026-09-02T12:00:00.000-07:00", "properties": {}}
+]`
+
+func migSvc() serviceinfo.ServiceInfo {
+	return serviceinfo.ServiceInfo{
+		Name: "statio-egress-proxy", Provider: "gcp", Type: "gcp-mig-container",
+		Project: "statio-499700", Region: "us-central1",
+		Config: map[string]any{"mig": map[string]any{
+			"name": "egress-proxy-mig", "zone": "us-central1-a", "template_base": "egress-proxy-tpl",
+		}},
+	}
+}
+
+func migRunner(current string) Runner {
+	return fakeRunner(map[string]string{
+		"instance-groups managed describe": `{"versions": [{"instanceTemplate": "` + tplLink + current + `"}]}`,
+		"instance-templates list":          templatesFixture,
+	})
+}
+
+func TestKindForMIG(t *testing.T) {
+	t.Parallel()
+
+	kind, ok := KindFor(migSvc())
+	require.True(t, ok)
+	require.Equal(t, KindMIG, kind)
+}
+
+func TestParseTemplates(t *testing.T) {
+	t.Parallel()
+
+	global, err := ParseTemplates(templatesFixture, "", "container-image")
+	require.NoError(t, err)
+	require.Len(t, global, 3, "regional template is out of scope")
+	require.Equal(t, "r/proxy:v1", global[1].Image)
+
+	regional, err := ParseTemplates(templatesFixture, "us-east1", "container-image")
+	require.NoError(t, err)
+	require.Len(t, regional, 1)
+	require.Empty(t, regional[0].Image)
+}
+
+func TestSelectTemplate(t *testing.T) {
+	t.Parallel()
+
+	templates, err := ParseTemplates(templatesFixture, "", "container-image")
+	require.NoError(t, err)
+
+	got, err := SelectTemplate(templates, "egress-proxy-tpl-v2", "")
+	require.NoError(t, err)
+	require.Equal(t, "egress-proxy-tpl-v1", got.Name)
+
+	// Back past the first release to the setup script's template.
+	got, err = SelectTemplate(templates, "egress-proxy-tpl-v1", "")
+	require.NoError(t, err)
+	require.Equal(t, "egress-proxy-tpl", got.Name)
+
+	_, err = SelectTemplate(templates, "egress-proxy-tpl", "")
+	require.ErrorContains(t, err, "no template older")
+
+	_, err = SelectTemplate(templates, "hand-made", "")
+	require.ErrorContains(t, err, "not in the mig.template_base family")
+
+	got, err = SelectTemplate(templates, "egress-proxy-tpl-v2", "egress-proxy-tpl")
+	require.NoError(t, err)
+	require.Equal(t, "egress-proxy-tpl", got.Name)
+
+	_, err = SelectTemplate(templates, "egress-proxy-tpl-v2", "egress-proxy-tpl-v2")
+	require.ErrorContains(t, err, "already runs")
+
+	_, err = SelectTemplate(templates, "egress-proxy-tpl-v2", "egress-proxy-tpl-v7")
+	require.ErrorContains(t, err, "not found")
+}
+
+func TestNewPlanMIG(t *testing.T) {
+	t.Parallel()
+
+	plan, err := NewPlan(migSvc(), "", migRunner("egress-proxy-tpl-v2"))
+	require.NoError(t, err)
+	require.Equal(t, KindMIG, plan.Kind)
+	require.Equal(t, "egress-proxy-tpl-v2", plan.From)
+	require.Equal(t, "egress-proxy-tpl-v1", plan.To)
+	require.Equal(t, "r/proxy:v1", plan.ToImage)
+	require.Equal(t, []string{
+		"gcloud", "compute", "instance-groups", "managed", "rolling-action", "start-update", "egress-proxy-mig",
+		"--version", "template=egress-proxy-tpl-v1",
+		"--max-surge", "1",
+		"--max-unavailable", "0",
+		"--zone", "us-central1-a",
+		"--project", "statio-499700",
+	}, plan.Command)
+	require.Equal(t, []string{
+		"gcloud", "compute", "instance-groups", "managed", "wait-until", "egress-proxy-mig",
+		"--stable",
+		"--timeout", "600",
+		"--zone", "us-central1-a",
+		"--project", "statio-499700",
+	}, plan.Wait)
+	require.Equal(t, 660, plan.WaitTimeout)
+}
+
+func TestNewPlanMIGTo(t *testing.T) {
+	t.Parallel()
+
+	// A tag resolves to <base>-<tag>.
+	plan, err := NewPlan(migSvc(), "v1", migRunner("egress-proxy-tpl-v2"))
+	require.NoError(t, err)
+	require.Equal(t, "egress-proxy-tpl-v1", plan.To)
+
+	// A template name is used as is.
+	plan, err = NewPlan(migSvc(), "egress-proxy-tpl", migRunner("egress-proxy-tpl-v2"))
+	require.NoError(t, err)
+	require.Equal(t, "egress-proxy-tpl", plan.To)
+
+	// Dotted tags are normalised the same way deploy names them.
+	_, err = NewPlan(migSvc(), "v1.0.0", migRunner("egress-proxy-tpl-v2"))
+	require.ErrorContains(t, err, "egress-proxy-tpl-v1-0-0 not found")
+}

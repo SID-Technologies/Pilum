@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -21,6 +22,7 @@ func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerGCPCloudRunHandlers(reg)
 	registerGCPCloudRunFromImageHandlers(reg)
 	registerGCPCloudRunJobHandlers(reg)
+	registerGCPMIGContainerHandlers(reg)
 	registerAzureContainerAppsHandlers(reg)
 	registerHomebrewHandlers(reg)
 	registerNpmHandlers(reg)
@@ -85,6 +87,55 @@ func registerGCPCloudRunJobHandlers(reg *CommandRegistry) {
 	reg.Register("execute job", "gcp", func(ctx StepContext) any {
 		return gcp.GenerateExecuteJobCommand(ctx.Service)
 	})
+}
+
+// registerGCPMIGContainerHandlers registers handlers for the gcp-mig-container
+// recipe. Build/push steps are handled by generic handlers registered in
+// registerGCPCloudRunHandlers.
+func registerGCPMIGContainerHandlers(reg *CommandRegistry) {
+	// Step 4: Copy the MIG's current template with the new image in its
+	// metadata (the startup script runs whatever it names). gcloud can't
+	// copy a template, so this runs pilum's own (hidden) mig-template command.
+	reg.Register("create instance template", "gcp", func(ctx StepContext) any {
+		name, err := migTemplateName(ctx)
+		if err != nil {
+			output.Warning("%s: %s", ctx.Service.Name, err)
+			return nil
+		}
+		return append([]string{pilumExecutable()}, gcp.GenerateMIGTemplateArgs(ctx.Service, name, ctx.ImageName)...)
+	})
+
+	// Step 5: Roll the group onto the new template, one surge instance at a time.
+	reg.Register("start rolling update", "gcp", func(ctx StepContext) any {
+		name, err := migTemplateName(ctx)
+		if err != nil {
+			output.Warning("%s: %s", ctx.Service.Name, err)
+			return nil
+		}
+		return gcp.GenerateMIGRollingUpdateCommand(ctx.Service, name)
+	})
+
+	// Step 6: Block until every instance runs the new template and is healthy.
+	reg.Register("wait for stable", "gcp", func(ctx StepContext) any {
+		return gcp.GenerateMIGWaitStableCommand(ctx.Service)
+	})
+}
+
+// migTemplateName names the release's template after the tag the image was
+// pushed with, so template and image always agree.
+func migTemplateName(ctx StepContext) (string, error) {
+	tag := build.ResolveTag(ctx.Service, ctx.Tag)
+	return gcp.MIGTemplateName(gcp.ParseMIGConfig(ctx.Service.Config).TemplateBase, tag)
+}
+
+// pilumExecutable is the running pilum binary, so a step that calls back into
+// pilum runs the same version even when it isn't the one on PATH.
+func pilumExecutable() string {
+	exe, err := os.Executable()
+	if err == nil {
+		return exe
+	}
+	return "pilum"
 }
 
 // registerHomebrewHandlers registers handlers for Homebrew recipe steps.

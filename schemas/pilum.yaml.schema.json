@@ -22,6 +22,7 @@
         "gcp-cloud-run-job",
         "gcp-artifact-registry-image",
         "gcp-cloud-run-from-image",
+        "gcp-mig-container",
         "aws-lambda",
         "azure-container-apps",
         "cloudflare-pages",
@@ -31,7 +32,7 @@
     },
     "image": {
       "type": "string",
-      "description": "Fully-qualified image reference for deploy-only types like gcp-cloud-run-from-image. When set, the deploy step uses this image as-is instead of constructing one from build artifacts. Ignored by types that build their own image."
+      "description": "Fully-qualified image reference for deploy-only types like gcp-cloud-run-from-image. When set, the deploy step uses this image as-is instead of constructing one from build artifacts. For gcp-mig-container, the repository to build and push to, without a tag (the tag comes from --tag). Ignored by other types that build their own image."
     },
     "image_name": {
       "type": "string",
@@ -123,6 +124,9 @@
     "cloudflare": {
       "$ref": "#/$defs/cloudflare"
     },
+    "mig": {
+      "$ref": "#/$defs/mig"
+    },
     "environments": {
       "type": "object",
       "description": "Environment-specific overrides (e.g., staging, prod). Each key is an environment name whose values override top-level fields.",
@@ -145,7 +149,8 @@
           "container_app": { "$ref": "#/$defs/container_app" },
           "homebrew": { "$ref": "#/$defs/homebrew" },
           "npm": { "$ref": "#/$defs/npm" },
-          "cloudflare": { "$ref": "#/$defs/cloudflare" }
+          "cloudflare": { "$ref": "#/$defs/cloudflare" },
+          "mig": { "$ref": "#/$defs/mig" }
         },
         "additionalProperties": true
       }
@@ -557,13 +562,100 @@
       },
       "required": ["account_id"],
       "additionalProperties": false
+    },
+    "mig": {
+      "type": "object",
+      "description": "Existing GCP managed instance group to roll new images onto (gcp-mig-container). Pilum doesn't create the MIG. Its template must run the container from a Container-Optimized OS startup script that reads the image from instance metadata.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the existing managed instance group"
+        },
+        "zone": {
+          "type": "string",
+          "description": "Zone of a zonal MIG (e.g., 'us-central1-a')"
+        },
+        "region": {
+          "type": "string",
+          "description": "Region of a regional MIG (e.g., 'us-central1')"
+        },
+        "template_base": {
+          "type": "string",
+          "description": "Instance template name prefix; each release creates <template_base>-<tag>",
+          "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "image_metadata_key": {
+          "type": "string",
+          "description": "Instance metadata key the template's startup script reads the image from",
+          "default": "container-image"
+        },
+        "template_region": {
+          "type": "string",
+          "description": "Create regional templates in this region instead of global ones. Must match the scope of the MIG's current template."
+        },
+        "max_surge": {
+          "type": ["integer", "string"],
+          "description": "Extra instances during the rollout, fixed or percent (e.g., 1, '20%'). Defaults to 1 for zonal MIGs and 3 for regional ones, which need 0 or at least their zone count."
+        },
+        "max_unavailable": {
+          "type": ["integer", "string"],
+          "description": "Instances allowed to be unavailable during the rollout, fixed or percent",
+          "default": 0
+        },
+        "wait_timeout": {
+          "type": "integer",
+          "description": "Seconds to wait for the group to become stable before failing the deploy",
+          "minimum": 1,
+          "default": 600
+        },
+        "machine_type": {
+          "type": "string",
+          "description": "Machine type for new VMs (e.g., 'e2-small'). Unset keeps the current template's."
+        },
+        "network": {
+          "type": "string",
+          "description": "VPC network name or resource path. Unset keeps the current template's."
+        },
+        "subnet": {
+          "type": "string",
+          "description": "Subnetwork name (in the MIG's region) or full resource path, e.g. for Shared VPC. Unset keeps the current template's."
+        },
+        "external_ip": {
+          "type": "boolean",
+          "description": "false removes the VMs' external IP (outbound traffic then needs Cloud NAT, which is also where a static egress IP belongs); true adds an ephemeral one. Unset keeps the current template's."
+        },
+        "network_tags": {
+          "type": "array",
+          "description": "Network tags, replacing the template's. Firewall rules target these. Unset keeps the current template's; [] clears them.",
+          "items": { "type": "string" }
+        },
+        "service_account": {
+          "type": "string",
+          "description": "Service account email the VMs run as. Unset keeps the current template's."
+        },
+        "env_vars": {
+          "type": "object",
+          "description": "Container env vars, merged with top-level env_vars (top-level wins). Written to container-env metadata for the startup script when any are set.",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "required": ["name", "template_base"],
+      "oneOf": [
+        { "required": ["zone"] },
+        { "required": ["region"] }
+      ],
+      "additionalProperties": false
     }
   },
   "allOf": [
     {
       "if": {
         "properties": { "provider": { "const": "gcp" } },
-        "required": ["provider"]
+        "required": ["provider"],
+        "not": {
+          "properties": { "type": { "const": "gcp-mig-container" } },
+          "required": ["type"]
+        }
       },
       "then": {
         "required": ["project", "region", "registry_name"]
@@ -612,6 +704,15 @@
       },
       "then": {
         "required": ["cloudflare"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "gcp-mig-container" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["project", "region", "image", "template", "mig"]
       }
     }
   ]
