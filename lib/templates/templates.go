@@ -42,6 +42,9 @@ var languageAliases = map[string]string{
 	"fsharp":     "dotnet",
 	"f#":         "dotnet",
 	".net":       "dotnet",
+	"c++":        "cpp",
+	"cxx":        "cpp",
+	"rb":         "ruby",
 }
 
 // Canonical normalizes a build.language value to its template name. Unknown

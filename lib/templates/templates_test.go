@@ -59,3 +59,14 @@ func TestAliasesResolveTemplates(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "bun run build", cfg.Cmd)
 }
+
+func TestTier2Templates(t *testing.T) {
+	t.Parallel()
+
+	for _, lang := range []string{"php", "ruby", "c", "cpp", "c++", "java", "kotlin", "dotnet", "csharp"} {
+		cfg, err := GetBuildConfig(lang)
+		require.NoError(t, err, lang)
+		require.NotEmpty(t, cfg.Cmd, lang)
+		require.Positive(t, cfg.Resources.Memory, lang)
+	}
+}

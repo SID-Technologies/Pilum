@@ -1,0 +1,9 @@
+# Ruby build configuration (Bundler)
+language: ruby
+version: "3.3"
+cmd: "bundle install"
+resources:
+  memory: 1024 # 1 GB — native gem extensions
+env_vars:
+  BUNDLE_DEPLOYMENT: "1"
+  BUNDLE_WITHOUT: "development:test"

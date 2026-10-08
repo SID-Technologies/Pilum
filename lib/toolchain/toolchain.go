@@ -66,7 +66,7 @@ type Toolchain interface {
 
 // registry is checked in order; a Gradle build that also has a pom.xml
 // warms as Gradle.
-var registry = []Toolchain{golang{}, node{}, python{}, rust{}, gradle{}, maven{}, dotnet{}}
+var registry = []Toolchain{golang{}, node{}, python{}, rust{}, gradle{}, maven{}, dotnet{}, php{}, ruby{}}
 
 // owner is implemented by toolchains whose manifest has no fixed name, such
 // as .NET's *.csproj.
