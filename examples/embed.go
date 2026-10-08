@@ -3,7 +3,11 @@
 // require a Dockerfile template, instead of leaving the user to hand-write one.
 package examples
 
-import "embed"
+import (
+	"embed"
+
+	"github.com/sid-technologies/pilum/lib/templates"
+)
 
 //go:embed */Dockerfile
 var dockerfiles embed.FS
@@ -11,16 +15,17 @@ var dockerfiles embed.FS
 // languageDirs maps a pilum build language key (from lib/templates/builds/*.yaml)
 // to its example service directory name.
 var languageDirs = map[string]string{
+	"bun":    "bun-service",
 	"go":     "go-service",
-	"python": "python-service",
 	"node":   "nodejs-service",
+	"python": "python-service",
 	"rust":   "rust-service",
 }
 
 // DockerfileFor returns the reference Dockerfile content for a build language.
 // The second return value is false if there is no example for that language.
 func DockerfileFor(language string) ([]byte, bool) {
-	dir, ok := languageDirs[language]
+	dir, ok := languageDirs[templates.Canonical(language)]
 	if !ok {
 		return nil, false
 	}

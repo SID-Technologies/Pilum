@@ -1,0 +1,8 @@
+# Bun build configuration
+language: bun
+version: "1"
+cmd: "bun run build"
+resources:
+  memory: 1536 # 1.5 GB — Bun bundler, same budget as Node
+env_vars:
+  NODE_ENV: "production"

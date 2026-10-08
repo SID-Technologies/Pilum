@@ -144,6 +144,9 @@ func (p *Pipeline) warmGroups(maxSteps int) []*warmGroup {
 			continue
 		}
 		g := b.group
+		if plan.Tool != "" {
+			g.language = plan.Tool
+		}
 		g.cmd = plan.Cmd
 		g.dir = plan.Dir
 		g.isolate = plan.Isolate
