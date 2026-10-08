@@ -1,0 +1,9 @@
+# .NET build configuration
+language: dotnet
+version: "8.0"
+cmd: "dotnet publish -c Release -o ./dist"
+resources:
+  memory: 2048 # 2 GB — MSBuild + Roslyn
+env_vars:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"

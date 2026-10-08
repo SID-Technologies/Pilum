@@ -223,7 +223,7 @@
       "properties": {
         "language": {
           "type": "string",
-          "description": "Programming language (e.g., 'go', 'node', 'bun', 'python', 'rust', 'java', 'dotnet'). Also accepted: 'golang'; 'nodejs', 'javascript', 'js', 'typescript' and 'ts' for node. Picks the toolchain for automatic cache warming and the defaults for pilum init."
+          "description": "Programming language (e.g., 'go', 'node', 'bun', 'python', 'rust', 'java', 'dotnet'). Also accepted: 'golang'; 'nodejs', 'javascript', 'js', 'typescript' and 'ts' for node; 'csharp', 'c#', 'fsharp', 'f#' and '.net' for dotnet; 'kotlin' (Gradle or Maven, like java). Picks the toolchain for automatic cache warming and the defaults for pilum init."
         },
         "version": {
           "type": "string",

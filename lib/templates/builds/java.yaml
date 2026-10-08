@@ -1,0 +1,6 @@
+# Java build configuration (Maven wrapper; use ./gradlew build -x test for Gradle)
+language: java
+version: "21"
+cmd: "./mvnw -B package -DskipTests"
+resources:
+  memory: 3072 # 3 GB — JVM compiler plus the build tool's own JVM

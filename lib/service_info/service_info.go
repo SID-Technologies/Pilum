@@ -29,6 +29,24 @@ func (f BuildFlag) Arg() string {
 	return fmt.Sprintf("-%s='%s'", f.Name, strings.Join(f.Values, " "))
 }
 
+// FlagArgs renders build.flags for the build command. Cargo takes GNU-style
+// options (--target), which a single dash would break; the Go toolchain
+// takes -ldflags.
+func (bc BuildConfig) FlagArgs() []string {
+	var args []string
+	for _, flag := range bc.Flags {
+		if len(flag.Values) == 0 {
+			continue
+		}
+		arg := flag.Arg()
+		if strings.EqualFold(strings.TrimSpace(bc.Language), "rust") {
+			arg = "-" + arg
+		}
+		args = append(args, arg)
+	}
+	return args
+}
+
 type BuildResources struct {
 	Memory int `yaml:"memory"` // Estimated build memory in MB (0 = use language default)
 	CPU    int `yaml:"cpu"`    // Estimated CPU cores needed (0 = 1)

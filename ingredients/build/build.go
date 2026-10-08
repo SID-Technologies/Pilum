@@ -35,12 +35,8 @@ func GenerateBuildCommand(service serviceinfo.ServiceInfo, registry, tag string)
 
 	command := buildCmd
 
-	for _, flag := range service.BuildConfig.Flags {
-		if len(flag.Values) == 0 {
-			continue
-		}
-
-		command += " " + flag.Arg()
+	for _, arg := range service.BuildConfig.FlagArgs() {
+		command += " " + arg
 	}
 
 	return []string{"/bin/sh", "-c", command}, imageName
@@ -130,11 +126,8 @@ func GenerateBuildCommandString(service serviceinfo.ServiceInfo) string {
 
 	command := buildCmd
 
-	for _, flag := range service.BuildConfig.Flags {
-		if len(flag.Values) == 0 {
-			continue
-		}
-		command += " " + flag.Arg()
+	for _, arg := range service.BuildConfig.FlagArgs() {
+		command += " " + arg
 	}
 
 	return command

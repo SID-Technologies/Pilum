@@ -618,3 +618,14 @@ func TestParseBuildConfigFlagsSorted(t *testing.T) {
 	}
 	require.Equal(t, []string{"-gcflags='all=-N'", "-ldflags='-s -w'", "-tags='netgo'"}, args)
 }
+
+func TestFlagArgsUseCargoStyleForRust(t *testing.T) {
+	t.Parallel()
+
+	flags := []serviceinfo.BuildFlag{{Name: "target", Values: []string{"x86_64-unknown-linux-musl"}}}
+	rust := serviceinfo.BuildConfig{Language: "rust", Flags: flags}
+	require.Equal(t, []string{"--target='x86_64-unknown-linux-musl'"}, rust.FlagArgs())
+
+	goFlags := serviceinfo.BuildConfig{Language: "go", Flags: []serviceinfo.BuildFlag{{Name: "ldflags", Values: []string{"-s", "-w"}}}}
+	require.Equal(t, []string{"-ldflags='-s -w'"}, goFlags.FlagArgs())
+}
