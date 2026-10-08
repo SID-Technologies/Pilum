@@ -2,7 +2,6 @@ package toolchain
 
 import (
 	"bytes"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -124,27 +123,10 @@ func isYarnBerry(root string) bool {
 // configs, every package.json (workspace members included) and the files in
 // nodeCopyDirs.
 func nodeFiles(root string) ([]string, error) {
-	files := append(slices.Clone(nodeLockfiles), nodeConfigs...)
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(root, p)
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if p != root && slices.Contains(nodeSkipDirs, d.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if d.Name() == "package.json" || inCopyDir(rel) {
-			files = append(files, rel)
-		}
-		return nil
+	found, err := findFiles(root, nodeSkipDirs, func(rel, name string) bool {
+		return name == "package.json" || inCopyDir(rel)
 	})
-	return files, err
+	return append(append(slices.Clone(nodeLockfiles), nodeConfigs...), found...), err
 }
 
 func inCopyDir(rel string) bool {

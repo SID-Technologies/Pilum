@@ -8,6 +8,7 @@
 package toolchain
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -63,7 +64,7 @@ type Toolchain interface {
 	Plan(g Group) (Plan, bool)
 }
 
-var registry = []Toolchain{golang{}, node{}}
+var registry = []Toolchain{golang{}, node{}, python{}}
 
 // Canonical normalizes a build.language value, e.g. "nodejs" to "node".
 func Canonical(language string) string {
@@ -129,4 +130,30 @@ func shellArg(s string) string {
 		return s
 	}
 	return shellutil.Quote(s)
+}
+
+// findFiles walks root and returns the files, relative to root, that match
+// reports true for. Directories named in skip aren't entered.
+func findFiles(root string, skip []string, match func(rel, name string) bool) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if p != root && slices.Contains(skip, d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		if match(rel, d.Name()) {
+			files = append(files, rel)
+		}
+		return nil
+	})
+	return files, err
 }
