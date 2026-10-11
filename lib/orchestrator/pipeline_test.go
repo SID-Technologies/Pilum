@@ -635,3 +635,46 @@ func TestValidateMIGTemplateName(t *testing.T) {
 	p = NewPipeline(nil, nil, types.PipelineOptions{})
 	require.NoError(t, p.validateMIGTemplateName(svc, rec))
 }
+
+func TestNeedsReleaseVersion(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{Name: "cli", Provider: "homebrew"}
+	rec := recipe.Recipe{Provider: "homebrew", Steps: []recipe.Step{{Name: "build binaries", Tags: []string{"build"}}}}
+
+	// No --tag and no version: archives and URLs would be named "latest".
+	p := NewPipeline(nil, nil, types.PipelineOptions{})
+	require.True(t, p.needsReleaseVersion(svc, rec))
+
+	p = NewPipeline(nil, nil, types.PipelineOptions{Tag: "v1.0.0"})
+	require.False(t, p.needsReleaseVersion(svc, rec))
+
+	svc.Version = "1.0.0"
+	p = NewPipeline(nil, nil, types.PipelineOptions{})
+	require.False(t, p.needsReleaseVersion(svc, rec))
+
+	// Every step filtered out: nothing runs, nothing needs a version.
+	svc.Version = ""
+	p = NewPipeline(nil, nil, types.PipelineOptions{OnlyTags: []string{"deploy"}})
+	require.False(t, p.needsReleaseVersion(svc, rec))
+}
+
+// Handlers get the resolved tag, so a run without --tag deploys Cloudflare
+// Pages to production instead of to a preview branch named ”.
+func TestGenerateCommandResolvesEmptyTag(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name: "site", Provider: "cloudflare", Type: "cloudflare-pages",
+		Config: map[string]any{"cloudflare": map[string]any{"project_name": "site", "account_id": "acc"}},
+	}
+	p := NewPipeline(nil, nil, types.PipelineOptions{})
+
+	cmd, ok := p.generateCommand(svc, &recipe.Step{Name: "deploy to pages"}).(string)
+	require.True(t, ok)
+	require.Contains(t, cmd, "--branch='main'")
+	require.NotContains(t, cmd, "--branch=''")
+
+	substituted := p.generateCommand(svc, &recipe.Step{Name: "echo", Command: []string{"echo", "${tag}"}})
+	require.Equal(t, []string{"echo", "latest"}, substituted)
+}

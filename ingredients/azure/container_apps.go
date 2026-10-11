@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
@@ -20,6 +21,10 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, imageName string) string
 	}
 	if cfg.Environment != "" {
 		up = append(up, "--environment", q(cfg.Environment))
+	}
+	if len(svc.EnvVars) > 0 {
+		up = append(up, "--env-vars")
+		up = append(up, envVarArgs(svc.EnvVars)...)
 	}
 	if cfg.IngressPort > 0 {
 		up = append(up, "--target-port", fmt.Sprintf("%d", cfg.IngressPort))
@@ -60,4 +65,17 @@ func GenerateDeployCommand(svc serviceinfo.ServiceInfo, imageName string) string
 		cmd += " && " + strings.Join(update, " ")
 	}
 	return cmd
+}
+
+// envVarArgs renders env vars as sorted, quoted KEY=VALUE arguments.
+func envVarArgs(envs []serviceinfo.EnvVars) []string {
+	args := make([]string, 0, len(envs))
+	for _, env := range envs {
+		args = append(args, env.Name+"="+env.Value)
+	}
+	slices.Sort(args)
+	for i, arg := range args {
+		args[i] = shellutil.Quote(arg)
+	}
+	return args
 }

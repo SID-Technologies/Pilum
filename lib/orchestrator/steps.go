@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"strings"
 
+	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/registry"
@@ -150,7 +151,7 @@ func (p *Pipeline) generateCommand(svc serviceinfo.ServiceInfo, step *recipe.Ste
 	ctx := registry.StepContext{
 		Service:      svc,
 		ImageName:    p.imageNames[svc.DisplayName()],
-		Tag:          p.options.Tag,
+		Tag:          build.ResolveTag(svc, p.options.Tag),
 		Registry:     svc.RegistryName,
 		TemplatePath: templatePath,
 	}
@@ -181,6 +182,8 @@ func (p *Pipeline) generateCommand(svc serviceinfo.ServiceInfo, step *recipe.Ste
 // For []string/[]any commands (executed via exec.Command with separate args), values are
 // substituted without quoting since they don't pass through a shell.
 func (p *Pipeline) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
+	tag := build.ResolveTag(svc, p.options.Tag)
+
 	// Shell-quoted replacer for string commands (passed to sh -c)
 	shellReplacer := strings.NewReplacer(
 		"${name}", shellutil.Quote(svc.Name),
@@ -188,8 +191,8 @@ func (p *Pipeline) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
 		"${provider}", shellutil.Quote(svc.Provider),
 		"${region}", shellutil.Quote(svc.Region),
 		"${project}", shellutil.Quote(svc.Project),
-		"${build.version}", shellutil.Quote(p.options.Tag),
-		"${tag}", shellutil.Quote(p.options.Tag),
+		"${build.version}", shellutil.Quote(tag),
+		"${tag}", shellutil.Quote(tag),
 	)
 
 	// Raw replacer for []string/[]any commands (exec.Command with separate args)
@@ -199,8 +202,8 @@ func (p *Pipeline) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
 		"${provider}", svc.Provider,
 		"${region}", svc.Region,
 		"${project}", svc.Project,
-		"${build.version}", p.options.Tag,
-		"${tag}", p.options.Tag,
+		"${build.version}", tag,
+		"${tag}", tag,
 	)
 
 	switch v := cmd.(type) {

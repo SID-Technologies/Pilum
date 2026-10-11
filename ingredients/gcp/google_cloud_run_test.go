@@ -312,10 +312,20 @@ func TestGenerateGCPDeployCommandCPUThrottlingDisabled(t *testing.T) {
 
 	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
 
-	// Should NOT have --cpu-throttling when set to false
-	for _, arg := range cmd {
-		require.NotEqual(t, "--cpu-throttling", arg)
-	}
+	// false is sent, so a service that was throttled stops being throttled
+	require.Contains(t, cmd, "--no-cpu-throttling")
+	require.NotContains(t, cmd, "--cpu-throttling")
+}
+
+func TestGenerateGCPDeployCommandCPUThrottlingUnset(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{Name: "myservice", Region: "us-central1"}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/project/myservice:latest")
+
+	require.NotContains(t, cmd, "--cpu-throttling")
+	require.NotContains(t, cmd, "--no-cpu-throttling")
 }
 
 func TestGenerateGCPDeployCommandCloudSQLInstances(t *testing.T) {
@@ -645,4 +655,29 @@ func containsFlag(args []string, want string) bool {
 	}
 
 	return false
+}
+
+func TestGenerateGCPDeployCommandSidecarStartupProbe(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:   "api",
+		Region: "us-central1",
+		Sidecars: []serviceinfo.Sidecar{
+			{
+				Name: "proxy", Image: "proxy:1", Port: 9000,
+				StartupProbe: &serviceinfo.Probe{Path: "/ready", Port: 9000, PeriodSeconds: 5, FailureThreshold: 10},
+			},
+			{
+				Name: "collector", Image: "otel:1",
+				StartupProbe: &serviceinfo.Probe{Port: 4317, InitialDelaySeconds: 2},
+			},
+		},
+	}
+
+	cmd := gcp.GenerateGCPDeployCommand(service, "gcr.io/p/api:v1")
+
+	require.Contains(t, cmd, "--startup-probe=httpGet.path=/ready,httpGet.port=9000,periodSeconds=5,failureThreshold=10")
+	require.Contains(t, cmd, "--startup-probe=tcpSocket.port=4317,initialDelaySeconds=2")
+	require.NotContains(t, cmd, "--port=9000")
 }

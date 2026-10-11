@@ -123,3 +123,16 @@ func TestGenerateJobLogsCommand(t *testing.T) {
 	require.Contains(t, cmd, "data-processor")
 	require.Contains(t, cmd, "--limit=50")
 }
+
+func TestGenerateLogsCommandFollowTails(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{Name: "api", Region: "us-central1", Project: "p"}
+
+	require.Equal(t,
+		[]string{"gcloud", "beta", "run", "services", "logs", "tail", "api", "--region", "us-central1", "--project", "p"},
+		gcp.GenerateLogsCommand(svc, 50, true))
+	require.Equal(t,
+		[]string{"gcloud", "beta", "run", "jobs", "logs", "tail", "api", "--region", "us-central1", "--project", "p"},
+		gcp.GenerateJobLogsCommand(svc, 50, true))
+}

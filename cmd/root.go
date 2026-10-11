@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
@@ -109,6 +110,11 @@ func initConfig() {
 	viper.SetConfigType("yaml")
 	viper.SetConfigFile(configFile)
 
+	// Only PILUM_-prefixed variables set flags (PILUM_TAG, PILUM_DRY_RUN).
+	// Unprefixed, any TAG, ENV or DEBUG in a CI environment silently became
+	// a flag value.
+	viper.SetEnvPrefix("PILUM")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {

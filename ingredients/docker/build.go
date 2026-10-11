@@ -1,7 +1,7 @@
 package docker
 
 import (
-	"fmt"
+	"slices"
 	"strings"
 
 	service "github.com/sid-technologies/pilum/lib/service_info"
@@ -21,12 +21,14 @@ func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, template
 
 	cmd = append(cmd, "--build-arg", "SERVICE_NAME="+service.Path)
 
-	if len(service.EnvVars) > 0 {
-		var envArgs []string
-		for _, env := range service.EnvVars {
-			envArgs = append(envArgs, fmt.Sprintf("%s=%s", env.Name, env.Value))
-		}
-		cmd = append(cmd, "--build-arg", strings.Join(envArgs, ","))
+	// One --build-arg per variable: docker reads "A=1,B=2" as A="1,B=2".
+	envArgs := make([]string, 0, len(service.EnvVars))
+	for _, env := range service.EnvVars {
+		envArgs = append(envArgs, env.Name+"="+env.Value)
+	}
+	slices.Sort(envArgs)
+	for _, arg := range envArgs {
+		cmd = append(cmd, "--build-arg", arg)
 	}
 
 	cmd = append(cmd, "-f", templatePath, ".")
