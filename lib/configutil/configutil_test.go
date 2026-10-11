@@ -33,8 +33,15 @@ func TestGetString(t *testing.T) {
 			expected: "default",
 		},
 		{
-			name:     "key exists but wrong type",
+			name:     "number is read as a string",
 			m:        map[string]any{"name": 123},
+			key:      "name",
+			def:      "default",
+			expected: "123",
+		},
+		{
+			name:     "key exists but wrong type",
+			m:        map[string]any{"name": []any{"a"}},
 			key:      "name",
 			def:      "default",
 			expected: "default",

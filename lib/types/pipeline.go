@@ -28,6 +28,7 @@ type PipelineOptions struct {
 	Debug        bool
 	Timeout      int
 	Retries      int
+	RetriesSet   bool // --retries was given, so it beats a step's default_retries
 	DryRun       bool
 	MaxWorkers   int
 	MaxSteps     int      // Maximum number of steps to run (0 = all)

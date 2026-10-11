@@ -448,3 +448,26 @@ func TestPipelineExecuteTaskEmptyExecutionMode(t *testing.T) {
 
 	require.True(t, result.Success)
 }
+
+func TestStepRetries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		step recipe.Step
+		opts types.PipelineOptions
+		want int
+	}{
+		{name: "flag default", opts: types.PipelineOptions{Retries: 3}, want: 3},
+		{name: "default_retries beats the flag default", step: recipe.Step{DefaultRetries: 2}, opts: types.PipelineOptions{Retries: 3}, want: 2},
+		{name: "--retries beats default_retries", step: recipe.Step{DefaultRetries: 2}, opts: types.PipelineOptions{Retries: 5, RetriesSet: true}, want: 5},
+		{name: "step retries beat --retries", step: recipe.Step{Retries: 1, DefaultRetries: 2}, opts: types.PipelineOptions{Retries: 5, RetriesSet: true}, want: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, stepRetries(&tt.step, tt.opts))
+		})
+	}
+}

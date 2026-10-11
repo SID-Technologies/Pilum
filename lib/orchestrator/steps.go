@@ -226,15 +226,10 @@ func (p *Pipeline) substituteVars(cmd any, svc serviceinfo.ServiceInfo) any {
 	return cmd
 }
 
-// getRecipeForService finds the recipe for a service using composite key with provider-only fallback.
+// getRecipeForService finds the recipe for a service (see recipe.Index.Lookup).
+// validateServices has already rejected services without one.
 func (p *Pipeline) getRecipeForService(svc serviceinfo.ServiceInfo) (recipe.Recipe, bool) {
-	if recipe, ok := p.recipes[svc.RecipeKey()]; ok {
-		return recipe, true
-	}
-	if recipe, ok := p.recipes[svc.Provider]; ok {
-		return recipe, true
-	}
-	return recipe.Recipe{}, false
+	return p.recipes.Find(&svc)
 }
 
 // findMaxSteps returns the max number of steps across all recipes.

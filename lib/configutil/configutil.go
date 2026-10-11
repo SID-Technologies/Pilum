@@ -7,14 +7,21 @@ import (
 	"strconv"
 )
 
-// GetString extracts a string value from a map, returning the default if not found or wrong type.
+// GetString extracts a string value from a map, returning the default if not
+// found or wrong type. A number is read as its string form, so `cpu: 1`
+// means the same as `cpu: "1"`.
 func GetString(m map[string]any, key string, def string) string {
 	val, ok := m[key]
 	if !ok {
 		return def
 	}
 
-	s, ok := val.(string)
+	// A bool is not a string value; `name: true` keeps the default.
+	if _, isBool := val.(bool); isBool {
+		return def
+	}
+
+	s, ok := scalarString(val)
 	if !ok {
 		return def
 	}

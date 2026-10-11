@@ -31,6 +31,7 @@ type deploymentOptions struct {
 	Debug        bool
 	Timeout      int
 	Retries      int
+	RetriesSet   bool
 	DryRun       bool
 	Force        bool
 	GitHubStatus bool
@@ -53,6 +54,7 @@ func getDeploymentOptions() deploymentOptions {
 		Debug:        viper.GetBool("debug"),
 		Timeout:      viper.GetInt("timeout"),
 		Retries:      viper.GetInt("retries"),
+		RetriesSet:   viper.IsSet("retries"),
 		DryRun:       viper.GetBool("dry-run"),
 		Force:        viper.GetBool("force"),
 		GitHubStatus: viper.GetBool("github-status"),
@@ -76,6 +78,7 @@ func (o deploymentOptions) toPipelineOptions() types.PipelineOptions {
 		Debug:       o.Debug,
 		Timeout:     o.Timeout,
 		Retries:     o.Retries,
+		RetriesSet:  o.RetriesSet,
 		DryRun:      o.DryRun,
 		MaxWorkers:  o.MaxWorkers,
 		OnlyTags:    o.OnlyTags,

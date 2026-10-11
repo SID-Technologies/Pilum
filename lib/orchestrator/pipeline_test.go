@@ -56,7 +56,7 @@ func TestNewPipelineEmptyServices(t *testing.T) {
 
 	require.NotNil(t, pipeline)
 	require.Empty(t, pipeline.services)
-	require.Empty(t, pipeline.recipes)
+	require.Zero(t, pipeline.recipes.Len())
 }
 
 func TestPipelineRunNoServices(t *testing.T) {
@@ -80,7 +80,7 @@ func TestPipelineRunNoRecipeSteps(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "has no matching recipe")
+	require.Contains(t, err.Error(), "no recipe for")
 }
 
 func TestPipelineOptions(t *testing.T) {
@@ -416,7 +416,7 @@ func TestPipelineServiceWithoutRecipe(t *testing.T) {
 
 	// Services without matching recipes now cause validation errors
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "has no matching recipe")
+	require.Contains(t, err.Error(), "no recipe for")
 }
 
 func TestPipelineFullRunWithExecution(t *testing.T) {

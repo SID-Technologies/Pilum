@@ -18,7 +18,7 @@ import (
 // Pipeline executes deployment pipelines for multiple services.
 type Pipeline struct {
 	services      []serviceinfo.ServiceInfo
-	recipes       map[string]recipe.Recipe
+	recipes       *recipe.Index
 	imageNames    map[string]string // service DisplayName() -> image name (region-qualified, since multi-region instances share Name)
 	options       types.PipelineOptions
 	output        *output.PipelineOutput
@@ -79,7 +79,7 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 
 	p := &Pipeline{
 		services:   sortedServices,
-		recipes:    make(map[string]recipe.Recipe),
+		recipes:    recipe.NewIndex(recipes),
 		imageNames: make(map[string]string),
 		options:    opts,
 		output:     output.NewPipelineOutput(),
@@ -87,14 +87,6 @@ func NewPipeline(services []serviceinfo.ServiceInfo, recipes []recipe.Info, opts
 	}
 
 	p.recordUnbuiltDependencies(services)
-
-	// Index recipes by composite key (e.g., "gcp-cloud-run") and provider-only fallback
-	for _, rec := range recipes {
-		p.recipes[rec.RecipeKey()] = rec.Recipe
-		if _, exists := p.recipes[rec.Provider]; !exists {
-			p.recipes[rec.Provider] = rec.Recipe
-		}
-	}
 
 	// Calculate max name length for output alignment (use DisplayName for multi-region)
 	maxLen := 0
@@ -200,14 +192,12 @@ func (p *Pipeline) validateServices() error {
 			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
 		}
 
-		// Check for matching recipe
-		rec, exists := p.getRecipeForService(svc)
-		if !exists {
-			return errors.New("service '%s' (recipe key '%s') has no matching recipe",
-				svc.Name, svc.RecipeKey())
+		rec, err := p.recipes.Lookup(&svc)
+		if err != nil {
+			return errors.Wrap(err, "service '%s'", svc.Name)
 		}
 
-		err := p.validateMIGTemplateName(svc, rec)
+		err = p.validateMIGTemplateName(svc, rec)
 		if err != nil {
 			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
 		}

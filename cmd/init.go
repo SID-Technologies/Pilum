@@ -15,6 +15,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recipe"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/suggest"
 	"github.com/sid-technologies/pilum/lib/templates"
 
@@ -175,7 +176,7 @@ func runInitNonInteractive(opts initOptions) error {
 	scaffoldDockerTemplate(recipe, opts.language, values)
 
 	// Generate and write
-	yaml := generateServiceYAML(opts.provider, opts.service, values, buildConfig)
+	yaml := generateServiceYAML(opts.provider, opts.service, values, fieldTypes(recipe), buildConfig)
 
 	if err := os.WriteFile("pilum.yaml", []byte(yaml), 0600); err != nil {
 		return exitcodes.WithCode(exitcodes.IO, errors.Wrap(err, "failed to write pilum.yaml"))
@@ -294,7 +295,7 @@ func runInitInteractive(opts initOptions) error {
 	scaffoldDockerTemplate(recipe, language, values)
 
 	// Step 8: Generate and write pilum.yaml
-	yaml := generateServiceYAML(provider, service, values, buildConfig)
+	yaml := generateServiceYAML(provider, service, values, fieldTypes(recipe), buildConfig)
 
 	if err := os.WriteFile("pilum.yaml", []byte(yaml), 0600); err != nil {
 		return errors.Wrap(err, "failed to write pilum.yaml")
@@ -542,20 +543,48 @@ func prompt(reader *bufio.Reader, label, defaultVal string) (string, error) {
 	return input, nil
 }
 
+// findRecipeByKey finds the recipe the generated pilum.yaml will deploy
+// with, using the same lookup as the pipeline.
 func findRecipeByKey(recipes []recipe.Info, provider, service string) *recipe.Recipe {
-	// First, try exact provider-service match
-	for _, r := range recipes {
-		if r.Provider == provider && r.Service == service {
-			return &r.Recipe
-		}
+	svc := serviceinfo.ServiceInfo{Provider: provider}
+	if service != "" {
+		svc.Type = provider + "-" + service
 	}
-	// Fallback to provider-only match if no exact match found
-	for _, r := range recipes {
-		if r.Provider == provider && r.Service == "" {
-			return &r.Recipe
-		}
+
+	rec, ok := recipe.NewIndex(recipes).Find(&svc)
+	if !ok {
+		return nil
 	}
-	return nil
+
+	return &rec
+}
+
+// fieldTypes maps each recipe field to its declared type, so the generated
+// YAML can quote strings that would otherwise parse as numbers.
+func fieldTypes(rec *recipe.Recipe) map[string]string {
+	types := make(map[string]string)
+	if rec == nil {
+		return types
+	}
+
+	for _, field := range rec.GetRequiredFields() {
+		types[field.Name] = field.Type
+	}
+	for _, field := range rec.GetOptionalFields() {
+		types[field.Name] = field.Type
+	}
+
+	return types
+}
+
+// yamlValue quotes values of string fields, so `cpu: "1"` stays a string
+// instead of parsing as a number. Other values are written as-is.
+func yamlValue(value, fieldType string) string {
+	if fieldType == "string" {
+		return strconv.Quote(value)
+	}
+
+	return value
 }
 
 func mustGetwd() string {
@@ -566,7 +595,7 @@ func mustGetwd() string {
 	return dir
 }
 
-func generateServiceYAML(provider, service string, values map[string]string, buildConfig *templates.BuildConfig) string {
+func generateServiceYAML(provider, service string, values, types map[string]string, buildConfig *templates.BuildConfig) string {
 	var sb strings.Builder
 
 	// Header
@@ -604,7 +633,7 @@ func generateServiceYAML(provider, service string, values map[string]string, bui
 
 	// Write top-level fields
 	for key, value := range topLevel {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", key, value))
+		fmt.Fprintf(&sb, "%s: %s\n", key, yamlValue(value, types[key]))
 	}
 
 	// Write build configuration
@@ -641,7 +670,7 @@ func generateServiceYAML(provider, service string, values map[string]string, bui
 		sb.WriteString(fmt.Sprintf("\n# %s configuration\n", section))
 		sb.WriteString(fmt.Sprintf("%s:\n", section))
 		for key, value := range fields {
-			sb.WriteString(fmt.Sprintf("  %s: %s\n", key, value))
+			fmt.Fprintf(&sb, "  %s: %s\n", key, yamlValue(value, types[section+"."+key]))
 		}
 	}
 
