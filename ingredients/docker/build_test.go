@@ -26,7 +26,7 @@ func TestGenerateDockerBuildCommand(t *testing.T) {
 			},
 			imageName:    "gcr.io/project/myservice:latest",
 			templatePath: "./_templates/Dockerfile",
-			expectedLen:  9,
+			expectedLen:  11, // includes --platform linux/amd64
 		},
 		{
 			name: "build with env vars",
@@ -38,7 +38,7 @@ func TestGenerateDockerBuildCommand(t *testing.T) {
 			},
 			imageName:    "gcr.io/project/myservice:latest",
 			templatePath: "./_templates/Dockerfile",
-			expectedLen:  11, // 2 more for --build-arg with env vars
+			expectedLen:  13, // 2 more for --build-arg with env vars
 		},
 	}
 
@@ -241,4 +241,35 @@ func TestGenerateDockerBuildCommandAliasWithRegistryPort(t *testing.T) {
 		"localhost:5000/myservice:v2.1.0",
 		"localhost:5000/myservice:latest",
 	}, collectTags(cmd))
+}
+
+func TestGenerateDockerBuildCommandPlatform(t *testing.T) {
+	t.Parallel()
+
+	cmd := docker.GenerateDockerBuildCommand(serviceinfo.ServiceInfo{Name: "svc"}, "img:v1", "Dockerfile")
+	require.Equal(t, []string{"docker", "build", "--platform", "linux/amd64", "-t", "img:v1"}, cmd[:6])
+
+	arm := serviceinfo.ServiceInfo{Name: "svc", BuildConfig: serviceinfo.BuildConfig{Platform: "linux/arm64"}}
+	cmd = docker.GenerateDockerBuildCommand(arm, "img:v1", "Dockerfile")
+	require.Equal(t, []string{"docker", "build", "--platform", "linux/arm64"}, cmd[:4])
+}
+
+func TestGenerateDockerBuildCommandRegistryCache(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{Name: "svc", BuildConfig: serviceinfo.BuildConfig{DockerCache: true}}
+	cmd := docker.GenerateDockerBuildCommand(svc, "us-docker.pkg.dev/p/repo/svc:v1", "Dockerfile")
+
+	require.Equal(t, []string{
+		"docker", "buildx", "build",
+		"--cache-from", "type=registry,ref=us-docker.pkg.dev/p/repo/svc:buildcache",
+		"--cache-to", "type=registry,ref=us-docker.pkg.dev/p/repo/svc:buildcache,mode=max",
+		"--load",
+		"--platform", "linux/amd64",
+		"-t", "us-docker.pkg.dev/p/repo/svc:v1",
+	}, cmd[:12])
+
+	// A registry port is not a tag.
+	cmd = docker.GenerateDockerBuildCommand(svc, "localhost:5000/svc", "Dockerfile")
+	require.Contains(t, cmd, "type=registry,ref=localhost:5000/svc:buildcache")
 }

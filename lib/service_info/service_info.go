@@ -68,6 +68,16 @@ type BuildConfig struct {
 	Warm         string `yaml:"warm"`
 	WarmDir      string `yaml:"warm_dir"` // relative to the project root; default is the root
 	WarmDisabled bool   `yaml:"-"`
+
+	// Platform is the image platform docker builds for. Empty means
+	// linux/amd64, which Cloud Run and most VMs run, whatever machine runs
+	// Pilum.
+	Platform string `yaml:"platform"`
+	// DockerCache keeps the image's layer cache in its registry
+	// (<image>:buildcache), so a fresh CI runner reuses unchanged layers.
+	// Needs a buildx builder that can export cache (docker-container
+	// driver, e.g. docker/setup-buildx-action).
+	DockerCache bool `yaml:"docker_cache"`
 }
 
 type RuntimeConfig struct {
@@ -401,6 +411,9 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		WarmDir:    configutil.GetString(buildMap, "warm_dir", ""),
 		VersionVar: configutil.GetString(buildMap, "version_var", ""),
 		Resources:  resources,
+
+		Platform:    configutil.GetString(buildMap, "platform", ""),
+		DockerCache: configutil.GetBool(buildMap, "docker_cache", false),
 	}
 
 	// warm is a command, or false to opt out of automatic warming.

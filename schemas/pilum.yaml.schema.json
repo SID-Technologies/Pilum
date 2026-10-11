@@ -244,6 +244,16 @@
       "type": "object",
       "description": "Build configuration for the service",
       "properties": {
+        "platform": {
+          "type": "string",
+          "description": "Image platform for docker builds (--platform). Defaults to linux/amd64, which Cloud Run and most VMs run, so an image built on an Apple Silicon Mac still runs there.",
+          "default": "linux/amd64"
+        },
+        "docker_cache": {
+          "type": "boolean",
+          "description": "Keep the image's layer cache in its registry (<image>:buildcache) with docker buildx, so a fresh CI runner reuses unchanged layers. Needs a buildx builder that can export cache, e.g. docker/setup-buildx-action.",
+          "default": false
+        },
         "language": {
           "type": "string",
           "description": "Programming language (e.g., 'go', 'node', 'bun', 'python', 'rust', 'java', 'kotlin', 'dotnet', 'php', 'ruby', 'c', 'cpp'). Also accepted: 'golang'; 'nodejs', 'javascript', 'js', 'typescript' and 'ts' for node; 'csharp', 'c#', 'fsharp', 'f#' and '.net' for dotnet; 'kotlin' (Gradle or Maven, like java); 'c++' and 'cxx' for cpp; 'rb' for ruby. Picks the toolchain for automatic cache warming and the defaults for pilum init."
