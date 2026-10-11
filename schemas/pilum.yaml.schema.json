@@ -87,18 +87,12 @@
       }
     },
     "env_vars": {
-      "type": "object",
       "description": "Environment variables passed to the deployed service",
-      "additionalProperties": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/string_map"
     },
     "secrets": {
-      "type": "object",
-      "description": "Secret references for the deployed service",
-      "additionalProperties": {
-        "type": "string"
-      }
+      "description": "Secret references for the deployed service (e.g., db-password:latest)",
+      "$ref": "#/$defs/string_map"
     },
     "build": {
       "$ref": "#/$defs/build"
@@ -140,8 +134,8 @@
           "registry_name": { "type": "string" },
           "template": { "type": "string" },
           "depends_on": { "type": "array", "items": { "type": "string" } },
-          "env_vars": { "type": "object", "additionalProperties": { "type": "string" } },
-          "secrets": { "type": "object", "additionalProperties": { "type": "string" } },
+          "env_vars": { "$ref": "#/$defs/string_map" },
+          "secrets": { "$ref": "#/$defs/string_map" },
           "build": { "$ref": "#/$defs/build" },
           "cloud_run": { "$ref": "#/$defs/cloud_run" },
           "job": { "$ref": "#/$defs/job" },
@@ -158,6 +152,27 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "string_map": {
+      "description": "KEY: value pairs, or a list of {name, value}. Numbers and booleans are read as strings.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": ["string", "number", "boolean"] }
+            },
+            "required": ["name", "value"],
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
     "sidecar": {
       "type": "object",
       "description": "An auxiliary container co-deployed with the main service container in the same Cloud Run revision. Sidecars share the network namespace with the ingress container (reachable via localhost) and start up independently.",
@@ -184,14 +199,12 @@
           "description": "CPU limit (e.g., 0.25)"
         },
         "env_vars": {
-          "type": "object",
           "description": "Environment variables for this sidecar only",
-          "additionalProperties": { "type": "string" }
+          "$ref": "#/$defs/string_map"
         },
         "secrets": {
-          "type": "object",
           "description": "Secret references for this sidecar only",
-          "additionalProperties": { "type": "string" }
+          "$ref": "#/$defs/string_map"
         },
         "args": {
           "type": "array",
@@ -323,8 +336,7 @@
         },
         "cpu_throttling": {
           "type": "boolean",
-          "description": "Whether to throttle CPU outside of request processing",
-          "default": true
+          "description": "true sends --cpu-throttling (CPU only during requests), false sends --no-cpu-throttling (CPU always allocated, billed for the instance's lifetime). Unset passes nothing, leaving the service's current setting."
         },
         "memory": {
           "type": "string",
@@ -332,7 +344,7 @@
           "default": "512Mi"
         },
         "cpu": {
-          "type": "string",
+          "type": ["string", "number"],
           "description": "CPU allocation (e.g., '1', '2', '4')",
           "default": "1"
         },
@@ -344,6 +356,39 @@
           "type": "boolean",
           "description": "Serve the ingress container end-to-end over HTTP/2 (cleartext h2c) by passing --use-http2. The container must speak h2c. Unset or false passes nothing, leaving the service's current setting untouched — removing it does not turn HTTP/2 off (use gcloud run services update --no-use-http2).",
           "default": false
+        },
+        "allow_unauthenticated": {
+          "type": "boolean",
+          "description": "Allow public, unauthenticated requests. Services are private (--no-allow-unauthenticated) unless this is true.",
+          "default": false
+        },
+        "ingress": {
+          "type": "string",
+          "description": "Which traffic can reach the service (--ingress). Unset keeps the current setting.",
+          "enum": ["all", "internal", "internal-and-cloud-load-balancing"]
+        },
+        "vpc_connector": {
+          "type": "string",
+          "description": "Serverless VPC Access connector for outbound traffic (--vpc-connector)"
+        },
+        "vpc_egress": {
+          "type": "string",
+          "description": "Which outbound traffic goes through vpc_connector. Only used with vpc_connector.",
+          "enum": ["all-traffic", "private-ranges-only"],
+          "default": "all-traffic"
+        },
+        "no_traffic": {
+          "type": "boolean",
+          "description": "Deploy the new revision without sending it traffic (--no-traffic), for staged rollouts",
+          "default": false
+        },
+        "tag": {
+          "type": "string",
+          "description": "Revision tag (--tag), giving the new revision its own URL"
+        },
+        "env_vars": {
+          "description": "Cloud Run env vars, merged with top-level env_vars (top-level wins)",
+          "$ref": "#/$defs/string_map"
         },
         "service_account": {
           "type": "string",
@@ -428,18 +473,22 @@
       "properties": {
         "memory": {
           "type": "integer",
-          "description": "Memory allocation in MB",
+          "description": "Not read by Pilum: set MemorySize in your SAM template",
           "default": 128
         },
         "timeout": {
           "type": "integer",
-          "description": "Function timeout in seconds",
+          "description": "Not read by Pilum: set Timeout in your SAM template",
           "default": 30
         },
         "runtime": {
           "type": "string",
-          "description": "Lambda runtime identifier",
+          "description": "Not read by Pilum: set Runtime in your SAM template",
           "default": "provided.al2023"
+        },
+        "env_vars": {
+          "description": "Lambda env vars, merged with top-level env_vars (top-level wins)",
+          "$ref": "#/$defs/string_map"
         }
       },
       "additionalProperties": false
@@ -451,6 +500,10 @@
         "environment": {
           "type": "string",
           "description": "Container Apps environment name"
+        },
+        "env_vars": {
+          "description": "Container app env vars, merged with top-level env_vars (top-level wins)",
+          "$ref": "#/$defs/string_map"
         },
         "min_replicas": {
           "type": "integer",
@@ -530,6 +583,12 @@
         "token_env": {
           "type": "string",
           "description": "Environment variable name containing the npm token"
+        },
+        "package_manager": {
+          "type": "string",
+          "description": "Package manager used to install and build before publishing",
+          "enum": ["npm", "pnpm", "yarn", "bun"],
+          "default": "npm"
         }
       },
       "required": ["scope", "token_env"],
@@ -542,6 +601,15 @@
         "account_id": {
           "type": "string",
           "description": "Cloudflare account ID"
+        },
+        "account_id_env": {
+          "type": "string",
+          "description": "Environment variable holding the account ID, to keep it out of the repo. Takes precedence over account_id."
+        },
+        "output_dir": {
+          "type": "string",
+          "description": "Build output directory to deploy",
+          "default": "dist"
         },
         "token_env": {
           "type": "string",
@@ -560,7 +628,10 @@
           "default": "npm"
         }
       },
-      "required": ["account_id"],
+      "anyOf": [
+        { "required": ["account_id"] },
+        { "required": ["account_id_env"] }
+      ],
       "additionalProperties": false
     },
     "mig": {
@@ -634,9 +705,8 @@
           "description": "Service account email the VMs run as. Unset keeps the current template's."
         },
         "env_vars": {
-          "type": "object",
           "description": "Container env vars, merged with top-level env_vars (top-level wins). Written to container-env metadata for the startup script when any are set.",
-          "additionalProperties": { "type": "string" }
+          "$ref": "#/$defs/string_map"
         }
       },
       "required": ["name", "template_base"],
@@ -653,12 +723,21 @@
         "properties": { "provider": { "const": "gcp" } },
         "required": ["provider"],
         "not": {
-          "properties": { "type": { "const": "gcp-mig-container" } },
+          "properties": { "type": { "enum": ["gcp-mig-container", "gcp-cloud-run-from-image"] } },
           "required": ["type"]
         }
       },
       "then": {
         "required": ["project", "region", "registry_name"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "gcp-cloud-run-from-image" } },
+        "required": ["type"]
+      },
+      "then": {
+        "required": ["project", "region", "image"]
       }
     },
     {

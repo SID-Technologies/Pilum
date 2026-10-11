@@ -229,3 +229,15 @@ func TestGenerateDeployCommand_ValidatesTokenEnv(t *testing.T) {
 	require.Contains(t, cmd, `if [ -z "$CLOUDFLARE_API_TOKEN" ]`)
 	require.Contains(t, cmd, "Error: CLOUDFLARE_API_TOKEN environment variable is not set")
 }
+
+func TestGenerateInstallCommand_Yarn(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"cloudflare": map[string]any{"package_manager": "yarn"},
+		},
+	}
+
+	require.Equal(t, []string{"yarn", "install", "--frozen-lockfile"}, GenerateInstallCommand(svc))
+}
