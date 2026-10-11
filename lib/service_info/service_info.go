@@ -119,7 +119,11 @@ type ServiceInfo struct {
 	Provider      string         `yaml:"provider"`
 	RegistryName  string         `yaml:"registry_name"`
 	DependsOn     []string       `yaml:"depends_on"`
-	Sidecars      []Sidecar      `yaml:"sidecars"`
+	// Watch lists extra paths (relative to where pilum runs) whose changes
+	// count as this service's for --only-changed, e.g. a shared package
+	// Pilum can't trace on its own.
+	Watch    []string  `yaml:"watch"`
+	Sidecars []Sidecar `yaml:"sidecars"`
 
 	// ImageName + Version are used by gcp-artifact-registry-image to override
 	// the defaults derived from Name. Ignored by deploy-only types.
@@ -234,6 +238,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		Provider:     provider,
 		RegistryName: configutil.GetString(config, "registry_name", ""),
 		DependsOn:    configutil.GetStringSlice(config, "depends_on"),
+		Watch:        configutil.GetStringSlice(config, "watch"),
 		EnvVars:      envVars,
 		Secrets:      secretVars,
 		Sidecars:     sidecars,

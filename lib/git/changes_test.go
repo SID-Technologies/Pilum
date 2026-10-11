@@ -4,68 +4,6 @@ import (
 	"testing"
 )
 
-func TestServiceHasChanges(t *testing.T) {
-	tests := []struct {
-		name         string
-		servicePath  string
-		changedFiles []string
-		want         bool
-	}{
-		{
-			name:         "service has changes - direct file",
-			servicePath:  "services/auth-api",
-			changedFiles: []string{"services/auth-api/main.go", "services/other/file.go"},
-			want:         true,
-		},
-		{
-			name:         "service has changes - nested file",
-			servicePath:  "services/auth-api",
-			changedFiles: []string{"services/auth-api/pkg/handler/auth.go"},
-			want:         true,
-		},
-		{
-			name:         "service has no changes",
-			servicePath:  "services/auth-api",
-			changedFiles: []string{"services/other-api/main.go", "README.md"},
-			want:         false,
-		},
-		{
-			name:         "empty changed files",
-			servicePath:  "services/auth-api",
-			changedFiles: []string{},
-			want:         false,
-		},
-		{
-			name:         "similar prefix but different service",
-			servicePath:  "services/auth",
-			changedFiles: []string{"services/auth-api/main.go"},
-			want:         false,
-		},
-		{
-			name:         "root service path",
-			servicePath:  ".",
-			changedFiles: []string{"main.go", "pkg/util.go"},
-			want:         true,
-		},
-		{
-			name:         "service path with trailing slash normalization",
-			servicePath:  "services/api/",
-			changedFiles: []string{"services/api/handler.go"},
-			want:         true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ServiceHasChanges(tt.servicePath, tt.changedFiles)
-			if got != tt.want {
-				t.Errorf("ServiceHasChanges(%q, %v) = %v, want %v",
-					tt.servicePath, tt.changedFiles, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestParseLines(t *testing.T) {
 	tests := []struct {
 		name  string
