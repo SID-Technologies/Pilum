@@ -2,6 +2,11 @@
 // of values from map[string]any configurations (typically parsed from YAML).
 package configutil
 
+import (
+	"fmt"
+	"strconv"
+)
+
 // GetString extracts a string value from a map, returning the default if not found or wrong type.
 func GetString(m map[string]any, key string, def string) string {
 	val, ok := m[key]
@@ -86,6 +91,86 @@ func MapFromAny(v any) map[string]any {
 	}
 
 	return map[string]any{}
+}
+
+// StringMap reads a KEY: value block such as env_vars or secrets. It accepts
+// a map, or a list of {name, value} entries, and turns scalar values
+// (numbers, booleans) into strings. Anything it can't read is reported in
+// problems instead of being dropped, because a dropped block reads as "no
+// values" and deploy targets then clear what is live.
+func StringMap(v any) (map[string]string, []string) {
+	result := map[string]string{}
+
+	switch block := v.(type) {
+	case nil:
+		return result, nil
+	case map[string]any:
+		var problems []string
+		for k, raw := range block {
+			s, ok := scalarString(raw)
+			if !ok {
+				problems = append(problems, fmt.Sprintf("%s must be a string, number or boolean", k))
+				continue
+			}
+
+			result[k] = s
+		}
+
+		return result, problems
+	case []any:
+		return stringMapFromList(block)
+	}
+
+	return result, []string{"must be a map of KEY: value or a list of {name, value}"}
+}
+
+func stringMapFromList(list []any) (map[string]string, []string) {
+	result := map[string]string{}
+	var problems []string
+
+	for i, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			problems = append(problems, fmt.Sprintf("entry %d must be {name, value}", i+1))
+			continue
+		}
+
+		name, ok := entry["name"].(string)
+		if !ok || name == "" {
+			problems = append(problems, fmt.Sprintf("entry %d is missing name", i+1))
+			continue
+		}
+
+		s, ok := scalarString(entry["value"])
+		if !ok {
+			problems = append(problems, fmt.Sprintf("%s must have a string, number or boolean value", name))
+			continue
+		}
+
+		result[name] = s
+	}
+
+	return result, problems
+}
+
+// scalarString formats a YAML scalar. A missing value (nil) is not a scalar.
+func scalarString(v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		return val, true
+	case bool:
+		return strconv.FormatBool(val), true
+	case int:
+		return strconv.Itoa(val), true
+	case int64:
+		return strconv.FormatInt(val, 10), true
+	case uint64:
+		return strconv.FormatUint(val, 10), true
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64), true
+	}
+
+	return "", false
 }
 
 // DeepMerge merges src into dst recursively, returning a new map.

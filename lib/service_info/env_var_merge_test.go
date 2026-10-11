@@ -94,11 +94,12 @@ func TestEnvVars_NestedContainerApp_AlsoMerged(t *testing.T) {
 	require.Equal(t, "tenant-xyz", got["AZURE_TENANT_ID"])
 }
 
-func TestEnvVars_MalformedTopLevelValue_SkippedNotFatal(t *testing.T) {
+func TestEnvVars_NumericTopLevelValue_Stringified(t *testing.T) {
 	t.Parallel()
 
 	svc := serviceinfo.NewServiceInfo(map[string]any{
-		"name": "api",
+		"name":     "api",
+		"provider": "gcp",
 		"env_vars": map[string]any{
 			"GOOD": "ok",
 			"BAD":  42,
@@ -109,14 +110,16 @@ func TestEnvVars_MalformedTopLevelValue_SkippedNotFatal(t *testing.T) {
 
 	got := envVarMap(t, svc.EnvVars)
 	require.Equal(t, "ok", got["GOOD"])
-	require.NotContains(t, got, "BAD")
+	require.Equal(t, "42", got["BAD"])
+	require.NoError(t, svc.Validate())
 }
 
-func TestEnvVars_MalformedNestedValue_SkippedNotFatal(t *testing.T) {
+func TestEnvVars_NumericNestedValue_Stringified(t *testing.T) {
 	t.Parallel()
 
 	svc := serviceinfo.NewServiceInfo(map[string]any{
-		"name": "api",
+		"name":     "api",
+		"provider": "gcp",
 		"cloud_run": map[string]any{
 			"env_vars": map[string]any{
 				"GOOD": "ok",
@@ -129,7 +132,8 @@ func TestEnvVars_MalformedNestedValue_SkippedNotFatal(t *testing.T) {
 
 	got := envVarMap(t, svc.EnvVars)
 	require.Equal(t, "ok", got["GOOD"])
-	require.NotContains(t, got, "BAD")
+	require.Equal(t, "42", got["BAD"])
+	require.NoError(t, svc.Validate())
 }
 
 func TestNewServiceInfoMergesMIGEnvVars(t *testing.T) {
@@ -146,4 +150,83 @@ func TestNewServiceInfoMergesMIGEnvVars(t *testing.T) {
 
 	require.Equal(t, map[string]string{"PORT": "3128", "LOG_LEVEL": "info"}, envVarMap(t, svc.EnvVars),
 		"top-level wins, like cloud_run.env_vars")
+}
+
+// A list of {name, value} is read like a map. It used to be dropped, which
+// made Cloud Run deploys send --clear-secrets and wipe live secrets.
+func TestSecretsAndEnvVars_ListForm(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.NewServiceInfo(map[string]any{
+		"name":     "api",
+		"provider": "gcp",
+		"env_vars": []any{
+			map[string]any{"name": "LOG_LEVEL", "value": "info"},
+			map[string]any{"name": "PORT", "value": 8080},
+		},
+		"secrets": []any{
+			map[string]any{"name": "DB_PASSWORD", "value": "db-password:latest"},
+		},
+	}, "services/api")
+
+	require.NoError(t, svc.Validate())
+	require.Equal(t, map[string]string{"LOG_LEVEL": "info", "PORT": "8080"}, envVarMap(t, svc.EnvVars))
+	require.Equal(t, []serviceinfo.Secrets{{Name: "DB_PASSWORD", Value: "db-password:latest"}}, svc.Secrets)
+}
+
+// A block Pilum can't read fails validation instead of deploying as if the
+// service had no secrets.
+func TestSecretsAndEnvVars_UnreadableFailsValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		config map[string]any
+		want   string
+	}{
+		{
+			name:   "secrets as a string",
+			config: map[string]any{"secrets": "DB_PASSWORD"},
+			want:   "secrets: must be a map",
+		},
+		{
+			name:   "secret with no value",
+			config: map[string]any{"secrets": map[string]any{"DB_PASSWORD": nil}},
+			want:   "secrets: DB_PASSWORD must be a string",
+		},
+		{
+			name:   "list entry without name",
+			config: map[string]any{"env_vars": []any{map[string]any{"value": "x"}}},
+			want:   "env_vars: entry 1 is missing name",
+		},
+		{
+			name: "nested env var holding a map",
+			config: map[string]any{"cloud_run": map[string]any{
+				"env_vars": map[string]any{"OPTS": map[string]any{"a": "b"}},
+			}},
+			want: "cloud_run.env_vars: OPTS must be a string",
+		},
+		{
+			name: "sidecar secrets as a list of strings",
+			config: map[string]any{"sidecars": []any{map[string]any{
+				"name": "proxy", "image": "proxy:1", "secrets": []any{"TOKEN"},
+			}}},
+			want: "sidecars.proxy.secrets: entry 1 must be {name, value}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			config := map[string]any{"name": "api", "provider": "gcp"}
+			for k, v := range tt.config {
+				config[k] = v
+			}
+
+			err := serviceinfo.NewServiceInfo(config, "services/api").Validate()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.want)
+		})
+	}
 }

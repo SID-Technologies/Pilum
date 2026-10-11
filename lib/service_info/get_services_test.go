@@ -103,17 +103,14 @@ func TestFindServicesMissingName(t *testing.T) {
 	svcDir := filepath.Join(tmpDir, "noname")
 	require.NoError(t, os.MkdirAll(svcDir, 0755))
 
-	// Write YAML without name field
-	// Note: There's a bug in get_services.go:54 where it wraps a nil error
-	// This test documents the current (buggy) behavior - it panics
 	content := `provider: gcp
 region: us-central1
 `
 	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(content), 0644))
 
-	require.Panics(t, func() {
-		_, _ = serviceinfo.FindServices(tmpDir)
-	})
+	_, err := serviceinfo.FindServices(tmpDir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing required field 'name'")
 }
 
 func TestFindServicesNonExistentDirectory(t *testing.T) {

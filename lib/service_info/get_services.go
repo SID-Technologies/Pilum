@@ -241,9 +241,8 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 		}
 
 		_, hasName := config["name"]
-
 		if !hasName {
-			return errors.Wrap(err, "error parsing %s", path)
+			return errors.New("%s: missing required field 'name'", path)
 		}
 
 		// Apply environment overrides if --env is specified

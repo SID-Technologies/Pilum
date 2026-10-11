@@ -529,3 +529,54 @@ func TestGetNestedString(t *testing.T) {
 		})
 	}
 }
+
+func TestStringMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		in       any
+		want     map[string]string
+		problems []string
+	}{
+		{name: "nil", in: nil, want: map[string]string{}},
+		{
+			name: "map with scalars",
+			in:   map[string]any{"A": "x", "PORT": 8080, "DEBUG": true, "RATIO": 0.5},
+			want: map[string]string{"A": "x", "PORT": "8080", "DEBUG": "true", "RATIO": "0.5"},
+		},
+		{
+			name: "list of name/value",
+			in:   []any{map[string]any{"name": "A", "value": "x"}, map[string]any{"name": "B", "value": 2}},
+			want: map[string]string{"A": "x", "B": "2"},
+		},
+		{
+			name:     "map value missing",
+			in:       map[string]any{"A": nil, "B": "ok"},
+			want:     map[string]string{"B": "ok"},
+			problems: []string{"A must be a string, number or boolean"},
+		},
+		{
+			name:     "list entry not a map",
+			in:       []any{"A=x"},
+			want:     map[string]string{},
+			problems: []string{"entry 1 must be {name, value}"},
+		},
+		{
+			name:     "scalar block",
+			in:       "A=x",
+			want:     map[string]string{},
+			problems: []string{"must be a map of KEY: value or a list of {name, value}"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, problems := configutil.StringMap(tt.in)
+			require.Equal(t, tt.want, got)
+			require.Equal(t, tt.problems, problems)
+		})
+	}
+}
