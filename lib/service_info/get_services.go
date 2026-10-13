@@ -10,7 +10,6 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
-	"github.com/sid-technologies/pilum/lib/git"
 	"github.com/sid-technologies/pilum/lib/graph"
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/shellutil"
@@ -22,8 +21,6 @@ import (
 // FilterOptions configures how services are filtered.
 type FilterOptions struct {
 	Names       []string // Service names to filter by (supports glob patterns like "api-*")
-	OnlyChanged bool     // Only include services with git changes
-	Since       string   // Git ref to compare against (default: main/master)
 	NoGitIgnore bool     // Skip reading .gitignore patterns
 	Env         string   // Environment name to apply (merges overrides from environments block)
 	Provider    string   // Filter by provider (e.g., "gcp", "aws")
@@ -57,95 +54,7 @@ func FindAndFilterServicesWithOptions(root string, opts FilterOptions) ([]Servic
 		output.Debugf("Filtered by provider to %d services", len(services))
 	}
 
-	// Filter by git changes if requested
-	if opts.OnlyChanged {
-		services, err = FilterByChanges(services, opts.Since)
-		if err != nil {
-			return nil, err
-		}
-		output.Debugf("Filtered by changes to %d services", len(services))
-	}
-
 	return services, nil
-}
-
-// FilterByChanges filters services to only those with git changes since the given ref.
-// It also includes services that depend on changed services (transitive dependents).
-func FilterByChanges(services []ServiceInfo, since string) ([]ServiceInfo, error) {
-	if !git.IsGitRepository() {
-		output.Warning("Not a git repository, --only-changed has no effect")
-		return services, nil
-	}
-
-	changedFiles, err := git.ChangedFiles(since)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to detect changed files")
-	}
-
-	// Also include uncommitted changes
-	uncommitted, err := git.ChangedFilesUncommitted()
-	if err != nil {
-		output.Debugf("Could not get uncommitted changes: %v", err)
-	} else {
-		changedFiles = append(changedFiles, uncommitted...)
-	}
-
-	if len(changedFiles) == 0 {
-		output.Info("No changes detected")
-		return nil, nil
-	}
-
-	output.Debugf("Changed files: %v", changedFiles)
-
-	// Build dependency graph
-	g := graph.New()
-	serviceMap := make(map[string]ServiceInfo)
-	for _, svc := range services {
-		g.AddNode(svc.Name, svc.DependsOn)
-		serviceMap[svc.Name] = svc
-	}
-
-	// Find directly changed services
-	directlyChanged := make(map[string]bool)
-	for _, svc := range services {
-		if git.ServiceHasChanges(svc.Path, changedFiles) {
-			directlyChanged[svc.Name] = true
-			output.Debugf("Service %s has direct changes", svc.DisplayName())
-		}
-	}
-
-	// Propagate changes to dependents
-	allChanged := g.PropagateChanges(directlyChanged)
-
-	// Log propagated changes
-	for name := range allChanged {
-		if !directlyChanged[name] {
-			output.Debugf("Service %s included (depends on changed service)", name)
-		}
-	}
-
-	// Build result list
-	var changed []ServiceInfo
-	for _, svc := range services {
-		if allChanged[svc.Name] {
-			changed = append(changed, svc)
-		}
-	}
-
-	if len(changed) == 0 {
-		output.Info("No services have changes")
-	} else {
-		directCount := len(directlyChanged)
-		propagatedCount := len(changed) - directCount
-		if propagatedCount > 0 {
-			output.Info("Found %d service(s) with changes (%d direct, %d via dependencies)",
-				len(changed), directCount, propagatedCount)
-		} else {
-			output.Info("Found %d service(s) with changes", len(changed))
-		}
-	}
-
-	return changed, nil
 }
 
 // DefaultMaxDepth is the default maximum directory depth to search for services.

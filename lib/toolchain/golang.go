@@ -83,3 +83,9 @@ func goFlagArgs(svc serviceinfo.ServiceInfo) []string {
 	}
 	return args
 }
+
+// GoBuildFlags returns the build flags that change which packages and files
+// a Go service compiles, such as -tags.
+func GoBuildFlags(svc serviceinfo.ServiceInfo) []string {
+	return goFlagArgs(svc)
+}

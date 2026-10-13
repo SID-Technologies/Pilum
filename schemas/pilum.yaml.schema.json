@@ -86,6 +86,11 @@
         "type": "string"
       }
     },
+    "watch": {
+      "type": "array",
+      "description": "Extra paths, relative to where pilum runs, whose changes count as this service's for --only-changed (e.g. a shared package Pilum can't trace)",
+      "items": { "type": "string" }
+    },
     "env_vars": {
       "description": "Environment variables passed to the deployed service",
       "$ref": "#/$defs/string_map"

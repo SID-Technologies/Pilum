@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sid-technologies/pilum/lib/changes"
 	"github.com/sid-technologies/pilum/lib/ci"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
@@ -166,8 +167,6 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 
 	filterOpts := serviceinfo.FilterOptions{
 		Names:       normalizedArgs,
-		OnlyChanged: opts.OnlyChanged,
-		Since:       opts.Since,
 		NoGitIgnore: NoGitIgnore(),
 		Env:         opts.Env,
 		Provider:    opts.Provider,
@@ -176,6 +175,13 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	services, err := serviceinfo.FindAndFilterServicesWithOptions(".", filterOpts)
 	if err != nil {
 		return exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
+	}
+
+	if opts.OnlyChanged {
+		services, err = changes.Filter(services, changes.Options{Since: opts.Since})
+		if err != nil {
+			return errors.Wrap(err, "error detecting changed services")
+		}
 	}
 
 	if len(services) == 0 {

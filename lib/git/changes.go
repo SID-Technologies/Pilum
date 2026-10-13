@@ -2,50 +2,62 @@ package git
 
 import (
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/sid-technologies/pilum/lib/errors"
 )
 
-// ChangedFiles returns a list of files that have changed since the given reference.
-// If ref is empty, it compares against the default branch (main or master).
-func ChangedFiles(ref string) ([]string, error) {
+// TopLevel returns the absolute path of the repository's root directory.
+func TopLevel() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to find the repository root")
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// ChangedFilesSince returns the files (relative to the repository root)
+// changed between ref and HEAD, and the ref it compared against. An empty
+// ref means the default branch, preferring origin's copy, which is the one
+// a CI checkout has. It errors when the comparison can't be made, e.g. in a
+// shallow clone that lacks ref.
+func ChangedFilesSince(ref string) ([]string, string, error) {
 	if ref == "" {
 		defaultBranch, err := getDefaultBranch()
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		ref = defaultBranch
 	}
 
-	// Get changed files between ref and HEAD
-	// Using merge-base to find common ancestor, then diffing from there
+	// #nosec G204 -- ref is passed as a single argument, never through a shell.
+	err := exec.Command("git", "rev-parse", "--verify", "--quiet", ref+"^{commit}").Run()
+	if err != nil {
+		return nil, ref, errors.Wrap(err, "unknown git ref %s", ref)
+	}
+
+	// Diff from the merge base, so changes made on ref since HEAD branched
+	// off don't count. Without a merge base (shallow history), diff the two
+	// trees directly, which can only report more files, not fewer.
+	base := ref
 	mergeBase, err := getMergeBase(ref)
-	if err != nil {
-		// If merge-base fails (e.g., no common ancestor), diff directly
-		mergeBase = ref
+	if err == nil {
+		base = mergeBase
 	}
 
-	// #nosec G204 - mergeBase is derived from git commands, not user input directly
-	cmd := exec.Command("git", "diff", "--name-only", mergeBase+"...HEAD")
-	output, err := cmd.Output()
+	// #nosec G204 -- base is a ref or commit, passed as a single argument.
+	out, err := exec.Command("git", "diff", "--name-only", "--no-relative", base, "HEAD").Output()
 	if err != nil {
-		// Try without the triple-dot notation (direct diff)
-		// #nosec G204 - mergeBase is derived from git commands, not user input directly
-		cmd = exec.Command("git", "diff", "--name-only", mergeBase, "HEAD")
-		output, err = cmd.Output()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get changed files")
-		}
+		return nil, ref, errors.Wrap(err, "failed to get changed files")
 	}
 
-	return parseLines(string(output)), nil
+	return parseLines(string(out)), ref, nil
 }
 
-// ChangedFilesUncommitted returns files that have uncommitted changes (staged or unstaged).
+// ChangedFilesUncommitted returns files (relative to the repository root)
+// that have uncommitted changes, staged or not, and untracked files.
 func ChangedFilesUncommitted() ([]string, error) {
-	cmd := exec.Command("git", "diff", "--name-only", "HEAD")
+	cmd := exec.Command("git", "diff", "--name-only", "--no-relative", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get uncommitted changes")
@@ -54,7 +66,7 @@ func ChangedFilesUncommitted() ([]string, error) {
 	staged := parseLines(string(output))
 
 	// Also get untracked files
-	cmd = exec.Command("git", "ls-files", "--others", "--exclude-standard")
+	cmd = exec.Command("git", "ls-files", "--others", "--exclude-standard", "--full-name")
 	output, err = cmd.Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get untracked files")
@@ -65,53 +77,28 @@ func ChangedFilesUncommitted() ([]string, error) {
 	return append(staged, untracked...), nil
 }
 
-// ServiceHasChanges checks if a service directory has any changed files.
-// servicePath is the relative path to the service directory.
-func ServiceHasChanges(servicePath string, changedFiles []string) bool {
-	// Normalize the service path
-	servicePath = filepath.Clean(servicePath)
-
-	// Check if any changed file is within the service directory
-	for _, file := range changedFiles {
-		file = filepath.Clean(file)
-
-		// Check if file is in the service directory
-		if strings.HasPrefix(file, servicePath+string(filepath.Separator)) || file == servicePath {
-			return true
-		}
-
-		// Handle case where service is at root (path is ".")
-		if servicePath == "." {
-			return true
-		}
-	}
-
-	return false
-}
-
-// getDefaultBranch returns the default branch name (main or master).
+// getDefaultBranch returns the default branch to compare against: origin's
+// copy (origin/main) when it exists, else a local main or master.
 func getDefaultBranch() (string, error) {
-	// Try to get the default branch from remote
-	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD")
-	output, err := cmd.Output()
+	name := ""
+	out, err := exec.Command("git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD").Output()
 	if err == nil {
-		// Parse output like "refs/remotes/origin/main"
-		ref := strings.TrimSpace(string(output))
-		parts := strings.Split(ref, "/")
-		if len(parts) > 0 {
-			return parts[len(parts)-1], nil
-		}
+		name = strings.TrimPrefix(strings.TrimSpace(string(out)), "origin/")
 	}
 
-	// Fallback: check if main or master exists
-	for _, branch := range []string{"main", "master"} {
-		cmd = exec.Command("git", "rev-parse", "--verify", branch)
-		if err := cmd.Run(); err == nil {
+	candidates := []string{"origin/main", "origin/master", "main", "master"}
+	if name != "" {
+		candidates = append([]string{"origin/" + name, name}, candidates...)
+	}
+	for _, branch := range candidates {
+		// #nosec G204 -- branch is one of the fixed names above or origin's HEAD.
+		err := exec.Command("git", "rev-parse", "--verify", "--quiet", branch+"^{commit}").Run()
+		if err == nil {
 			return branch, nil
 		}
 	}
 
-	return "", errors.New("could not determine default branch")
+	return "", errors.New("could not determine the default branch; pass --since")
 }
 
 // getMergeBase returns the merge base between the given ref and HEAD.
