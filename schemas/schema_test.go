@@ -3,6 +3,8 @@ package schemas_test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -295,4 +297,52 @@ func TestSchemaMIGContainer(t *testing.T) {
 	// ...and is exempt from the gcp rule's registry_name: it pushes to `image`.
 	gcp := findConditionalRule(schema["allOf"].([]any), "gcp")
 	require.NotNil(t, gcp["if"].(map[string]any)["not"])
+}
+
+// configKeyPattern matches the keys a config parser reads, such as
+// configutil.GetString(cloudRunMap, "ingress", "").
+var configKeyPattern = regexp.MustCompile(`(?:configutil\.Get\w+|optionalBool)\(\w+, "([a-z0-9_]+)"`)
+
+// Every key a provider's config parser reads must be in the schema, so the
+// next new key fails here until the schema documents it. Each schema block
+// sets additionalProperties: false, so a missing key is an editor error.
+func TestSchemaCoversParsedConfigKeys(t *testing.T) {
+	t.Parallel()
+
+	parsers := map[string]string{
+		"cloud_run":     "../ingredients/gcp/config.go",
+		"job":           "../ingredients/gcp/cloud_run_job_config.go",
+		"mig":           "../ingredients/gcp/mig_config.go",
+		"npm":           "../ingredients/npm/config.go",
+		"cloudflare":    "../ingredients/cloudflare/config.go",
+		"container_app": "../ingredients/azure/config.go",
+		"homebrew":      "../ingredients/homebrew/config.go",
+	}
+
+	defs := loadSchema(t)["$defs"].(map[string]any)
+
+	for def, source := range parsers {
+		src, err := os.ReadFile(filepath.Clean(source))
+		require.NoError(t, err)
+
+		matches := configKeyPattern.FindAllStringSubmatch(string(src), -1)
+		require.NotEmpty(t, matches, "no config keys found in %s", source)
+
+		props := defs[def].(map[string]any)["properties"].(map[string]any)
+		for _, m := range matches {
+			require.Contains(t, props, m[1], "%s reads %s.%s but the schema doesn't list it", source, def, m[1])
+		}
+	}
+}
+
+// Nested env_vars blocks are merged into the service's env vars
+// (service_info.mergeEnvVarSources), so each target block accepts them.
+func TestSchemaTargetBlocksAcceptEnvVars(t *testing.T) {
+	t.Parallel()
+
+	defs := loadSchema(t)["$defs"].(map[string]any)
+	for _, def := range []string{"cloud_run", "container_app", "lambda", "mig"} {
+		props := defs[def].(map[string]any)["properties"].(map[string]any)
+		require.Contains(t, props, "env_vars", def)
+	}
 }

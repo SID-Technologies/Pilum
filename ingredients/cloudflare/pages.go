@@ -8,12 +8,16 @@ import (
 )
 
 // GenerateInstallCommand creates the dependency install command.
-// Uses npm ci or pnpm install --frozen-lockfile based on package_manager config.
+// Uses npm ci, pnpm install or yarn install from the lockfile, based on the
+// package_manager config.
 func GenerateInstallCommand(svc serviceinfo.ServiceInfo) []string {
 	cfg := ParseConfig(svc.Config)
 
-	if cfg.PackageManager == "pnpm" {
+	switch cfg.PackageManager {
+	case "pnpm":
 		return []string{"pnpm", "install", "--frozen-lockfile"}
+	case "yarn":
+		return []string{"yarn", "install", "--frozen-lockfile"}
 	}
 	return []string{"npm", "ci"}
 }
