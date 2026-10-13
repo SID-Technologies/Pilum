@@ -43,10 +43,11 @@ func TestIsValidService(t *testing.T) {
 	}{
 		{"gcp cloud-run", "gcp", "cloud-run", true},
 		{"gcp cloud-run-job", "gcp", "cloud-run-job", true},
-		{"gcp gke", "gcp", "gke", true},
+		{"gcp mig-container", "gcp", "mig-container", true},
+		{"gcp gke", "gcp", "gke", false},
 		{"gcp invalid", "gcp", "invalid", false},
 		{"aws lambda", "aws", "lambda", true},
-		{"aws ecs", "aws", "ecs", true},
+		{"aws ecs", "aws", "ecs", false},
 		{"homebrew empty", "homebrew", "", true},
 		{"homebrew with service", "homebrew", "something", false},
 		{"npm empty", "npm", "", true},
@@ -80,11 +81,10 @@ func TestGetServices(t *testing.T) {
 	gcpServices := providers.GetServices("gcp")
 	require.Contains(t, gcpServices, "cloud-run")
 	require.Contains(t, gcpServices, "cloud-run-job")
-	require.Contains(t, gcpServices, "gke")
+	require.Contains(t, gcpServices, "mig-container")
 
 	awsServices := providers.GetServices("aws")
 	require.Contains(t, awsServices, "lambda")
-	require.Contains(t, awsServices, "ecs")
 
 	homebrewServices := providers.GetServices("homebrew")
 	require.Empty(t, homebrewServices)
@@ -103,7 +103,7 @@ func TestGetAllRecipeKeys(t *testing.T) {
 
 	require.Contains(t, keys, "gcp-cloud-run")
 	require.Contains(t, keys, "gcp-cloud-run-job")
-	require.Contains(t, keys, "gcp-gke")
+	require.Contains(t, keys, "gcp-mig-container")
 	require.Contains(t, keys, "aws-lambda")
 	require.Contains(t, keys, "homebrew")
 	require.Contains(t, keys, "npm")

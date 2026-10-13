@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
@@ -50,11 +52,9 @@ func CheckCmd() *cobra.Command {
 				return nil, nil
 			}
 
-			// Index recipes by composite key (e.g., "gcp-cloud-run")
-			recipeMap := make(map[string]*recipe.Recipe)
-			for i := range recipes {
-				recipeMap[recipes[i].RecipeKey()] = &recipes[i].Recipe
-			}
+			// The same lookup the pipeline uses, so check passes only what
+			// deploy can run.
+			recipeIndex := recipe.NewIndex(recipes)
 
 			// Validate each service, collecting results for JSON
 			type checkResult struct {
@@ -92,20 +92,28 @@ func CheckCmd() *cobra.Command {
 				}
 
 				// Recipe-specific validation
-				recipe, exists := recipeMap[recipeKey]
-				if !exists {
-					// Use providers registry for suggestions
+				recipe, lookupErr := recipeIndex.Lookup(&service)
+				if lookupErr != nil {
+					allValid = false
+					message := lookupErr.Error()
 					suggestion := suggest.FormatSuggestion(recipeKey, providers.GetAllRecipeKeys())
-					if suggestion != "" {
-						output.Warning("    No recipe found for '%s' - %s", recipeKey, suggestion)
-					} else {
-						output.Warning("    No recipe found for '%s'", recipeKey)
+					if suggestion != "" && strings.HasPrefix(message, "no recipe") {
+						message += " - " + suggestion
 					}
+					validationErr := exitcodes.WithCode(exitcodes.Config,
+						errors.New("error checking service %s: %s", service.Name, message))
 					results = append(results, checkResult{
 						Service: service.Name,
 						Recipe:  recipeKey,
-						Valid:   true,
+						Valid:   false,
+						Error:   message,
 					})
+					if firstErr == nil {
+						firstErr = validationErr
+					}
+					if !output.IsJSON() {
+						return nil, validationErr
+					}
 					continue
 				}
 
@@ -136,7 +144,9 @@ func CheckCmd() *cobra.Command {
 				})
 			}
 
-			output.Success("All services are valid")
+			if allValid {
+				output.Success("All services are valid")
+			}
 
 			jsonResult := struct {
 				Success bool          `json:"success"`

@@ -243,10 +243,7 @@ func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step, t
 	if step.Timeout > 0 {
 		timeout = step.Timeout
 	}
-	retries := p.options.Retries
-	if step.Retries > 0 {
-		retries = step.Retries
-	}
+	retries := stepRetries(step, p.options)
 
 	// Build env vars from step and service
 	envVars := make(map[string]string)
@@ -277,4 +274,17 @@ func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step, t
 	result.Error = err
 
 	return result
+}
+
+// stepRetries picks a step's retry count: the step's retries, then --retries
+// when it was given, then the step's default_retries, then the --retries
+// default.
+func stepRetries(step *recipe.Step, opts types.PipelineOptions) int {
+	if step.Retries > 0 {
+		return step.Retries
+	}
+	if step.DefaultRetries > 0 && !opts.RetriesSet {
+		return step.DefaultRetries
+	}
+	return opts.Retries
 }

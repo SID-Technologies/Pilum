@@ -41,7 +41,10 @@ type Step struct {
 	Timeout       int               `yaml:"timeout,omitempty"`
 	Debug         bool              `yaml:"debug,omitempty"`
 	Retries       int               `yaml:"retries,omitempty"`
-	Tags          []string          `yaml:"tags,omitempty"` // Tags for filtering (e.g., "deploy", "build")
+	// DefaultRetries applies when neither the step's retries nor --retries
+	// is set.
+	DefaultRetries int      `yaml:"default_retries,omitempty"`
+	Tags           []string `yaml:"tags,omitempty"` // Tags for filtering (e.g., "deploy", "build")
 
 	// AlwaysRun marks the step as a cleanup/restore step that must execute even
 	// when an earlier step in the pipeline failed. Think of it as Go's defer or

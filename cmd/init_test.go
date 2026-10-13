@@ -6,10 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sid-technologies/pilum/lib/providers"
 	"github.com/sid-technologies/pilum/lib/recipe"
 	"github.com/sid-technologies/pilum/lib/templates"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestGenerateServiceYAML(t *testing.T) {
@@ -28,7 +30,7 @@ func TestGenerateServiceYAML(t *testing.T) {
 		EnvVars:  map[string]string{"CGO_ENABLED": "0"},
 	}
 
-	yaml := generateServiceYAML("gcp", "cloud-run", values, buildConfig)
+	yaml := generateServiceYAML("gcp", "cloud-run", values, nil, buildConfig)
 
 	require.Contains(t, yaml, "name: my-service")
 	require.Contains(t, yaml, "provider: gcp")
@@ -53,7 +55,7 @@ func TestGenerateServiceYAMLWithNestedKeys(t *testing.T) {
 		Cmd:      "go build -o ./dist",
 	}
 
-	yaml := generateServiceYAML("homebrew", "", values, buildConfig)
+	yaml := generateServiceYAML("homebrew", "", values, nil, buildConfig)
 
 	require.Contains(t, yaml, "name: my-cli")
 	require.Contains(t, yaml, "provider: homebrew")
@@ -74,7 +76,7 @@ func TestGenerateServiceYAMLNoService(t *testing.T) {
 		Cmd:      "go build -o ./dist",
 	}
 
-	yaml := generateServiceYAML("homebrew", "", values, buildConfig)
+	yaml := generateServiceYAML("homebrew", "", values, nil, buildConfig)
 
 	require.Contains(t, yaml, "name: my-service")
 	require.Contains(t, yaml, "provider: homebrew")
@@ -109,6 +111,62 @@ func TestFindRecipeByKey(t *testing.T) {
 	// No match for unknown provider/service
 	recipe = findRecipeByKey(recipes, "azure", "container-apps")
 	require.Nil(t, recipe)
+}
+
+// Every service `pilum init` offers must have a recipe, or init writes a
+// pilum.yaml that check rejects and deploy can't run.
+func TestInitOffersOnlyServicesWithRecipes(t *testing.T) {
+	t.Parallel()
+
+	recipes, err := recipe.LoadEmbeddedRecipes()
+	require.NoError(t, err)
+
+	for _, provider := range providers.GetProviders() {
+		if provider == "test" || provider == "unknown" {
+			continue
+		}
+
+		services := providers.GetServices(provider)
+		if len(services) == 0 {
+			require.NotNil(t, findRecipeByKey(recipes, provider, ""), provider)
+			continue
+		}
+
+		for _, service := range services {
+			require.NotNil(t, findRecipeByKey(recipes, provider, service), provider+"-"+service)
+		}
+	}
+}
+
+// `cpu: 1` parses as a number, which Cloud Run's config reads as missing;
+// string fields are quoted and int/bool fields are not.
+func TestGenerateServiceYAMLQuotesByFieldType(t *testing.T) {
+	t.Parallel()
+
+	recipes, err := recipe.LoadEmbeddedRecipes()
+	require.NoError(t, err)
+
+	rec := findRecipeByKey(recipes, "gcp", "cloud-run")
+	require.NotNil(t, rec)
+
+	values := map[string]string{
+		"name":                            "api",
+		"cloud_run.cpu":                   "1",
+		"cloud_run.min_instances":         "0",
+		"cloud_run.allow_unauthenticated": "true",
+	}
+	buildConfig := &templates.BuildConfig{Language: "go", Version: "1.23", Cmd: "go build"}
+
+	out := generateServiceYAML("gcp", "cloud-run", values, fieldTypes(rec), buildConfig)
+
+	var parsed map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(out), &parsed))
+
+	cloudRun, ok := parsed["cloud_run"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "1", cloudRun["cpu"])
+	require.Equal(t, 0, cloudRun["min_instances"])
+	require.Equal(t, true, cloudRun["allow_unauthenticated"])
 }
 
 func TestMustGetwd(t *testing.T) {

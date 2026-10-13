@@ -1,23 +1,23 @@
-# Supported providers and their deployment services
+# Supported providers and their deployment services. Each provider-service
+# pair must name a recipe in recipes/ (provider-service-recipe.yaml); a
+# provider with no services must have exactly one recipe.
 providers:
   gcp:
     name: Google Cloud Platform
     services:
       - cloud-run
       - cloud-run-job
-      - gke
-      - cloud-functions
+      - cloud-run-from-image
+      - artifact-registry-image
+      - mig-container
   aws:
     name: Amazon Web Services
     services:
       - lambda
-      - ecs
-      - fargate
   azure:
     name: Microsoft Azure
     services:
       - container-apps
-      - functions
   homebrew:
     name: Homebrew
     services: []
