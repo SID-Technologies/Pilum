@@ -1,6 +1,9 @@
 package npm
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
@@ -257,4 +260,41 @@ func TestGeneratePublishCommand_EmptyConfig(t *testing.T) {
 	// Should still produce a valid script with defaults
 	require.Contains(t, cmd, "npm publish --access 'restricted'")
 	require.Contains(t, cmd, "npm.pkg.github.com")
+}
+
+// The publish script must hand npm the token without leaving it in the
+// service directory, and must not touch a .npmrc the project already has.
+func TestGeneratePublishCommand_LeavesNoTokenBehind(t *testing.T) {
+	t.Parallel()
+
+	svcDir := t.TempDir()
+	binDir := t.TempDir()
+	seen := filepath.Join(t.TempDir(), "seen")
+
+	// A fake npm records the user config it was given.
+	fakeNpm := "#!/bin/sh\ncat \"$NPM_CONFIG_USERCONFIG\" > " + seen + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(binDir, "npm"), []byte(fakeNpm), 0o755))
+
+	projectNpmrc := "engine-strict=true\n"
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, ".npmrc"), []byte(projectNpmrc), 0o600))
+
+	svc := serviceinfo.ServiceInfo{
+		Config: map[string]any{
+			"npm": map[string]any{"scope": "@myorg", "token_env": "NPM_TOKEN"},
+		},
+	}
+
+	cmd := exec.Command("/bin/sh", "-c", GeneratePublishCommand(svc))
+	cmd.Dir = svcDir
+	cmd.Env = []string{"PATH=" + binDir + ":/usr/bin:/bin", "NPM_TOKEN=s3cret"}
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+
+	config, err := os.ReadFile(seen)
+	require.NoError(t, err)
+	require.Contains(t, string(config), "//npm.pkg.github.com/:_authToken=s3cret")
+
+	npmrc, err := os.ReadFile(filepath.Join(svcDir, ".npmrc"))
+	require.NoError(t, err)
+	require.Equal(t, projectNpmrc, string(npmrc))
 }

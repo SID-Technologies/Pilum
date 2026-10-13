@@ -129,6 +129,11 @@ type ServiceInfo struct {
 	// Image is the pre-built image ref for gcp-cloud-run-from-image deploys,
 	// or the repository (no tag) that gcp-mig-container builds and pushes to.
 	Image string `yaml:"image"`
+
+	// configProblems are values pilum.yaml has but Pilum couldn't read.
+	// Validate reports them so a deploy stops before it sends a command
+	// built without them.
+	configProblems []string
 }
 
 // DisplayName returns the service name with region suffix for multi-region deployments.
@@ -157,6 +162,9 @@ func (s *ServiceInfo) Validate() error {
 	if s.Provider == "" {
 		return errors.New("missing required field: provider")
 	}
+	if len(s.configProblems) > 0 {
+		return errors.New("invalid config: %s", strings.Join(s.configProblems, "; "))
+	}
 	return nil
 }
 
@@ -170,12 +178,17 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		}
 	}
 
-	envVars := mergeEnvVarSources(config)
+	var problems []string
 
-	secrets := configutil.MapFromAny(config["secrets"])
+	envVars, envProblems := mergeEnvVarSources(config)
+	problems = append(problems, envProblems...)
+
+	secrets, secretProblems := configutil.StringMap(config["secrets"])
+	problems = append(problems, prefixProblems("secrets", secretProblems)...)
+
 	var secretVars []Secrets
 	for k, v := range secrets {
-		secretVars = append(secretVars, Secrets{Name: k, Value: v.(string)})
+		secretVars = append(secretVars, Secrets{Name: k, Value: v})
 	}
 
 	buildConfig := parseBuildConfig(config)
@@ -202,7 +215,8 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		}
 	}
 
-	sidecars := parseSidecars(config)
+	sidecars, sidecarProblems := parseSidecars(config)
+	problems = append(problems, sidecarProblems...)
 
 	return &ServiceInfo{
 		Name:         configutil.GetString(config, "name", ""),
@@ -226,37 +240,45 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		ImageName:    configutil.GetString(config, "image_name", ""),
 		Version:      configutil.GetString(config, "version", ""),
 		Image:        configutil.GetString(config, "image", ""),
+
+		configProblems: problems,
 	}
+}
+
+func prefixProblems(field string, problems []string) []string {
+	prefixed := make([]string, 0, len(problems))
+	for _, p := range problems {
+		prefixed = append(prefixed, field+": "+p)
+	}
+
+	return prefixed
 }
 
 // mergeEnvVarSources merges top-level env_vars with target-specific nested
 // blocks (cloud_run.env_vars, mig.env_vars, etc.). Top-level wins on key conflicts.
-func mergeEnvVarSources(config map[string]any) []EnvVars {
+func mergeEnvVarSources(config map[string]any) ([]EnvVars, []string) {
 	merged := make(map[string]string)
+	var problems []string
 
 	for _, nestedKey := range []string{"cloud_run", "container_app", "lambda", "mig"} {
 		nested := configutil.MapFromAny(config[nestedKey])
-		for k, v := range configutil.MapFromAny(nested["env_vars"]) {
-			val, ok := v.(string)
-			if !ok {
-				continue
-			}
+		vars, varProblems := configutil.StringMap(nested["env_vars"])
+		problems = append(problems, prefixProblems(nestedKey+".env_vars", varProblems)...)
 
-			merged[k] = val
+		for k, v := range vars {
+			merged[k] = v
 		}
 	}
 
-	for k, v := range configutil.MapFromAny(config["env_vars"]) {
-		val, ok := v.(string)
-		if !ok {
-			continue
-		}
+	vars, varProblems := configutil.StringMap(config["env_vars"])
+	problems = append(problems, prefixProblems("env_vars", varProblems)...)
 
-		merged[k] = val
+	for k, v := range vars {
+		merged[k] = v
 	}
 
 	if len(merged) == 0 {
-		return nil
+		return nil, problems
 	}
 
 	envVars := make([]EnvVars, 0, len(merged))
@@ -264,16 +286,17 @@ func mergeEnvVarSources(config map[string]any) []EnvVars {
 		envVars = append(envVars, EnvVars{Name: k, Value: v})
 	}
 
-	return envVars
+	return envVars, problems
 }
 
-func parseSidecars(config map[string]any) []Sidecar {
+func parseSidecars(config map[string]any) ([]Sidecar, []string) {
 	raw, ok := config["sidecars"].([]any)
 	if !ok || len(raw) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	sidecars := make([]Sidecar, 0, len(raw))
+	var problems []string
 
 	for _, item := range raw {
 		entry, ok := item.(map[string]any)
@@ -281,13 +304,15 @@ func parseSidecars(config map[string]any) []Sidecar {
 			continue
 		}
 
-		sidecars = append(sidecars, parseSidecar(entry))
+		sidecar, sidecarProblems := parseSidecar(entry)
+		sidecars = append(sidecars, sidecar)
+		problems = append(problems, sidecarProblems...)
 	}
 
-	return sidecars
+	return sidecars, problems
 }
 
-func parseSidecar(entry map[string]any) Sidecar {
+func parseSidecar(entry map[string]any) (Sidecar, []string) {
 	s := Sidecar{
 		Name:      configutil.GetString(entry, "name", ""),
 		Image:     configutil.GetString(entry, "image", ""),
@@ -299,22 +324,18 @@ func parseSidecar(entry map[string]any) Sidecar {
 		DependsOn: configutil.GetStringSlice(entry, "depends_on"),
 	}
 
-	for k, v := range configutil.MapFromAny(entry["env_vars"]) {
-		val, ok := v.(string)
-		if !ok {
-			continue
-		}
+	field := "sidecars." + s.Name
 
-		s.EnvVars = append(s.EnvVars, EnvVars{Name: k, Value: val})
+	envVars, envProblems := configutil.StringMap(entry["env_vars"])
+	problems := prefixProblems(field+".env_vars", envProblems)
+	for k, v := range envVars {
+		s.EnvVars = append(s.EnvVars, EnvVars{Name: k, Value: v})
 	}
 
-	for k, v := range configutil.MapFromAny(entry["secrets"]) {
-		val, ok := v.(string)
-		if !ok {
-			continue
-		}
-
-		s.Secrets = append(s.Secrets, Secrets{Name: k, Value: val})
+	secrets, secretProblems := configutil.StringMap(entry["secrets"])
+	problems = append(problems, prefixProblems(field+".secrets", secretProblems)...)
+	for k, v := range secrets {
+		s.Secrets = append(s.Secrets, Secrets{Name: k, Value: v})
 	}
 
 	probeMap := configutil.MapFromAny(entry["startup_probe"])
@@ -329,7 +350,7 @@ func parseSidecar(entry map[string]any) Sidecar {
 		}
 	}
 
-	return s
+	return s, problems
 }
 
 // ExpandMultiRegion expands a service with multiple regions into separate ServiceInfo instances.

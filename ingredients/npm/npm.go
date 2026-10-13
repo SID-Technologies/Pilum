@@ -79,7 +79,11 @@ func GeneratePublishCommand(svc serviceinfo.ServiceInfo) string {
 	access := cfg.Access
 	scope := cfg.Scope
 
-	// Extract the registry host from the URL for .npmrc auth line
+	// The token goes in a temporary user config that is removed on exit, not
+	// in the service's .npmrc, so it is never left in the working tree and
+	// the project's own .npmrc is left as it was.
+	//
+	// Extract the registry host from the URL for the auth line
 	// e.g., "https://npm.pkg.github.com" -> "npm.pkg.github.com"
 	registryHost := strings.TrimPrefix(registry, "https://")
 	registryHost = strings.TrimPrefix(registryHost, "http://")
@@ -89,9 +93,11 @@ func GeneratePublishCommand(svc serviceinfo.ServiceInfo) string {
   echo "Error: %s environment variable is not set"
   exit 1
 fi
-echo "//%s/:_authToken=$%s" > .npmrc
-echo "%s:registry=%s" >> .npmrc
-npm publish --access %s`,
+pilum_npmrc=$(mktemp)
+trap 'rm -f "$pilum_npmrc"' EXIT
+echo "//%s/:_authToken=$%s" > "$pilum_npmrc"
+echo "%s:registry=%s" >> "$pilum_npmrc"
+NPM_CONFIG_USERCONFIG="$pilum_npmrc" npm publish --access %s`,
 		tokenEnv, tokenEnv,
 		shellutil.SanitizeHeredocValue(registryHost), tokenEnv,
 		shellutil.SanitizeHeredocValue(scope), shellutil.SanitizeHeredocValue(registry),
