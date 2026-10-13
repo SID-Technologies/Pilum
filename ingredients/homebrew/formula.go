@@ -75,7 +75,7 @@ FORMULA
 		name, safeTag, quotedChecksumPath,
 		name, safeTag, quotedChecksumPath,
 		// Output path (shell-quoted) and class name (name is validated)
-		quotedFormulaPath, capitalize(name),
+		quotedFormulaPath, formulaClassName(name),
 		// Description, homepage, version, license (all sanitized for heredoc)
 		description, safeProjectURL, safeVersion, license,
 		// Darwin ARM64 (projectURL and tag sanitized, name validated)
@@ -95,10 +95,35 @@ FORMULA
 	return script
 }
 
-// capitalize returns the string with the first letter uppercased.
-func capitalize(s string) string {
-	if len(s) == 0 {
-		return s
+// formulaClassName turns a formula name into the Ruby class Homebrew expects
+// (Formulary.class_s): "my-cli" -> "MyCli", "go@1.22" -> "GoAT122".
+func formulaClassName(name string) string {
+	if name == "" {
+		return name
 	}
-	return strings.ToUpper(s[:1]) + s[1:]
+
+	name = strings.ToUpper(name[:1]) + strings.ToLower(name[1:])
+	name = strings.ReplaceAll(name, "+", "x")
+
+	out := make([]byte, 0, len(name)+2)
+	upperNext := false
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c == '-' || c == '_' || c == '.' || c == ' ':
+			upperNext = true
+			continue
+		case c == '@' && i+1 < len(name) && name[i+1] >= '0' && name[i+1] <= '9':
+			out = append(out, "AT"...)
+			continue
+		case upperNext && c >= 'a' && c <= 'z':
+			c -= 'a' - 'A'
+		default:
+		}
+
+		upperNext = false
+		out = append(out, c)
+	}
+
+	return string(out)
 }

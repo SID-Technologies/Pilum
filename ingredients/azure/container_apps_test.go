@@ -180,3 +180,21 @@ func TestGenerateDeployCommandQuotesUnsafeValues(t *testing.T) {
 
 	require.Contains(t, cmd, "--resource-group 'rg with spaces'")
 }
+
+func TestGenerateDeployCommandEnvVars(t *testing.T) {
+	t.Parallel()
+
+	service := serviceinfo.ServiceInfo{
+		Name:    "myapp",
+		Project: "my-rg",
+		Config:  map[string]any{},
+		EnvVars: []serviceinfo.EnvVars{
+			{Name: "LOG_LEVEL", Value: "info"},
+			{Name: "ALLOWED_ORIGINS", Value: "https://a.dev,https://b.dev"},
+		},
+	}
+
+	cmd := azure.GenerateDeployCommand(service, "myregistry.azurecr.io/myapp:v1")
+
+	require.Contains(t, cmd, "--env-vars 'ALLOWED_ORIGINS=https://a.dev,https://b.dev' 'LOG_LEVEL=info'")
+}

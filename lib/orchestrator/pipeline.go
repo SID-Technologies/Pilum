@@ -201,6 +201,14 @@ func (p *Pipeline) validateServices() error {
 		if err != nil {
 			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
 		}
+
+		if rec.Provider == "azure" && len(svc.Secrets) > 0 {
+			return errors.New("service '%s': secrets are not supported for Azure Container Apps yet; remove them and manage them with 'az containerapp secret set'", svc.Name)
+		}
+
+		if p.needsReleaseVersion(svc, rec) {
+			return errors.New("service '%s': a homebrew release needs a version; pass --tag or set version: in pilum.yaml", svc.Name)
+		}
 	}
 	return nil
 }
@@ -221,6 +229,21 @@ func (p *Pipeline) validateMIGTemplateName(svc serviceinfo.ServiceInfo, rec reci
 		return err
 	}
 	return nil
+}
+
+// needsReleaseVersion reports a homebrew service that would run with no
+// version: its archives, release URLs and formula are all named after the
+// tag, and "latest" names no GitHub release.
+func (p *Pipeline) needsReleaseVersion(svc serviceinfo.ServiceInfo, rec recipe.Recipe) bool {
+	if rec.Provider != "homebrew" || build.ResolveTag(svc, p.options.Tag) != "latest" {
+		return false
+	}
+	for i := range rec.Steps {
+		if !p.shouldSkipStep(&rec.Steps[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 // Results returns the collected task results after a run.

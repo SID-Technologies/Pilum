@@ -175,3 +175,25 @@ func TestGenerateFormulaCommandTestBlock(t *testing.T) {
 	// Should test with --version flag
 	require.Contains(t, result, `system "#{bin}/myapp", "--version"`)
 }
+
+// The formula class must be the name Homebrew derives from the file name,
+// or `brew install` can't load it.
+func TestGenerateFormulaCommandClassName(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"pilum":       "Pilum",
+		"my-cli":      "MyCli",
+		"my_cli.tool": "MyCliTool",
+		"myCLI":       "Mycli",
+	}
+	for name, want := range tests {
+		service := serviceinfo.ServiceInfo{
+			Name:   name,
+			Config: map[string]any{"homebrew": map[string]any{"project_url": "https://github.com/org/x"}},
+		}
+
+		result := homebrew.GenerateFormulaCommand(service, "v1.0.0", "dist", "dist/"+name+".rb")
+		require.Contains(t, result, "class "+want+" < Formula", name)
+	}
+}

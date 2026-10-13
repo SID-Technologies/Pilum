@@ -107,25 +107,25 @@ func TestGenerateDockerBuildCommandWithEnvVars(t *testing.T) {
 		EnvVars: []serviceinfo.EnvVars{
 			{Name: "DATABASE_URL", Value: "postgres://localhost/db"},
 			{Name: "API_KEY", Value: "secret123"},
+			{Name: "ALLOWED_ORIGINS", Value: "https://a.dev,https://b.dev"},
 		},
 	}
 
 	cmd := docker.GenerateDockerBuildCommand(service, "image:tag", "Dockerfile")
 
-	// Should contain env vars as build arg
-	foundEnvArg := false
+	// One --build-arg per variable, sorted, with commas kept inside a value.
+	var buildArgs []string
 	for i, arg := range cmd {
 		if arg == "--build-arg" && i+1 < len(cmd) {
-			val := cmd[i+1]
-			if val != "SERVICE_NAME=services/myservice" {
-				require.Contains(t, val, "DATABASE_URL=")
-				require.Contains(t, val, "API_KEY=")
-				foundEnvArg = true
-				break
-			}
+			buildArgs = append(buildArgs, cmd[i+1])
 		}
 	}
-	require.True(t, foundEnvArg, "env vars build arg not found")
+	require.Equal(t, []string{
+		"SERVICE_NAME=services/myservice",
+		"ALLOWED_ORIGINS=https://a.dev,https://b.dev",
+		"API_KEY=secret123",
+		"DATABASE_URL=postgres://localhost/db",
+	}, buildArgs)
 }
 
 func TestGenerateDockerBuildCommandNoEnvVars(t *testing.T) {

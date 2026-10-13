@@ -35,8 +35,14 @@ func GenerateGCPDeployCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 }
 
 func appendServiceLevelFlags(cmd []string, cfg CloudRunConfig, project string) []string {
-	if cfg.CPUThrottling {
-		cmd = append(cmd, "--cpu-throttling")
+	// false must be sent too: a service deployed with throttling keeps it
+	// until a deploy says otherwise.
+	if cfg.CPUThrottling != nil {
+		if *cfg.CPUThrottling {
+			cmd = append(cmd, "--cpu-throttling")
+		} else {
+			cmd = append(cmd, "--no-cpu-throttling")
+		}
 	}
 
 	if cfg.MinInstances >= 0 {
@@ -174,7 +180,49 @@ func appendSidecarFlags(cmd []string, sc serviceinfo.Sidecar) []string {
 		cmd = append(cmd, "--command="+strings.Join(sc.Command, ","))
 	}
 
+	if probe := startupProbeFlag(sc.StartupProbe); probe != "" {
+		cmd = append(cmd, probe)
+	}
+
 	return cmd
+}
+
+// startupProbeFlag renders a sidecar's startup probe: an HTTP probe when it
+// has a path, otherwise a TCP probe on its port. A sidecar's own port is not
+// sent as --port, since only the ingress container may declare one.
+func startupProbeFlag(probe *serviceinfo.Probe) string {
+	if probe == nil {
+		return ""
+	}
+
+	var fields []string
+	switch {
+	case probe.Path != "":
+		fields = append(fields, "httpGet.path="+probe.Path)
+		if probe.Port > 0 {
+			fields = append(fields, fmt.Sprintf("httpGet.port=%d", probe.Port))
+		}
+	case probe.Port > 0:
+		fields = append(fields, fmt.Sprintf("tcpSocket.port=%d", probe.Port))
+	default:
+		return ""
+	}
+
+	for _, f := range []struct {
+		name  string
+		value int
+	}{
+		{"initialDelaySeconds", probe.InitialDelaySeconds},
+		{"periodSeconds", probe.PeriodSeconds},
+		{"timeoutSeconds", probe.TimeoutSeconds},
+		{"failureThreshold", probe.FailureThreshold},
+	} {
+		if f.value > 0 {
+			fields = append(fields, fmt.Sprintf("%s=%d", f.name, f.value))
+		}
+	}
+
+	return "--startup-probe=" + strings.Join(fields, ",")
 }
 
 // envVarFlags always states the full set: omitting the flag keeps the previous revision's env vars.
