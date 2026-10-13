@@ -7,11 +7,31 @@ import (
 	service "github.com/sid-technologies/pilum/lib/service_info"
 )
 
+// DefaultPlatform is the image platform when build.platform is unset.
+const DefaultPlatform = "linux/amd64"
+
+// cacheTag names the registry tag that holds an image's layer cache.
+const cacheTag = "buildcache"
+
 func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, templatePath string) []string {
-	cmd := []string{
-		"docker", "build",
-		"-t", imageName,
+	platform := service.BuildConfig.Platform
+	if platform == "" {
+		platform = DefaultPlatform
 	}
+
+	cmd := []string{"docker", "build"}
+	if service.BuildConfig.DockerCache {
+		// buildx can read and write a registry cache; --load keeps the image
+		// in the local store for the push step.
+		cache := "type=registry,ref=" + imageRepository(imageName) + ":" + cacheTag
+		cmd = []string{
+			"docker", "buildx", "build",
+			"--cache-from", cache,
+			"--cache-to", cache + ",mode=max",
+			"--load",
+		}
+	}
+	cmd = append(cmd, "--platform", platform, "-t", imageName)
 
 	// Also tag :latest locally when the primary tag is versioned.
 	// Push only publishes the explicit tag the remote :latest pointer still moves exclusively via CI.
@@ -49,4 +69,14 @@ func latestAlias(imageName string) string {
 	}
 
 	return imageName[:idx] + ":latest"
+}
+
+// imageRepository returns imageName without its tag. A ":" followed by a
+// "/" is a registry port, not a tag.
+func imageRepository(imageName string) string {
+	idx := strings.LastIndex(imageName, ":")
+	if idx == -1 || strings.Contains(imageName[idx:], "/") {
+		return imageName
+	}
+	return imageName[:idx]
 }
