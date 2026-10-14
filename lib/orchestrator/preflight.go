@@ -2,16 +2,23 @@ package orchestrator
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/sid-technologies/pilum/lib/output"
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/sysinfo"
 )
 
 const dockerCheckTimeout = 10 * time.Second
 
-// checkDocker is swapped out in tests so they don't depend on a local daemon.
-var checkDocker = sysinfo.CheckDocker
+// checkDocker and checkBuildxCache are swapped out in tests so they don't
+// depend on a local daemon.
+var (
+	checkDocker      = sysinfo.CheckDocker
+	checkBuildxCache = sysinfo.CheckBuildxCache
+)
 
 // preflight fails fast on missing prerequisites before any step starts, so a
 // stopped Docker daemon surfaces as one clear error instead of N parallel
@@ -27,7 +34,31 @@ func (p *Pipeline) preflight(maxSteps int) error {
 		return err
 	}
 	p.dockerResources = res
+	p.checkDockerCache()
 	return nil
+}
+
+// checkDockerCache turns docker_cache off for this run when the local builder
+// can't export a registry cache, so the build still runs, uncached, instead
+// of failing.
+func (p *Pipeline) checkDockerCache() {
+	usesCache := slices.ContainsFunc(p.services, func(svc serviceinfo.ServiceInfo) bool {
+		return svc.BuildConfig.DockerCache
+	})
+	if !usesCache {
+		return
+	}
+
+	supported, reason := checkBuildxCache(dockerCheckTimeout)
+	if supported {
+		return
+	}
+
+	output.Warning("docker_cache is off for this run: %s. To use it, switch to a docker-container builder "+
+		"(`docker buildx create --use --driver docker-container`, or docker/setup-buildx-action in GitHub Actions)", reason)
+	for i := range p.services {
+		p.services[i].BuildConfig.DockerCache = false
+	}
 }
 
 // requiresDocker reports whether any step that will run invokes the docker CLI.

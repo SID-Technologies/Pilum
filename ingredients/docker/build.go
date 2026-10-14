@@ -22,12 +22,14 @@ func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, template
 	cmd := []string{"docker", "build"}
 	if service.BuildConfig.DockerCache {
 		// buildx can read and write a registry cache; --load keeps the image
-		// in the local store for the push step.
+		// in the local store for the push step. A missing cache only warns,
+		// and ignore-error does the same for a failed upload, so a cache
+		// problem costs speed, never the build.
 		cache := "type=registry,ref=" + imageRepository(imageName) + ":" + cacheTag
 		cmd = []string{
 			"docker", "buildx", "build",
 			"--cache-from", cache,
-			"--cache-to", cache + ",mode=max",
+			"--cache-to", cache + ",mode=max,ignore-error=true",
 			"--load",
 		}
 	}

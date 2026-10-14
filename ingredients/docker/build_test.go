@@ -263,7 +263,7 @@ func TestGenerateDockerBuildCommandRegistryCache(t *testing.T) {
 	require.Equal(t, []string{
 		"docker", "buildx", "build",
 		"--cache-from", "type=registry,ref=us-docker.pkg.dev/p/repo/svc:buildcache",
-		"--cache-to", "type=registry,ref=us-docker.pkg.dev/p/repo/svc:buildcache,mode=max",
+		"--cache-to", "type=registry,ref=us-docker.pkg.dev/p/repo/svc:buildcache,mode=max,ignore-error=true",
 		"--load",
 		"--platform", "linux/amd64",
 		"-t", "us-docker.pkg.dev/p/repo/svc:v1",

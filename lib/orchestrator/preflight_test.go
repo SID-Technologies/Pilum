@@ -104,3 +104,46 @@ func TestRunFailsFastWhenDockerUnavailable(t *testing.T) {
 	require.NoError(t, p.Run())
 	require.Zero(t, calls)
 }
+
+// Not parallel: swaps the package-level checkDocker and checkBuildxCache.
+//
+//nolint:paralleltest // mutates package-level checks
+func TestPreflightTurnsOffUnsupportedDockerCache(t *testing.T) {
+	originalDocker, originalCache := checkDocker, checkBuildxCache
+	t.Cleanup(func() { checkDocker, checkBuildxCache = originalDocker, originalCache })
+
+	checkDocker = func(time.Duration) (sysinfo.DockerResources, error) {
+		return sysinfo.DockerResources{}, nil
+	}
+
+	cacheChecks := 0
+	supported := false
+	checkBuildxCache = func(time.Duration) (bool, string) {
+		cacheChecks++
+		return supported, "the active buildx builder uses the \"docker\" driver"
+	}
+
+	cachedPipeline := func() *Pipeline {
+		p := dockerTestPipeline(types.PipelineOptions{})
+		p.services[0].BuildConfig.DockerCache = true
+		return p
+	}
+
+	// Unsupported builder: the build still runs, without the cache.
+	p := cachedPipeline()
+	require.NoError(t, p.preflight(p.findMaxSteps()))
+	require.False(t, p.services[0].BuildConfig.DockerCache)
+	require.Equal(t, 1, cacheChecks)
+
+	// Supported builder: the cache stays on.
+	supported = true
+	p = cachedPipeline()
+	require.NoError(t, p.preflight(p.findMaxSteps()))
+	require.True(t, p.services[0].BuildConfig.DockerCache)
+
+	// No service asks for the cache: the builder isn't inspected.
+	cacheChecks = 0
+	p = dockerTestPipeline(types.PipelineOptions{})
+	require.NoError(t, p.preflight(p.findMaxSteps()))
+	require.Zero(t, cacheChecks)
+}
