@@ -58,3 +58,52 @@ func parseDockerResources(s string) DockerResources {
 	}
 	return res
 }
+
+// CheckBuildxCache reports whether the active buildx builder can export a
+// layer cache to a registry. When it can't, reason says why. The default
+// "docker" driver only can with the containerd image store; a
+// docker-container, remote or kubernetes builder always can.
+func CheckBuildxCache(timeout time.Duration) (bool, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	inspect, err := exec.CommandContext(ctx, "docker", "buildx", "inspect").CombinedOutput()
+	if err != nil {
+		return false, "docker buildx is not available"
+	}
+
+	driverStatus, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{json .DriverStatus}}").Output()
+	if err != nil {
+		// Can't tell whether the containerd store is on; assume it isn't.
+		driverStatus = nil
+	}
+
+	return buildxCacheSupport(string(inspect), string(driverStatus))
+}
+
+// buildxCacheSupport decides from `docker buildx inspect` output and the
+// daemon's driver status whether the builder can export a registry cache.
+func buildxCacheSupport(inspect, driverStatus string) (bool, string) {
+	driver := ""
+	for line := range strings.SplitSeq(inspect, "\n") {
+		value, found := strings.CutPrefix(strings.TrimSpace(line), "Driver:")
+		if found {
+			driver = strings.TrimSpace(value)
+			break
+		}
+	}
+
+	switch driver {
+	case "docker-container", "remote", "kubernetes":
+		return true, ""
+	case "docker":
+		if strings.Contains(driverStatus, "io.containerd.snapshotter") {
+			return true, ""
+		}
+		return false, "the active buildx builder uses the \"docker\" driver, which can't export a registry cache"
+	case "":
+		return false, "could not determine the active buildx builder's driver"
+	default:
+		return false, "the active buildx builder uses the \"" + driver + "\" driver, which can't export a registry cache"
+	}
+}
