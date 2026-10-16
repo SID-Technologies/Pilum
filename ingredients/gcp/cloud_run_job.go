@@ -63,6 +63,16 @@ func GenerateDeployJobCommand(svc serviceinfo.ServiceInfo, imageName string) []s
 		cmd = append(cmd, "--set-cloudsql-instances", strings.Join(cfg.CloudSQLInstances, ","))
 	}
 
+	// Same default as services: a connector set means all traffic takes it.
+	if cfg.VPCConnector != "" {
+		egress := cfg.VPCEgress
+		if egress == "" {
+			egress = "all-traffic"
+		}
+
+		cmd = append(cmd, "--vpc-connector", cfg.VPCConnector, "--vpc-egress", egress)
+	}
+
 	cmd = append(cmd, envVarFlags(svc.EnvVars)...)
 	cmd = append(cmd, secretFlags(svc.Secrets)...)
 

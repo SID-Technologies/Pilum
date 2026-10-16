@@ -478,6 +478,16 @@
           "items": {
             "type": "string"
           }
+        },
+        "vpc_connector": {
+          "type": "string",
+          "description": "Serverless VPC Access connector for outbound traffic (--vpc-connector)"
+        },
+        "vpc_egress": {
+          "type": "string",
+          "description": "Which outbound traffic goes through vpc_connector. Only used with vpc_connector.",
+          "enum": ["all-traffic", "private-ranges-only"],
+          "default": "all-traffic"
         }
       },
       "additionalProperties": false

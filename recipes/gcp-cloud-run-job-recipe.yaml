@@ -72,6 +72,15 @@ optional_fields:
     description: Cloud SQL instance connections (e.g., project:region:instance)
     type: list
 
+  - name: job.vpc_connector
+    description: Serverless VPC Access connector for outbound traffic
+    type: string
+
+  - name: job.vpc_egress
+    description: Which outbound traffic takes vpc_connector (all-traffic or private-ranges-only)
+    type: string
+    default: "all-traffic"
+
 steps:
   - name: build binary
     execution_mode: service_dir

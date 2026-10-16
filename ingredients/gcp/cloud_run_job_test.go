@@ -127,6 +127,27 @@ func TestGenerateDeployJobCommandAllConfig(t *testing.T) {
 	require.Contains(t, cmdStr, "--project my-project")
 }
 
+// A job with a connector sends all its traffic through it, as a service does,
+// so a firewall on the VPC governs everything the job reaches.
+func TestGenerateDeployJobCommandVPCConnector(t *testing.T) {
+	t.Parallel()
+
+	withConnector := func(job map[string]any) string {
+		cmd := gcp.GenerateDeployJobCommand(serviceinfo.ServiceInfo{
+			Name: "runner", Region: "us-central1", Config: map[string]any{"job": job},
+		}, "img")
+
+		return strings.Join(cmd, " ")
+	}
+
+	require.Contains(t, withConnector(map[string]any{"vpc_connector": "mcp-connector"}),
+		"--vpc-connector mcp-connector --vpc-egress all-traffic")
+	require.Contains(t, withConnector(map[string]any{"vpc_connector": "mcp-connector", "vpc_egress": "private-ranges-only"}),
+		"--vpc-egress private-ranges-only")
+	require.NotContains(t, withConnector(map[string]any{"vpc_egress": "all-traffic"}), "--vpc-egress",
+		"egress without a connector means nothing")
+}
+
 func TestGenerateDeployJobCommandEmptyConfig(t *testing.T) {
 	t.Parallel()
 

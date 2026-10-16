@@ -15,6 +15,8 @@ type CloudRunJobConfig struct {
 	ServiceAccount    string   // Custom service account email for job execution
 	ExecuteOnDeploy   bool     // Automatically execute job after deployment
 	CloudSQLInstances []string // Cloud SQL instance connections (e.g., "project:region:instance")
+	VPCConnector      string   // Serverless VPC Access connector for outbound traffic
+	VPCEgress         string   // Which traffic takes the connector: "all-traffic" or "private-ranges-only"
 }
 
 // ParseCloudRunJobConfig extracts Cloud Run Job configuration from the raw service config.
@@ -40,5 +42,7 @@ func ParseCloudRunJobConfig(config map[string]any) CloudRunJobConfig {
 		ServiceAccount:    configutil.GetString(jobMap, "service_account", ""),
 		ExecuteOnDeploy:   configutil.GetBool(jobMap, "execute_on_deploy", false),
 		CloudSQLInstances: configutil.GetStringSlice(jobMap, "cloudsql_instances"),
+		VPCConnector:      configutil.GetString(jobMap, "vpc_connector", ""),
+		VPCEgress:         configutil.GetString(jobMap, "vpc_egress", ""),
 	}
 }
