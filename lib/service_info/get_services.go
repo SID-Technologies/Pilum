@@ -101,6 +101,8 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 		output.Debugf("Loaded %d ignore patterns", len(ignorePatterns))
 	}
 
+	nested := nestedIgnores{}
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return errors.Wrap(err, "error walking %s", path)
@@ -122,9 +124,12 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 				return filepath.SkipDir
 			}
 
-			if shouldIgnore(relPath, ignorePatterns) {
+			if shouldIgnore(relPath, ignorePatterns) || nested.ignores(relPath) {
 				output.Debugf("Ignoring directory: %s", relPath)
 				return filepath.SkipDir
+			}
+			if !opts.NoGitIgnore && relPath != "." {
+				nested.load(path, relPath)
 			}
 			return nil
 		}
@@ -134,7 +139,7 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 		}
 
 		// Check if this pilum.yaml is in an ignored path
-		if shouldIgnore(relPath, ignorePatterns) {
+		if shouldIgnore(relPath, ignorePatterns) || nested.ignores(relPath) {
 			output.Debugf("Ignoring service: %s", relPath)
 			return nil
 		}
@@ -257,6 +262,36 @@ func loadIgnorePatterns(root string, noGitIgnore bool) []string {
 	}
 
 	return patterns
+}
+
+// nestedIgnores holds the patterns of .gitignore files below the root, keyed
+// by their directory relative to the root. Like git, each file's patterns
+// apply only under its own directory.
+type nestedIgnores map[string][]string
+
+// load records dir's .gitignore, if it has one.
+func (n nestedIgnores) load(dir, relDir string) {
+	patterns := loadPatternsFromFile(filepath.Join(dir, ".gitignore"))
+	if len(patterns) > 0 {
+		n[relDir] = patterns
+	}
+}
+
+// ignores reports whether a .gitignore in one of relPath's parent
+// directories matches it. The walk visits a directory before anything in
+// it, so every parent's file is loaded by then.
+func (n nestedIgnores) ignores(relPath string) bool {
+	for dir := filepath.Dir(relPath); dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		patterns, ok := n[dir]
+		if !ok {
+			continue
+		}
+		rel, err := filepath.Rel(dir, relPath)
+		if err == nil && shouldIgnore(rel, patterns) {
+			return true
+		}
+	}
+	return false
 }
 
 // loadPatternsFromFile reads ignore patterns from a file.

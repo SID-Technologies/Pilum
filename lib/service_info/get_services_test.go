@@ -632,6 +632,38 @@ func TestFindServicesNoGitIgnoreFlag(t *testing.T) {
 	require.True(t, names["ignored-svc"])
 }
 
+func TestFindServicesNestedGitIgnore(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	write := func(rel, content string) {
+		path := filepath.Join(tmpDir, rel)
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+	}
+	// Like Pugio: generated output under test/e2e is ignored by test/e2e/.gitignore only.
+	write(".gitignore", "node_modules\n")
+	write("test/e2e/.gitignore", "out/\n")
+	write("test/e2e/out/petstore/pilum.yaml", "name: generated\nprovider: gcp\n")
+	write("test/e2e/fixture/pilum.yaml", "name: fixture\nprovider: gcp\n")
+	// The pattern is scoped to test/e2e, so another out/ elsewhere is kept.
+	write("services/out/pilum.yaml", "name: real\nprovider: gcp\n")
+
+	names := func(opts serviceinfo.DiscoveryOptions) []string {
+		services, err := serviceinfo.FindServicesWithOptions(tmpDir, opts)
+		require.NoError(t, err)
+		var out []string
+		for _, svc := range services {
+			out = append(out, svc.Name)
+		}
+		return out
+	}
+
+	require.ElementsMatch(t, []string{"fixture", "real"}, names(serviceinfo.DefaultDiscoveryOptions()))
+	require.ElementsMatch(t, []string{"fixture", "generated", "real"},
+		names(serviceinfo.DiscoveryOptions{MaxDepth: serviceinfo.DefaultMaxDepth, NoGitIgnore: true}))
+}
+
 func TestFindServicesReadsPilumignore(t *testing.T) {
 	t.Parallel()
 
