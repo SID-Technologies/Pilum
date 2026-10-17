@@ -438,6 +438,18 @@ build:
 
 Use the same `env_vars` and build tags the build uses, so the entries the warm run creates are the ones the build looks up. With a warm cache, the warm run takes about a second.
 
+### Docker layer cache
+
+`build.docker_cache: true` keeps an image's layer cache in its registry (`<image>:buildcache`), so a fresh CI runner reuses unchanged layers. It needs a buildx builder that can export cache, such as the `docker-container` driver from `docker/setup-buildx-action`; with the default builder Pilum warns and builds without it. To turn it on for every service, set it once in `.pilum.yml`:
+
+```yaml
+# .pilum.yml
+build:
+  docker_cache: true
+```
+
+A service's own `build.docker_cache` in `pilum.yaml`, `true` or `false`, wins over the project default.
+
 ## Editor Support
 
 Pilum provides a JSON Schema for `pilum.yaml` that enables autocompletion, validation, and inline documentation in supported editors.

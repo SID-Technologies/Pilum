@@ -606,6 +606,17 @@ func TestParseBuildConfigWarm(t *testing.T) {
 	require.False(t, auto.BuildConfig.WarmDisabled, "true means the automatic default")
 }
 
+func TestParseBuildConfigDockerCacheSet(t *testing.T) {
+	t.Parallel()
+
+	unset := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{}}, ".")
+	require.False(t, unset.BuildConfig.DockerCacheSet)
+
+	off := serviceinfo.NewServiceInfo(map[string]any{"name": "a", "build": map[string]any{"docker_cache": false}}, ".")
+	require.True(t, off.BuildConfig.DockerCacheSet, "an explicit false is set too")
+	require.False(t, off.BuildConfig.DockerCache)
+}
+
 func TestParseBuildConfigFlagsSorted(t *testing.T) {
 	t.Parallel()
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/changes"
 	"github.com/sid-technologies/pilum/lib/ci"
+	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/history"
@@ -176,6 +177,7 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	if err != nil {
 		return exitcodes.WithCode(exitcodes.NoServices, errors.Wrap(err, "error finding services"))
 	}
+	applyProjectBuildDefaults(services)
 
 	if opts.OnlyChanged {
 		services, err = changes.Filter(services, changes.Options{Since: opts.Since})
@@ -378,6 +380,22 @@ func withJSON(fn func(*cobra.Command, []string) (any, error)) func(*cobra.Comman
 			return err
 		}
 		return err
+	}
+}
+
+// applyProjectBuildDefaults applies the build block of .pilum.yml to services
+// that don't set the same key in their pilum.yaml. Only docker_cache is read.
+func applyProjectBuildDefaults(services []serviceinfo.ServiceInfo) {
+	build := configutil.MapFromAny(viper.Get("build"))
+	_, set := build["docker_cache"]
+	if !set {
+		return
+	}
+	dockerCache := configutil.GetBool(build, "docker_cache", false)
+	for i := range services {
+		if !services[i].BuildConfig.DockerCacheSet {
+			services[i].BuildConfig.DockerCache = dockerCache
+		}
 	}
 }
 
