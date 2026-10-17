@@ -34,6 +34,11 @@ type Plan struct {
 	// Tool names the group in output when it's more specific than the
 	// toolchain, e.g. "pnpm" for node.
 	Tool string
+	// Check, when set, runs before Cmd in the same directory and env. Needed
+	// reads its stdout and reports whether Cmd has work left, and why, so a
+	// warm the cache doesn't need is skipped. A failed Check warms anyway.
+	Check  string
+	Needed func(stdout string) (bool, string)
 }
 
 // Group is the services that share a workspace and warm together.
