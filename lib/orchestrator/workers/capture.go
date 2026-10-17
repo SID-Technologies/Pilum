@@ -90,7 +90,7 @@ func CaptureWorker(taskInfo *TaskInfo) (string, error) {
 	select {
 	case <-ctx.Done():
 		_ = TerminateProcessTree(cmd.Process.Pid)
-		return "", errors.New("command timed out for %s", taskInfo.ServiceName)
+		return "", errors.New("command timed out after %ds for %s", taskInfo.Timeout, taskInfo.ServiceName)
 	case err := <-done:
 		if err != nil {
 			// Include stderr first, fall back to stdout — some tools write errors to stdout

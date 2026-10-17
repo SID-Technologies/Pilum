@@ -324,8 +324,30 @@ func TestCommandWorkerTimeout(t *testing.T) {
 
 	require.False(t, success)
 	require.Error(t, err)
-	// Error could be timeout or process termination error
-	require.True(t, err != nil)
+	require.Contains(t, err.Error(), "command timed out after 1s")
+}
+
+func TestCommandWorkerTimeoutWithChildren(t *testing.T) {
+	t.Parallel()
+
+	// The shell has a child (sleep) and a grandchild; the timeout still has to read as a timeout.
+	taskInfo := workers.NewTaskInfo(
+		"sh -c 'sleep 10' & sleep 10; wait",
+		"",
+		"test-service",
+		"root",
+		nil,
+		nil,
+		1,
+		false,
+		0,
+	)
+
+	success, err := workers.CommandWorker(taskInfo)
+
+	require.False(t, success)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "command timed out after 1s")
 }
 
 func TestCommandWorkerWithDebug(t *testing.T) {

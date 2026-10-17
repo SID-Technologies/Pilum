@@ -27,6 +27,7 @@ type PipelineOptions struct {
 	TemplatePath string // Default template path for services that don't specify one
 	Debug        bool
 	Timeout      int
+	TimeoutSet   bool // --timeout was given, so it beats a step's timeout
 	Retries      int
 	RetriesSet   bool // --retries was given, so it beats a step's default_retries
 	DryRun       bool

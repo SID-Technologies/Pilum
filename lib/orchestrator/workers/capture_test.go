@@ -149,6 +149,7 @@ func TestCaptureWorkerTimeout(t *testing.T) {
 	_, err := workers.CaptureWorker(taskInfo)
 
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "command timed out after 1s")
 }
 
 func TestCaptureWorkerMultilineOutput(t *testing.T) {

@@ -91,10 +91,7 @@ func (p *Pipeline) warmGroups(maxSteps int) []*warmGroup {
 		}
 
 		env := warmEnv(svc, step)
-		timeout := p.options.Timeout
-		if step.Timeout > 0 {
-			timeout = step.Timeout
-		}
+		timeout := stepTimeout(step, p.options)
 
 		cmd := strings.TrimSpace(svc.BuildConfig.Warm)
 		if cmd != "" {

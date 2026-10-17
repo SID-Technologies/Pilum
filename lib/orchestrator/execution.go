@@ -239,10 +239,7 @@ func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step, t
 	}
 
 	// Get timeout and retries
-	timeout := p.options.Timeout
-	if step.Timeout > 0 {
-		timeout = step.Timeout
-	}
+	timeout := stepTimeout(step, p.options)
 	retries := stepRetries(step, p.options)
 
 	// Build env vars from step and service
@@ -279,6 +276,15 @@ func (p *Pipeline) executeTask(svc serviceinfo.ServiceInfo, step *recipe.Step, t
 // stepRetries picks a step's retry count: the step's retries, then --retries
 // when it was given, then the step's default_retries, then the --retries
 // default.
+// stepTimeout is the step's timeout in seconds. A recipe's timeout replaces
+// the flag default, and an explicit --timeout replaces both.
+func stepTimeout(step *recipe.Step, opts types.PipelineOptions) int {
+	if step.Timeout > 0 && !opts.TimeoutSet {
+		return step.Timeout
+	}
+	return opts.Timeout
+}
+
 func stepRetries(step *recipe.Step, opts types.PipelineOptions) int {
 	if step.Retries > 0 {
 		return step.Retries

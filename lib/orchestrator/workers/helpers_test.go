@@ -1,6 +1,7 @@
 package workers_test
 
 import (
+	"os/exec"
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
@@ -130,4 +131,14 @@ func TestExponentialBackoffMaxDelayCap(t *testing.T) {
 		// Min possible is maxDelay * 0.5 (due to jitter)
 		require.GreaterOrEqual(t, result, maxDelay*0.5, "result should not be below maxDelay * 0.5")
 	}
+}
+
+func TestTerminateProcessTreeExitedProcess(t *testing.T) {
+	t.Parallel()
+
+	cmd := exec.Command("true")
+	require.NoError(t, cmd.Run())
+
+	// The process is gone (and reaped), so there is nothing to kill and nothing to report.
+	require.NoError(t, workers.TerminateProcessTree(cmd.Process.Pid))
 }

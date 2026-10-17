@@ -31,6 +31,7 @@ type deploymentOptions struct {
 	Tag          string
 	Debug        bool
 	Timeout      int
+	TimeoutSet   bool
 	Retries      int
 	RetriesSet   bool
 	DryRun       bool
@@ -54,6 +55,7 @@ func getDeploymentOptions() deploymentOptions {
 		Tag:          viper.GetString("tag"),
 		Debug:        viper.GetBool("debug"),
 		Timeout:      viper.GetInt("timeout"),
+		TimeoutSet:   viper.IsSet("timeout"),
 		Retries:      viper.GetInt("retries"),
 		RetriesSet:   viper.IsSet("retries"),
 		DryRun:       viper.GetBool("dry-run"),
@@ -78,6 +80,7 @@ func (o deploymentOptions) toPipelineOptions() types.PipelineOptions {
 		Tag:         o.Tag,
 		Debug:       o.Debug,
 		Timeout:     o.Timeout,
+		TimeoutSet:  o.TimeoutSet,
 		Retries:     o.Retries,
 		RetriesSet:  o.RetriesSet,
 		DryRun:      o.DryRun,
@@ -127,7 +130,7 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 	// Empty default lets pilum.yaml `version:` take precedence; falls through to "latest".
 	cmd.Flags().StringP("tag", "t", "", "Tag for the services (default: latest, or pilum.yaml `version:` if set)")
 	cmd.Flags().BoolP("debug", "d", false, "Enable debug mode")
-	cmd.Flags().IntP("timeout", "T", 60, "Timeout for the build process in seconds")
+	cmd.Flags().IntP("timeout", "T", 60, "Timeout per step in seconds (default: the recipe step's timeout, else 60)")
 	cmd.Flags().IntP("retries", "r", 3, "Number of retries for the build process")
 	cmd.Flags().Int("max-workers", 0, "Maximum parallel workers (0 = auto)")
 	cmd.Flags().String("only-tags", "", "Only run steps with these tags (comma-separated)")
