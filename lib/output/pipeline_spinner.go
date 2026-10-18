@@ -45,6 +45,7 @@ type serviceSpinner struct {
 	success  bool
 	err      error
 	duration time.Duration
+	note     string // shown after the duration of a success, e.g. "already cached"
 }
 
 // NewSpinnerManager creates a new spinner manager.
@@ -139,6 +140,27 @@ func (sm *SpinnerManager) Complete(serviceName string, success bool, duration ti
 	}
 }
 
+// CompleteWithNote marks a spinner as succeeded, with a note after its duration.
+func (sm *SpinnerManager) CompleteWithNote(serviceName string, duration time.Duration, note string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if s, ok := sm.spinners[serviceName]; ok {
+		s.done = true
+		s.success = true
+		s.duration = duration
+		s.note = note
+	}
+}
+
+// doneText is a succeeded spinner's text: its duration and any note.
+func (s *serviceSpinner) doneText() string {
+	if s.note == "" {
+		return "(" + FormatDuration(s.duration) + ")"
+	}
+	return "(" + FormatDuration(s.duration) + ", " + s.note + ")"
+}
+
 // render redraws the live block with the next animation frame.
 func (sm *SpinnerManager) render() {
 	sm.mu.Lock()
@@ -183,10 +205,10 @@ func (sm *SpinnerManager) RenderFinal() {
 		for _, key := range sm.order {
 			s := sm.spinners[key]
 			if s.success {
-				fmt.Printf("  %s%s%s %s %s(%s)%s\n",
+				fmt.Printf("  %s%s%s %s %s%s%s\n",
 					colorSuccess, symbolSuccess, colorReset,
 					s.name,
-					colorMuted, FormatDuration(s.duration), colorReset)
+					colorMuted, s.doneText(), colorReset)
 			} else if s.done {
 				errMsg := ""
 				if s.err != nil {
@@ -247,7 +269,7 @@ func (*SpinnerManager) line(s *serviceSpinner, final bool, width int) string {
 	switch {
 	case s.done && s.success:
 		symbolColor, symbol = colorSuccess, symbolSuccess
-		textColor, text = colorMuted, "("+FormatDuration(s.duration)+")"
+		textColor, text = colorMuted, s.doneText()
 	case s.done:
 		errMsg := ""
 		if s.err != nil {

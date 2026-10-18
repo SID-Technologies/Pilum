@@ -105,6 +105,60 @@ func TestGoPlanSinglePackageDiscardsBinary(t *testing.T) {
 	plan, ok := golang{}.Plan(Group{Root: "/repo", Dirs: []string{"/repo/api", "/repo/api"}, Service: goService()})
 	require.True(t, ok)
 	require.Equal(t, "go build -o "+os.DevNull+" ./api", plan.Cmd)
+	require.Empty(t, plan.Check, "one package has nothing shared to check")
+}
+
+func TestGoPlanChecksTheCacheFirst(t *testing.T) {
+	t.Parallel()
+
+	svc := goService(serviceinfo.BuildFlag{Name: "tags", Values: []string{"netgo"}})
+	plan, ok := golang{}.Plan(Group{Root: "/repo", Dirs: []string{"/repo/a", "/repo/b"}, Service: svc})
+	require.True(t, ok)
+	require.Equal(t, "go list -deps -f "+shellArg(goListFormat)+" -tags='netgo' ./a ./b", plan.Check)
+	require.NotNil(t, plan.Needed)
+}
+
+func TestGoNeedsWarm(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		stdout string
+		want   bool
+		why    string
+	}{
+		{
+			name: "shared package stale",
+			stdout: "SD m/lib\nFD fmt\n" +
+				"SR m/a m/lib fmt\n" +
+				"SR m/b m/lib fmt\n",
+			want: true, why: "1 shared packages to compile",
+		},
+		{
+			name: "only main packages stale",
+			stdout: "FD m/lib\nFD fmt\n" +
+				"SR m/a m/lib fmt\n" +
+				"SR m/b m/lib fmt\n",
+			want: false, why: "shared packages already cached",
+		},
+		{
+			name: "stale packages that only one service uses",
+			stdout: "SD m/a/internal\nSD m/b/internal\nFD m/lib\n" +
+				"SR m/a m/a/internal m/lib\n" +
+				"SR m/b m/b/internal m/lib\n",
+			want: false, why: "shared packages already cached",
+		},
+		{name: "no package list warms anyway", stdout: "", want: true, why: "no package list"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, why := goNeedsWarm(tt.stdout)
+			require.Equal(t, tt.want, got)
+			require.Equal(t, tt.why, why)
+		})
+	}
 }
 
 func TestGoPlanPassesCompileFlagsOnly(t *testing.T) {

@@ -1,6 +1,7 @@
 package toolchain
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -68,7 +69,70 @@ func (golang) Plan(g Group) (Plan, bool) {
 	for _, pkg := range pkgs {
 		args = append(args, shellArg(pkg))
 	}
-	return Plan{Cmd: strings.Join(args, " "), Dir: g.Root}, true
+	plan := Plan{Cmd: strings.Join(args, " "), Dir: g.Root}
+
+	// With one package there's no per-service dependency list to compare.
+	if len(pkgs) > 1 {
+		check := append([]string{"go", "list", "-deps", "-f", shellArg(goListFormat)}, goFlagArgs(g.Service)...)
+		for _, pkg := range pkgs {
+			check = append(check, shellArg(pkg))
+		}
+		plan.Check = strings.Join(check, " ")
+		plan.Needed = goNeedsWarm
+	}
+	return plan, true
+}
+
+// goListFormat prints one line per package: S or F for stale or fresh, R or
+// D for a listed package or a dependency, the import path, and for listed
+// packages their dependencies.
+const goListFormat = `{{if .Stale}}S{{else}}F{{end}}{{if .DepOnly}}D{{else}}R{{end}} {{.ImportPath}}{{if not .DepOnly}} {{join .Deps " "}}{{end}}`
+
+// goNeedsWarm reports whether any package that two or more of the listed
+// service packages depend on still has to be compiled. Those are the only
+// packages parallel builds would compile more than once; a service's own
+// stale packages are its build's work either way. Main packages always
+// read as stale, so they're not counted.
+func goNeedsWarm(stdout string) (bool, string) {
+	stale := make(map[string]bool)
+	var roots [][]string
+	for line := range strings.Lines(stdout) {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || len(fields[0]) != 2 {
+			continue
+		}
+		if fields[0][1] == 'R' {
+			roots = append(roots, fields[2:])
+			continue
+		}
+		if fields[0][0] == 'S' {
+			stale[fields[1]] = true
+		}
+	}
+
+	// No listed packages means the output isn't what we asked for; warm.
+	if len(roots) == 0 {
+		return true, "no package list"
+	}
+
+	users := make(map[string]int)
+	for _, deps := range roots {
+		for _, dep := range deps {
+			if stale[dep] {
+				users[dep]++
+			}
+		}
+	}
+	shared := 0
+	for _, n := range users {
+		if n >= 2 {
+			shared++
+		}
+	}
+	if shared == 0 {
+		return false, "shared packages already cached"
+	}
+	return true, fmt.Sprintf("%d shared packages to compile", shared)
 }
 
 // goFlagArgs renders the service's compile-affecting flags the way its build

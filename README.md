@@ -435,6 +435,7 @@ build:
 - **Runs from the project root.** Set `warm_dir` (relative to the root) when a service's module or lockfile lives elsewhere.
 - **Only when building.** Skipped when no build step runs (`--only-tags deploy`), and with `--no-warm`.
 - **Best effort.** A failed warm is reported and the builds still run, cold, so any real error surfaces from the build itself.
+- **Skipped when the cache already has it (Go).** Before warming Go services automatically, Pilum asks `go list -deps` which packages are stale, and skips the warm when every package two or more services share is already cached: `go (18 services, auto) (462ms, skipped: shared packages already cached)`. Packages only one service uses are that build's work either way.
 
 Use the same `env_vars` and build tags the build uses, so the entries the warm run creates are the ones the build looks up. With a warm cache, the warm run takes about a second.
 

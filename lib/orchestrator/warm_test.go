@@ -297,7 +297,9 @@ func TestRunWarmIsolatedRunsInACopyAndCleansUp(t *testing.T) {
 
 	p := NewPipeline(nil, nil, types.PipelineOptions{})
 	g := &warmGroup{cmd: "pwd > " + log + " && test -f lock", dir: root, isolate: []string{"lock"}, timeout: 10, services: []string{"web"}}
-	require.NoError(t, p.runWarm(g))
+	skipped, err := p.runWarm(g)
+	require.NoError(t, err)
+	require.Empty(t, skipped)
 
 	ran := readLog(t, log)[0]
 	require.NotEqual(t, root, ran)
@@ -317,4 +319,73 @@ func TestPipelineDryRunShowsAutoWarm(t *testing.T) {
 		Step:    warmStepName,
 		Command: "(cd " + root + " && go build ./services/api ./services/auth)",
 	}, p.dryRunResults[0])
+}
+
+func TestRunWarmCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		check       string
+		wantSkipped string
+		wantRan     bool
+	}{
+		{name: "cache already has it", check: "echo cached", wantSkipped: "already cached"},
+		{name: "work left", check: "echo cold", wantRan: true},
+		{name: "a failed check warms anyway", check: "echo cached; exit 1", wantRan: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			log := filepath.Join(t.TempDir(), "log")
+			p := NewPipeline(nil, nil, types.PipelineOptions{})
+			g := &warmGroup{
+				cmd: "echo warmed > " + log, timeout: 10, services: []string{"a", "b"}, check: tt.check,
+				needed: func(stdout string) (bool, string) {
+					if strings.TrimSpace(stdout) == "cached" {
+						return false, "already cached"
+					}
+					return true, ""
+				},
+			}
+
+			skipped, err := p.runWarm(g)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantSkipped, skipped)
+			if tt.wantRan {
+				require.FileExists(t, log)
+			} else {
+				require.NoFileExists(t, log)
+			}
+		})
+	}
+}
+
+func TestRunWarmGoSkipsWhenSharedPackagesAreCached(t *testing.T) {
+	t.Parallel()
+
+	root := goModule(t, "api", "auth")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "lib"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "lib", "lib.go"), []byte("package lib\n\nfunc Name() string { return \"lib\" }\n"), 0o600))
+	for _, svc := range []string{"api", "auth"} {
+		main := "package main\n\nimport \"example.com/m/lib\"\n\nfunc main() { println(lib.Name()) }\n"
+		require.NoError(t, os.WriteFile(filepath.Join(root, "services", svc, "main.go"), []byte(main), 0o600))
+	}
+
+	cache := serviceinfo.EnvVars{Name: "GOCACHE", Value: t.TempDir()}
+	services := []serviceinfo.ServiceInfo{autoGoService(root, "api", cache), autoGoService(root, "auth", cache)}
+	p := NewPipeline(services, warmRecipe("true"), types.PipelineOptions{Timeout: 120})
+	groups := p.warmGroups(p.findMaxSteps())
+	require.Len(t, groups, 1)
+	require.NotEmpty(t, groups[0].check)
+
+	skipped, err := p.runWarm(groups[0])
+	require.NoError(t, err)
+	require.Empty(t, skipped, "an empty cache needs the warm")
+
+	skipped, err = p.runWarm(groups[0])
+	require.NoError(t, err)
+	require.Equal(t, "shared packages already cached", skipped)
 }

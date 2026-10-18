@@ -38,6 +38,8 @@ type warmGroup struct {
 	services []string
 	auto     bool     // planned from the detected toolchain, not build.warm
 	isolate  []string // files copied to a temp dir for cmd to run in; see toolchain.Plan
+	check    string   // run first; needed decides from its output whether cmd runs
+	needed   func(stdout string) (bool, string)
 }
 
 // label names the group in output, e.g. "go (10 services)".
@@ -147,6 +149,8 @@ func (p *Pipeline) warmGroups(maxSteps int) []*warmGroup {
 		g.cmd = plan.Cmd
 		g.dir = plan.Dir
 		g.isolate = plan.Isolate
+		g.check = plan.Check
+		g.needed = plan.Needed
 		g.services = b.services
 		g.env = maps.Clone(g.env)
 		maps.Copy(g.env, plan.Env)
@@ -245,9 +249,13 @@ func (p *Pipeline) warm(maxSteps int) {
 	for _, g := range groups {
 		wg.Go(func() {
 			start := time.Now()
-			err := p.runWarm(g)
+			skipped, err := p.runWarm(g)
 			if err != nil {
 				failed.Store(true)
+			}
+			if skipped != "" {
+				spinner.CompleteWithNote(g.label(), time.Since(start), "skipped: "+skipped)
+				return
 			}
 			spinner.Complete(g.label(), err == nil, time.Since(start), err)
 		})
@@ -292,19 +300,32 @@ func displayDir(dir string) string {
 }
 
 // runWarm runs a group's command, in a temporary copy of its files when the
-// group is isolated.
-func (p *Pipeline) runWarm(g *warmGroup) error {
+// group is isolated. When the group's check says the cache already has what
+// the command would fill, it returns why and runs nothing.
+func (p *Pipeline) runWarm(g *warmGroup) (string, error) {
+	if g.check != "" {
+		task := p.warmTask(g, g.dir)
+		task.Command = g.check
+		out, err := workers.CaptureWorker(task)
+		if err == nil {
+			needed, why := g.needed(out)
+			if !needed {
+				return why, nil
+			}
+		}
+	}
+
 	dir := g.dir
 	if len(g.isolate) > 0 {
 		tmp, err := isolatedCopy(g.dir, g.isolate)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer func() { _ = os.RemoveAll(tmp) }()
 		dir = tmp
 	}
 	_, err := workers.CommandWorker(p.warmTask(g, dir))
-	return err
+	return "", err
 }
 
 // isolatedCopy copies files, relative to root, into a new temporary directory
