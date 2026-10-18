@@ -497,3 +497,23 @@ func TestGetBuildConfig(t *testing.T) {
 	require.NotEmpty(t, config.Version)
 	require.NotEmpty(t, config.Cmd)
 }
+
+func TestGenerateServiceYAMLRecipeFields(t *testing.T) {
+	t.Parallel()
+
+	buildConfig := &templates.BuildConfig{Language: "node", Version: "20", Cmd: "npm run build"}
+	values := map[string]string{
+		"name":               "site",
+		"cloudflare.account": "abc123",
+		"build.output_dir":   "dist",
+		"build.cmd":          "npm run build",
+	}
+	out := generateServiceYAML("cloudflare", "pages", values, nil, buildConfig)
+
+	var parsed map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(out), &parsed), out)
+	build := parsed["build"].(map[string]any)
+	require.Equal(t, "dist", build["output_dir"])
+	require.Equal(t, "npm run build", build["cmd"])
+	require.Equal(t, map[string]any{"account_id": "abc123"}, parsed["cloudflare"])
+}

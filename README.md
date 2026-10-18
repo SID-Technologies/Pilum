@@ -95,7 +95,12 @@ build:
 pilum check
 ```
 
-This validates your `pilum.yaml` against the recipe's required fields.
+This validates your `pilum.yaml` against the recipe's required fields and the [JSON Schema](#editor-support):
+
+- **Errors** (check fails): an unknown key inside a block, such as `cloud_run.cpu_throtling` (with a "did you mean" suggestion), or a value of the wrong type that Pilum would ignore, such as `min_instances: "2"`. `environments` blocks are checked too.
+- **Warnings**: an unknown top-level key (custom recipes may read their own; keys a service's recipe names aren't reported), or a number where a string is expected, which Pilum reads as text (`version: 1.20` reads as `1.2`; quote it).
+
+Other commands print the same problems as warnings and carry on.
 
 ### 4. Deploy
 
@@ -453,7 +458,7 @@ A service's own `build.docker_cache` in `pilum.yaml`, `true` or `false`, wins ov
 
 ## Editor Support
 
-Pilum provides a JSON Schema for `pilum.yaml` that enables autocompletion, validation, and inline documentation in supported editors.
+Pilum provides a JSON Schema for `pilum.yaml` that enables autocompletion, validation, and inline documentation in supported editors. `pilum check` validates against the same schema, built into the binary.
 
 ### VS Code (with YAML extension)
 
@@ -486,7 +491,7 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `pilum init` | | Generate a new `pilum.yaml` interactively |
-| `pilum check [services...]` | `validate` | Validate configs against recipe requirements |
+| `pilum check [services...]` | `validate` | Validate configs against recipe requirements and the schema |
 | `pilum list` | `ls` | List all discovered services |
 | `pilum recipes [name]` | `providers` | List recipes or describe a specific one |
 | `pilum dry-run [services...]` | `dr` | Preview commands without executing |

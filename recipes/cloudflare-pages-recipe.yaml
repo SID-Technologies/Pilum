@@ -7,8 +7,8 @@ required_fields:
   - name: name
     description: Project name (must match Cloudflare Pages project name)
     type: string
-  - name: cloudflare.account_id
-    description: Cloudflare account ID
+  - name: cloudflare.account
+    description: Cloudflare account ID, as cloudflare.account_id or as cloudflare.account_id_env (the name of an env var that holds it)
     type: string
 
 optional_fields:
@@ -21,7 +21,7 @@ optional_fields:
     type: string
     default: "main"
   - name: cloudflare.package_manager
-    description: Package manager to use (npm or pnpm)
+    description: Package manager to use (npm, yarn or pnpm)
     type: string
     default: "npm"
   - name: build.output_dir

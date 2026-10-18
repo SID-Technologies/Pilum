@@ -1371,3 +1371,21 @@ func TestSortByDependencies_StillRejectsCycles(t *testing.T) {
 		t.Error("a dependency cycle must still be reported")
 	}
 }
+
+func TestFindServicesRecordsSchemaProblems(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	svcDir := filepath.Join(tmpDir, "api")
+	require.NoError(t, os.MkdirAll(svcDir, 0755))
+	config := "name: api\nprovider: gcp\ncloud_run:\n  min_instances: 0\nenvironments:\n  prod:\n    cloud_run:\n      max_instance: 5\n"
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "pilum.yaml"), []byte(config), 0644))
+
+	// Without --env the environments block is dropped from Config, but it is
+	// still checked.
+	services, err := serviceinfo.FindServicesWithOptions(tmpDir, serviceinfo.DefaultDiscoveryOptions())
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	require.Len(t, services[0].SchemaProblems, 1)
+	require.Equal(t, "environments.prod.cloud_run.max_instance", services[0].SchemaProblems[0].Path)
+}

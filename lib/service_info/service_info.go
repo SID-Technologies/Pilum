@@ -7,6 +7,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
+	"github.com/sid-technologies/pilum/schemas"
 )
 
 type EnvVars struct {
@@ -151,6 +152,11 @@ type ServiceInfo struct {
 	// Validate reports them so a deploy stops before it sends a command
 	// built without them.
 	configProblems []string
+
+	// SchemaProblems are the places pilum.yaml doesn't match the schema,
+	// such as an unknown key inside cloud_run. Discovery fills them in;
+	// check reports them and other commands warn.
+	SchemaProblems []schemas.Problem `yaml:"-"`
 }
 
 // DisplayName returns the service name with region suffix for multi-region deployments.
@@ -208,7 +214,8 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		secretVars = append(secretVars, Secrets{Name: k, Value: v})
 	}
 
-	buildConfig := parseBuildConfig(config)
+	buildConfig, buildProblems := parseBuildConfig(config)
+	problems = append(problems, buildProblems...)
 
 	serviceType := configutil.GetString(config, "type", "")
 	template := configutil.GetString(config, "template", "")
@@ -393,10 +400,10 @@ func ExpandMultiRegion(svc ServiceInfo) []ServiceInfo {
 	return expanded
 }
 
-func parseBuildConfig(config map[string]any) BuildConfig {
+func parseBuildConfig(config map[string]any) (BuildConfig, []string) {
 	buildMap := configutil.MapFromAny(config["build"])
 	if len(buildMap) == 0 {
-		return BuildConfig{}
+		return BuildConfig{}, nil
 	}
 
 	// Parse resources
@@ -430,12 +437,13 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 	}
 
 	// Parse build env vars
-	buildEnvVars := configutil.MapFromAny(buildMap["env_vars"])
+	buildEnvVars, envProblems := configutil.StringMap(buildMap["env_vars"])
+	problems := prefixProblems("build.env_vars", envProblems)
 	for k, v := range buildEnvVars {
-		if val, ok := v.(string); ok {
-			bc.EnvVars = append(bc.EnvVars, EnvVars{Name: k, Value: val})
-		}
+		bc.EnvVars = append(bc.EnvVars, EnvVars{Name: k, Value: v})
 	}
+	// Map order is random; sorted env vars keep commands, and cache keys, stable.
+	slices.SortFunc(bc.EnvVars, func(a, b EnvVars) int { return strings.Compare(a.Name, b.Name) })
 
 	// Parse build flags (e.g., ldflags: ["-s", "-w"])
 	flagsMap := configutil.MapFromAny(buildMap["flags"])
@@ -444,14 +452,19 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		switch v := flagVal.(type) {
 		case []any:
 			for _, item := range v {
-				if s, ok := item.(string); ok {
-					values = append(values, s)
+				s, ok := item.(string)
+				if !ok {
+					problems = append(problems, fmt.Sprintf("build.flags.%s: values must be strings; quote %v", flagName, item))
+					continue
 				}
+				values = append(values, s)
 			}
 		case []string:
 			values = v
 		case string:
 			values = []string{v}
+		default:
+			problems = append(problems, fmt.Sprintf("build.flags.%s must be a string or a list of strings", flagName))
 		}
 		if len(values) > 0 {
 			bc.Flags = append(bc.Flags, BuildFlag{Name: flagName, Values: values})
@@ -460,5 +473,5 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 	// Map order is random; sorted flags keep commands, and cache keys, stable.
 	slices.SortFunc(bc.Flags, func(a, b BuildFlag) int { return strings.Compare(a.Name, b.Name) })
 
-	return bc
+	return bc, problems
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/output"
 	"github.com/sid-technologies/pilum/lib/shellutil"
 	"github.com/sid-technologies/pilum/lib/suggest"
+	"github.com/sid-technologies/pilum/schemas"
 
 	"gopkg.in/yaml.v3"
 )
@@ -159,6 +160,13 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 			return errors.New("%s: missing required field 'name'", path)
 		}
 
+		// Validate the file as written, before environment overrides are
+		// merged in, so every environment block is checked.
+		schemaProblems, err := schemas.Validate(config)
+		if err != nil {
+			return errors.Wrap(err, "error validating %s", path)
+		}
+
 		// Apply environment overrides if --env is specified
 		if opts.Env != "" {
 			mergedConfig, envErr := applyEnvironment(config, opts.Env, path)
@@ -173,6 +181,7 @@ func FindServicesWithOptions(root string, opts DiscoveryOptions) ([]ServiceInfo,
 
 		svcRelPath, _ := filepath.Rel(root, filepath.Dir(path))
 		svc := NewServiceInfo(config, svcRelPath)
+		svc.SchemaProblems = schemaProblems
 
 		// Validate service name as defense-in-depth against command injection
 		if err := shellutil.ValidateServiceName(svc.Name); err != nil {

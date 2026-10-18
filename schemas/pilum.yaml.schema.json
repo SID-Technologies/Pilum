@@ -126,6 +126,23 @@
     "mig": {
       "$ref": "#/$defs/mig"
     },
+    "health_check": {
+      "type": "object",
+      "description": "Container health check for pilum compose (curl against localhost:8080)",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "HTTP path to check",
+          "default": "/health"
+        },
+        "initial_delay": {
+          "type": "string",
+          "description": "Grace period before failures count, e.g. 5s",
+          "default": "5s"
+        }
+      },
+      "additionalProperties": false
+    },
     "environments": {
       "type": "object",
       "description": "Environment-specific overrides (e.g., staging, prod). Each key is an environment name whose values override top-level fields.",
@@ -287,11 +304,8 @@
           "description": "Build output directory (e.g., 'dist')"
         },
         "env_vars": {
-          "type": "object",
           "description": "Environment variables for the build process",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/string_map"
         },
         "flags": {
           "type": "object",
