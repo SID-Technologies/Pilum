@@ -182,10 +182,16 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	}
 	applyProjectBuildDefaults(services)
 
-	if opts.OnlyChanged {
+	if opts.OnlyChanged && len(services) > 0 {
 		services, err = changes.Filter(services, changes.Options{Since: opts.Since})
 		if err != nil {
 			return errors.Wrap(err, "error detecting changed services")
+		}
+		// Nothing changed is a successful run, even when services were named:
+		// a release that only touches docs deploys nothing.
+		if len(services) == 0 {
+			output.Info("No services changed; nothing to %s", cmdName)
+			return nil
 		}
 	}
 
