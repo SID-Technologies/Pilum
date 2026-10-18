@@ -78,6 +78,9 @@ type BuildConfig struct {
 	// Needs a buildx builder that can export cache (docker-container
 	// driver, e.g. docker/setup-buildx-action).
 	DockerCache bool `yaml:"docker_cache"`
+	// DockerCacheSet is true when pilum.yaml sets docker_cache, so a
+	// project-wide default in .pilum.yml doesn't override it.
+	DockerCacheSet bool `yaml:"-"`
 }
 
 type RuntimeConfig struct {
@@ -415,6 +418,7 @@ func parseBuildConfig(config map[string]any) BuildConfig {
 		Platform:    configutil.GetString(buildMap, "platform", ""),
 		DockerCache: configutil.GetBool(buildMap, "docker_cache", false),
 	}
+	_, bc.DockerCacheSet = buildMap["docker_cache"]
 
 	// warm is a command, or false to opt out of automatic warming.
 	switch warm := buildMap["warm"].(type) {

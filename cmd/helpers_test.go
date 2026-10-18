@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
+	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 	"github.com/sid-technologies/pilum/lib/webhook"
 
 	"github.com/spf13/viper"
@@ -268,4 +270,35 @@ func TestLoadWebhookConfigs_SkipsInvalidEntries(t *testing.T) {
 
 	require.Len(t, configs, 1)
 	require.Equal(t, "https://valid.example.com/hook", configs[0].URL)
+}
+
+// --- applyProjectBuildDefaults tests (Viper global state, not parallel) ---
+
+func TestApplyProjectBuildDefaults(t *testing.T) {
+	viper.Reset()
+	defer viper.Reset()
+
+	viper.SetConfigType("yaml")
+	require.NoError(t, viper.ReadConfig(strings.NewReader("build:\n  docker_cache: true\n")))
+
+	services := []serviceinfo.ServiceInfo{
+		*serviceinfo.NewServiceInfo(map[string]any{"name": "inherits"}, "."),
+		*serviceinfo.NewServiceInfo(map[string]any{"name": "opts-out", "build": map[string]any{"docker_cache": false}}, "."),
+	}
+	applyProjectBuildDefaults(services)
+
+	require.True(t, services[0].BuildConfig.DockerCache)
+	require.False(t, services[1].BuildConfig.DockerCache, "pilum.yaml beats .pilum.yml")
+}
+
+func TestApplyProjectBuildDefaultsWithoutConfig(t *testing.T) {
+	viper.Reset()
+	defer viper.Reset()
+
+	services := []serviceinfo.ServiceInfo{
+		*serviceinfo.NewServiceInfo(map[string]any{"name": "on", "build": map[string]any{"docker_cache": true}}, "."),
+	}
+	applyProjectBuildDefaults(services)
+
+	require.True(t, services[0].BuildConfig.DockerCache)
 }

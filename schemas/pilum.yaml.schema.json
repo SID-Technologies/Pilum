@@ -251,7 +251,7 @@
         },
         "docker_cache": {
           "type": "boolean",
-          "description": "Keep the image's layer cache in its registry (<image>:buildcache) with docker buildx, so a fresh CI runner reuses unchanged layers. Needs a buildx builder that can export cache, e.g. docker/setup-buildx-action.",
+          "description": "Keep the image's layer cache in its registry (<image>:buildcache) with docker buildx, so a fresh CI runner reuses unchanged layers. Needs a buildx builder that can export cache, e.g. docker/setup-buildx-action. Overrides a project-wide build.docker_cache in .pilum.yml.",
           "default": false
         },
         "language": {
