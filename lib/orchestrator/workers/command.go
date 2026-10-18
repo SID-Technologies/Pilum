@@ -181,10 +181,10 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		case <-ctx.Done():
 			err := TerminateProcessTree(cmd.Process.Pid)
 			if err != nil {
-				return false, errors.Wrap(err, "error terminating process tree for %s", taskInfo.ServiceName)
+				return false, errors.Wrap(err, "command timed out after %ds and could not be stopped", taskInfo.Timeout)
 			}
 
-			return false, errors.New("command timed out")
+			return false, errors.New("command timed out after %ds", taskInfo.Timeout)
 		case err := <-done:
 			// Wait for output goroutines to finish draining pipes
 			wg.Wait()

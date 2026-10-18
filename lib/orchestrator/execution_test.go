@@ -449,6 +449,29 @@ func TestPipelineExecuteTaskEmptyExecutionMode(t *testing.T) {
 	require.True(t, result.Success)
 }
 
+func TestStepTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		step recipe.Step
+		opts types.PipelineOptions
+		want int
+	}{
+		{name: "flag default", opts: types.PipelineOptions{Timeout: 60}, want: 60},
+		{name: "recipe timeout beats the flag default", step: recipe.Step{Timeout: 300}, opts: types.PipelineOptions{Timeout: 60}, want: 300},
+		{name: "--timeout beats the recipe timeout", step: recipe.Step{Timeout: 300}, opts: types.PipelineOptions{Timeout: 1800, TimeoutSet: true}, want: 1800},
+		{name: "--timeout can shorten it too", step: recipe.Step{Timeout: 300}, opts: types.PipelineOptions{Timeout: 30, TimeoutSet: true}, want: 30},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, stepTimeout(&tt.step, tt.opts))
+		})
+	}
+}
+
 func TestStepRetries(t *testing.T) {
 	t.Parallel()
 

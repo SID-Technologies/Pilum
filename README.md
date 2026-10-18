@@ -509,7 +509,7 @@ Map the schema URL to `pilum.yaml` files in **Settings > Languages & Frameworks 
 | `--tag` | `-t` | `latest` | Version tag for the deployment |
 | `--dry-run` | `-D` | `false` | Preview commands without executing |
 | `--debug` | `-d` | `false` | Enable debug logging |
-| `--timeout` | `-T` | `60` | Command timeout in seconds |
+| `--timeout` | `-T` | `60` | Step timeout in seconds. A recipe step's `timeout:` replaces the default; passing `-T` replaces both |
 | `--retries` | `-r` | `3` | Number of retries on failure |
 | `--max-workers` | | `0` (auto) | Parallel workers. Auto: build steps use CPUs ÷ `resources.cpu` (default 2), capped by memory and sized from the Docker VM for docker steps; push/deploy steps use up to 16 |
 | `--only-tags` | | | Only run steps with these tags |

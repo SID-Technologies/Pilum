@@ -1,10 +1,10 @@
 package workers
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -12,41 +12,22 @@ import (
 	"github.com/sid-technologies/pilum/lib/errors"
 )
 
-// TerminateProcessTree terminates a process and all its child processes.
+// TerminateProcessTree terminates a process and its direct children, sending
+// SIGTERM and then SIGKILL. A process that has already exited is not an
+// error, and neither is a missing pgrep: the parent is still killed.
 func TerminateProcessTree(pid int) error {
-	var err error
-	// Find child processes
-	findCmd := exec.Command("pgrep", "-P", fmt.Sprintf("%d", pid)) //nolint:gosec // pgrep with controlled PID argument
-	output, err := findCmd.Output()
-	if err != nil {
-		return errors.Wrap(err, "error finding child processes")
-	}
-
-	// Parse child PIDs
-	childPids := []int{}
-	if len(output) > 0 {
-		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-			if line == "" {
-				continue
-			}
-			var childPid int
-			_, err := fmt.Sscanf(line, "%d", &childPid)
-			if err == nil {
-				childPids = append(childPids, childPid)
-			}
-		}
-	}
+	childPids := childProcesses(pid)
 
 	// Terminate children first
 	for _, childPid := range childPids {
-		err = syscall.Kill(childPid, syscall.SIGTERM)
+		err := signalProcess(childPid, syscall.SIGTERM)
 		if err != nil {
 			return errors.Wrap(err, "error terminating child process %d", childPid)
 		}
 	}
 
 	// Terminate parent
-	err = syscall.Kill(pid, syscall.SIGTERM)
+	err := signalProcess(pid, syscall.SIGTERM)
 	if err != nil {
 		return errors.Wrap(err, "error terminating process %d", pid)
 	}
@@ -56,17 +37,45 @@ func TerminateProcessTree(pid int) error {
 
 	// Force kill if still running
 	for _, childPid := range childPids {
-		err = syscall.Kill(childPid, syscall.SIGKILL)
+		err = signalProcess(childPid, syscall.SIGKILL)
 		if err != nil {
 			return errors.Wrap(err, "error force killing child process %d", childPid)
 		}
 	}
-	err = syscall.Kill(pid, syscall.SIGKILL)
+	err = signalProcess(pid, syscall.SIGKILL)
 	if err != nil {
 		return errors.Wrap(err, "error force killing process %d", pid)
 	}
 
 	return nil
+}
+
+// childProcesses lists pid's direct children. pgrep exits 1 when there are
+// none, and some images (golang, distroless) don't ship it, so any failure
+// means no children.
+func childProcesses(pid int) []int {
+	output, err := exec.Command("pgrep", "-P", strconv.Itoa(pid)).Output() //nolint:gosec // pgrep with controlled PID argument
+	if err != nil {
+		return nil
+	}
+
+	childPids := []int{}
+	for _, line := range strings.Fields(string(output)) {
+		childPid, err := strconv.Atoi(line)
+		if err == nil {
+			childPids = append(childPids, childPid)
+		}
+	}
+	return childPids
+}
+
+// signalProcess sends sig to pid, treating a process that is already gone as success.
+func signalProcess(pid int, sig syscall.Signal) error {
+	err := syscall.Kill(pid, sig)
+	if errors.Is(err, syscall.ESRCH) {
+		return nil
+	}
+	return err
 }
 
 // ExponentialBackoffWithJitter calculates exponential backoff with jitter.
