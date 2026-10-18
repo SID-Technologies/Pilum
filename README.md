@@ -623,7 +623,7 @@ my-project/
 
 ## How It Works
 
-1. **Discovery** - Pilum finds all `pilum.yaml` files in your project (respects `.gitignore` and `.pilumignore`)
+1. **Discovery** - Pilum finds all `pilum.yaml` files in your project (respects `.gitignore` files at any level, each scoped to its directory, and `.pilumignore`)
 2. **Validation** - Each service is validated against its recipe's required fields
 3. **Matching** - Services are matched to recipes based on `provider` field
 4. **Locking** - A deployment lock prevents concurrent runs
