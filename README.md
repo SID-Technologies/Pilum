@@ -135,6 +135,7 @@ Each recipe defines:
 | `gcp-cloud-run-job` | `gcp` | Deploy batch jobs to Google Cloud Run Jobs |
 | `gcp-mig-container` | `gcp` | Roll a new container image onto an existing managed instance group (COS + startup script) |
 | `aws-lambda` | `aws` | Deploy to AWS Lambda |
+| `aws-ecr-image` | `aws` | Build a Docker image and publish it to Amazon ECR (no deploy) |
 | `azure-container-apps` | `azure` | Deploy to Azure Container Apps |
 | `cloudflare-pages` | `cloudflare` | Deploy to Cloudflare Pages |
 | `homebrew` | `homebrew` | Publish Homebrew formula |
@@ -288,6 +289,26 @@ VM settings left unset are copied from the current template, so a MIG set up by 
 ### Deploying
 
 `pilum deploy statio-egress-proxy --tag v1.4.2` builds and pushes the image, creates `egress-proxy-tpl-v1-4-2` from the current template, starts a rolling update (`--max-surge 1 --max-unavailable 0`), and fails unless the group is stable within `mig.wait_timeout`. Each release needs its own tag; `latest` is rejected. `pilum rollback` moves the group back to the previous template, and `pilum status` shows the template it runs.
+
+## AWS
+
+Every AWS recipe reads a shared `aws:` block:
+
+```yaml
+provider: aws
+type: aws-ecr-image
+region: us-east-1
+template: go
+
+aws:
+  account_id: "123456789012"   # owns the ECR registry; quote it, YAML drops leading zeros
+  profile: prod                # optional: --profile on every aws command
+  create_repository: true      # optional: create the ECR repository on first push
+```
+
+Images go to `<account_id>.dkr.ecr.<region>.amazonaws.com/<image_name or name>`. Pilum logs docker in to ECR before it pushes, and before it builds when `build.docker_cache` is on, since the cache lives in ECR too. Without `profile`, the aws CLI's own credentials apply: env vars, `AWS_PROFILE`, or an OIDC role from `aws-actions/configure-aws-credentials` in CI. Leave `create_repository` off when Terraform owns the repositories.
+
+Services that set the account in `registry_name` keep working.
 
 ## Deployment Locks
 

@@ -147,6 +147,15 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 			}
 			return configutil.GetNestedString(s.Config, "cloudflare", "account_id_env")
 		},
+		// Not a real key: the account ID is aws.account_id, or registry_name
+		// in configs from before the aws: block.
+		"aws.account": func(s *serviceinfo.ServiceInfo) string {
+			id := configutil.GetString(configutil.MapFromAny(s.Config["aws"]), "account_id", "")
+			if id != "" {
+				return id
+			}
+			return s.RegistryName
+		},
 		"cloudflare.token_env": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "cloudflare", "token_env")
 		},

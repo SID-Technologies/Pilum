@@ -6,6 +6,7 @@ import (
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestServiceInfoValidate(t *testing.T) {
@@ -682,4 +683,27 @@ func TestNewServiceInfoUnreadableBuildConfigFailsValidation(t *testing.T) {
 	require.Contains(t, err.Error(), "build.env_vars: LIST must be a string, number or boolean")
 	require.Contains(t, err.Error(), "build.flags.ldflags: values must be strings; quote 1")
 	require.Contains(t, err.Error(), "build.flags.tags must be a string or a list of strings")
+}
+
+func TestNewServiceInfoAWSAccountID(t *testing.T) {
+	t.Parallel()
+
+	parse := func(doc string) error {
+		var config map[string]any
+		require.NoError(t, yaml.Unmarshal([]byte(doc), &config))
+		return serviceinfo.NewServiceInfo(config, "/path").Validate()
+	}
+
+	require.NoError(t, parse("name: api\nprovider: aws\naws:\n  account_id: \"012345678901\"\n"))
+	require.NoError(t, parse("name: api\nprovider: aws\naws:\n  account_id: 123456789012\n"))
+
+	// Unquoted, the leading zero is gone.
+	err := parse("name: api\nprovider: aws\naws:\n  account_id: 012345678901\n")
+	require.ErrorContains(t, err, "aws.account_id")
+	require.ErrorContains(t, err, "not a 12-digit AWS account ID")
+
+	require.ErrorContains(t, parse("name: api\nprovider: aws\nregistry_name: my-registry\n"), "registry_name")
+
+	// Other providers use registry_name for other things.
+	require.NoError(t, parse("name: api\nprovider: gcp\nregistry_name: my-registry\n"))
 }

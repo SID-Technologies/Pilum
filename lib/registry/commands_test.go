@@ -710,3 +710,37 @@ func TestMIGContainerHandlersRejectLatestTag(t *testing.T) {
 		require.Nil(t, handler(ctx), step)
 	}
 }
+
+func TestAWSRegistryHandlers(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	run := func(step string, svc serviceinfo.ServiceInfo, image string) any {
+		handler, found := reg.GetHandler(step, "aws")
+		require.True(t, found, step)
+		return handler(registry.StepContext{Service: svc, ImageName: image})
+	}
+
+	const image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/api:v1"
+	svc := *serviceinfo.NewServiceInfo(map[string]any{"name": "api", "provider": "aws", "region": "us-east-1"}, "api")
+
+	login, ok := run("login to registry", svc, image).(string)
+	require.True(t, ok)
+	require.Contains(t, login, "docker login --username AWS --password-stdin")
+
+	// Not in ECR: nothing to log in to.
+	require.Nil(t, run("login to registry", svc, "ghcr.io/org/api:v1"))
+
+	// The cache login only runs when the build uses the registry cache.
+	require.Nil(t, run("login for build cache", svc, image))
+	cached := svc
+	cached.BuildConfig.DockerCache = true
+	require.Equal(t, login, run("login for build cache", cached, image))
+
+	// Repositories are created only when asked.
+	require.Nil(t, run("create registry repository", svc, image))
+	svc.Config["aws"] = map[string]any{"create_repository": true}
+	require.NotNil(t, run("create registry repository", svc, image))
+}

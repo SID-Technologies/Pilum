@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	service "github.com/sid-technologies/pilum/lib/service_info"
 )
 
@@ -26,10 +27,16 @@ func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, template
 		// and ignore-error does the same for a failed upload, so a cache
 		// problem costs speed, never the build.
 		cache := "type=registry,ref=" + imageRepository(imageName) + ":" + cacheTag
+		cacheTo := cache + ",mode=max,ignore-error=true"
+		if aws.IsECRHost(aws.RegistryOf(imageName)) {
+			// ECR rejects buildx's default cache manifest list; it takes
+			// the cache as an OCI image manifest.
+			cacheTo += ",image-manifest=true,oci-mediatypes=true"
+		}
 		cmd = []string{
 			"docker", "buildx", "build",
 			"--cache-from", cache,
-			"--cache-to", cache + ",mode=max,ignore-error=true",
+			"--cache-to", cacheTo,
 			"--load",
 		}
 	}
