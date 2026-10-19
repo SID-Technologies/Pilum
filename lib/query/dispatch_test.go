@@ -1,6 +1,7 @@
 package query_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/sid-technologies/pilum/lib/query"
@@ -357,4 +358,38 @@ func TestParseStatusResponseMIG(t *testing.T) {
 	require.Equal(t, "2/3", got.Replicas)
 
 	require.Equal(t, "Unknown", query.ParseStatusResponse("not json", migService()).Status)
+}
+
+func TestECSStatus(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{
+		Name: "api", Provider: "aws", Type: "aws-ecs", Region: "us-east-1",
+		Config: map[string]any{"ecs": map[string]any{"cluster": "prod"}},
+	}
+
+	cmd, err := query.GenerateStatusCommand(svc)
+	require.NoError(t, err)
+	require.Equal(t, "describe-services", cmd[2])
+
+	cmd, err = query.GenerateLogsCommand(svc, 50, false)
+	require.NoError(t, err)
+	require.Equal(t, "/ecs/api", cmd[3])
+
+	described := func(running int, deployments string) string {
+		return `{"services": [{"serviceName": "api", "status": "ACTIVE", "desiredCount": 2, "runningCount": ` +
+			fmt.Sprint(running) + `, "taskDefinition": "arn:aws:ecs:us-east-1:123456789012:task-definition/api:42",
+			"deployments": [` + deployments + `]}], "failures": []}`
+	}
+	const done = `{"status": "PRIMARY", "rolloutState": "COMPLETED"}`
+
+	status := query.ParseStatusResponse(described(2, done), svc)
+	require.Equal(t, "Ready", status.Status)
+	require.Equal(t, "api:42", status.Revision)
+	require.Equal(t, "2/2", status.Replicas)
+
+	require.Equal(t, "Deploying", query.ParseStatusResponse(described(2, `{"status": "PRIMARY", "rolloutState": "IN_PROGRESS"}, {"status": "ACTIVE"}`), svc).Status)
+	require.Equal(t, "Failed", query.ParseStatusResponse(described(0, `{"status": "PRIMARY", "rolloutState": "FAILED"}`), svc).Status)
+	require.Equal(t, "NotReady", query.ParseStatusResponse(described(1, done), svc).Status)
+	require.Equal(t, "Unknown", query.ParseStatusResponse(`{"services": [], "failures": [{"reason": "MISSING"}]}`, svc).Status)
 }

@@ -13,6 +13,7 @@ type ServiceStatus struct {
 	Status   string `json:"status"`
 	Image    string `json:"image,omitempty"`
 	Template string `json:"template,omitempty"` // Instance template, for managed instance groups
+	Revision string `json:"revision,omitempty"` // Task definition family:revision, for ECS services
 	URL      string `json:"url,omitempty"`
 	Replicas string `json:"replicas,omitempty"`
 	Updated  string `json:"updated,omitempty"`

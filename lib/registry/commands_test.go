@@ -744,3 +744,25 @@ func TestAWSRegistryHandlers(t *testing.T) {
 	svc.Config["aws"] = map[string]any{"create_repository": true}
 	require.NotNil(t, run("create registry repository", svc, image))
 }
+
+func TestECSRegistryHandlers(t *testing.T) {
+	t.Parallel()
+
+	reg := registry.NewCommandRegistry()
+	registry.RegisterDefaultHandlers(reg)
+
+	svc := *serviceinfo.NewServiceInfo(map[string]any{
+		"name": "api", "provider": "aws", "type": "aws-ecs", "region": "us-east-1",
+		"ecs": map[string]any{"cluster": "prod"},
+	}, "api")
+	ctx := registry.StepContext{Service: svc, ImageName: "123456789012.dkr.ecr.us-east-1.amazonaws.com/api:v1"}
+
+	for step, sub := range map[string]string{"deploy to ecs": "ecs-deploy", "wait for ecs deployment": "ecs-wait"} {
+		handler, found := reg.GetHandler(step, "aws")
+		require.True(t, found, step)
+		cmd, ok := handler(ctx).([]string)
+		require.True(t, ok, step)
+		require.Equal(t, sub, cmd[1], step)
+		require.Contains(t, cmd, ctx.ImageName, step)
+	}
+}

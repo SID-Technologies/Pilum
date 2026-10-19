@@ -48,14 +48,30 @@ func RegistryHost(svc serviceinfo.ServiceInfo) string {
 	return accountID + ".dkr.ecr." + svc.Region + ".amazonaws.com"
 }
 
+// Target is the region and profile every aws command runs against.
+type Target struct {
+	Region  string
+	Profile string
+}
+
+// TargetOf returns the region and profile of a service.
+func TargetOf(svc serviceinfo.ServiceInfo) Target {
+	return Target{Region: svc.Region, Profile: ParseConfig(svc).Profile}
+}
+
+// Flags returns --region and --profile for the set fields.
+func (t Target) Flags() []string {
+	var flags []string
+	if t.Region != "" {
+		flags = append(flags, "--region", t.Region)
+	}
+	if t.Profile != "" {
+		flags = append(flags, "--profile", t.Profile)
+	}
+	return flags
+}
+
 // withTarget appends the region and profile flags every aws command takes.
 func withTarget(cmd []string, svc serviceinfo.ServiceInfo) []string {
-	if svc.Region != "" {
-		cmd = append(cmd, "--region", svc.Region)
-	}
-	profile := ParseConfig(svc).Profile
-	if profile != "" {
-		cmd = append(cmd, "--profile", profile)
-	}
-	return cmd
+	return append(cmd, TargetOf(svc).Flags()...)
 }

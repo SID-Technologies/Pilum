@@ -170,6 +170,9 @@ func printStatusTable(statuses []query.ServiceStatus) {
 		if image == "" && s.Template != "" {
 			image = fmt.Sprintf("template %s, %s instances stable", s.Template, s.Replicas)
 		}
+		if image == "" && s.Revision != "" {
+			image = fmt.Sprintf("%s, %s tasks running", s.Revision, s.Replicas)
+		}
 		if image == "" {
 			image = "—"
 		}

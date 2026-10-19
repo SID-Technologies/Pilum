@@ -9,6 +9,7 @@ import (
 	"github.com/sid-technologies/pilum/ingredients/azure"
 	"github.com/sid-technologies/pilum/ingredients/cloudflare"
 	"github.com/sid-technologies/pilum/ingredients/gcp"
+	"github.com/sid-technologies/pilum/lib/ecsdeploy"
 	"github.com/sid-technologies/pilum/lib/errors"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
@@ -26,6 +27,8 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) ([]string, error) {
 		return azure.GenerateStatusCommand(svc), nil
 	case "aws-lambda":
 		return aws.GenerateStatusCommand(svc), nil
+	case "aws-ecs":
+		return aws.GenerateECSStatusCommand(svc), nil
 	case "cloudflare-pages":
 		return cloudflare.GenerateStatusCommand(svc), nil
 	default:
@@ -59,6 +62,8 @@ func GenerateLogsCommand(svc serviceinfo.ServiceInfo, lines int, follow bool) ([
 		return azure.GenerateLogsCommand(svc, follow), nil
 	case "aws-lambda":
 		return aws.GenerateLogsCommand(svc, follow), nil
+	case "aws-ecs":
+		return aws.GenerateECSLogsCommand(svc, follow), nil
 	case "cloudflare-pages":
 		return cloudflare.GenerateLogsCommand(svc), nil
 	default:
@@ -87,6 +92,8 @@ func ParseStatusResponse(jsonOutput string, svc serviceinfo.ServiceInfo) Service
 		return parseAzureStatus(jsonOutput, svc)
 	case "aws-lambda":
 		return parseAWSStatus(jsonOutput, svc)
+	case "aws-ecs":
+		return parseECSStatus(jsonOutput, svc)
 	default:
 		switch svc.Provider {
 		case "gcp":
@@ -280,6 +287,35 @@ func parseAWSStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatu
 		}
 	}
 
+	return status
+}
+
+func parseECSStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatus {
+	status := ServiceStatus{
+		Name:     svc.DisplayName(),
+		Provider: svc.Provider,
+		Region:   svc.Region,
+		Status:   "Unknown",
+	}
+
+	ecsSvc, err := ecsdeploy.ParseService(jsonOutput, aws.ParseECSConfig(svc).Service)
+	if err != nil {
+		return status
+	}
+	status.Revision = ecsdeploy.Family(ecsSvc.TaskDefinition)
+	status.Replicas = fmt.Sprintf("%d/%d", ecsSvc.RunningCount, ecsSvc.DesiredCount)
+
+	primary, _ := ecsSvc.Primary()
+	switch {
+	case primary.RolloutState == "FAILED":
+		status.Status = "Failed"
+	case len(ecsSvc.Deployments) > 1 || primary.RolloutState == "IN_PROGRESS":
+		status.Status = "Deploying"
+	case ecsSvc.RunningCount < ecsSvc.DesiredCount:
+		status.Status = "NotReady"
+	default:
+		status.Status = "Ready"
+	}
 	return status
 }
 

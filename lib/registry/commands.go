@@ -268,6 +268,17 @@ func registerAWSHandlers(reg *CommandRegistry) {
 	reg.Register("create registry repository", "aws", func(ctx StepContext) any {
 		return shellOrNil(aws.GenerateCreateRepositoryCommand(ctx.Service, ctx.ImageName))
 	})
+
+	// aws-ecs: register the next task definition and deploy it. A pilum
+	// subcommand, because the aws CLI can't copy a task definition.
+	reg.Register("deploy to ecs", "aws", func(ctx StepContext) any {
+		return append([]string{pilumExecutable()}, aws.GenerateECSDeployArgs(ctx.Service, ctx.ImageName)...)
+	})
+
+	// aws-ecs: block until the service runs the new image.
+	reg.Register("wait for ecs deployment", "aws", func(ctx StepContext) any {
+		return append([]string{pilumExecutable()}, aws.GenerateECSWaitArgs(ctx.Service, ctx.ImageName)...)
+	})
 }
 
 // shellOrNil turns an empty shell command into "no command", which skips

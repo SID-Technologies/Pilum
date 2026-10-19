@@ -135,6 +135,7 @@ Each recipe defines:
 | `gcp-cloud-run-job` | `gcp` | Deploy batch jobs to Google Cloud Run Jobs |
 | `gcp-mig-container` | `gcp` | Roll a new container image onto an existing managed instance group (COS + startup script) |
 | `aws-lambda` | `aws` | Deploy to AWS Lambda |
+| `aws-ecs` | `aws` | Roll a new image onto an existing Amazon ECS service (Fargate or EC2) |
 | `aws-ecr-image` | `aws` | Build a Docker image and publish it to Amazon ECR (no deploy) |
 | `azure-container-apps` | `azure` | Deploy to Azure Container Apps |
 | `cloudflare-pages` | `cloudflare` | Deploy to Cloudflare Pages |
@@ -309,6 +310,38 @@ aws:
 Images go to `<account_id>.dkr.ecr.<region>.amazonaws.com/<image_name or name>`. Pilum logs docker in to ECR before it pushes, and before it builds when `build.docker_cache` is on, since the cache lives in ECR too. Without `profile`, the aws CLI's own credentials apply: env vars, `AWS_PROFILE`, or an OIDC role from `aws-actions/configure-aws-credentials` in CI. Leave `create_repository` off when Terraform owns the repositories.
 
 Services that set the account in `registry_name` keep working.
+
+### ECS
+
+`aws-ecs` rolls a new image onto an existing ECS service, Fargate or EC2. Terraform (or whoever set it up) owns the cluster, service, load balancer and IAM roles; Pilum ships versions:
+
+```yaml
+name: api
+provider: aws
+type: aws-ecs
+region: us-east-1
+template: go
+aws:
+  account_id: "123456789012"
+ecs:
+  cluster: prod
+  # service: api          # default: name
+  # container: api        # default: the only container, or the one named like the service
+  # cpu: 512              # task size; unset keeps the task definition's
+  # memory: 1024
+  # desired_count: 2      # unset leaves it to you or autoscaling
+  # wait_timeout: 600
+env_vars:
+  LOG_LEVEL: info         # when set, replaces the container's environment
+secrets:
+  DB_URL: prod/api/db-url # Secrets Manager secret or SSM parameter, name or ARN
+```
+
+Each deploy copies the task definition the service runs now, changes the image and only what `pilum.yaml` sets, registers it as the next revision and points the service at it. Ports, health checks, log configuration, roles and other containers come along unchanged. Pilum then waits for the rollout and fails the deploy if it fails, times out, or is rolled back by the deployment circuit breaker (`aws ecs wait services-stable` calls that a success). The last service events are in the error. A rerun reuses a revision that already matches instead of registering another.
+
+If Terraform manages the task definition too, give it `lifecycle { ignore_changes = [task_definition] }` on the service, so the next `terraform apply` doesn't roll back what Pilum deployed.
+
+`pilum status` shows the revision and running tasks; `pilum logs` tails `ecs.log_group` (default `/ecs/<service>`).
 
 ## Deployment Locks
 
