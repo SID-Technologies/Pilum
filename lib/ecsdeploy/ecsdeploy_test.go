@@ -2,6 +2,7 @@ package ecsdeploy_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -385,4 +386,63 @@ func TestFamily(t *testing.T) {
 
 	require.Equal(t, "api:42", ecsdeploy.Family(tdV42))
 	require.Equal(t, "api:42", ecsdeploy.Family("api:42"))
+}
+
+func TestWaitReportsFailedRevision(t *testing.T) {
+	t.Parallel()
+
+	// Seen deploying, then failed: that's the revision to mark.
+	fake := &fakeAWS{responses: map[string][]string{
+		"describe-services": {
+			serviceFixture(deployment("PRIMARY", tdV42, 0, "IN_PROGRESS"), deployment("ACTIVE", tdV41, 2, "COMPLETED")),
+			serviceFixture(deployment("PRIMARY", tdV41, 2, "IN_PROGRESS"), deployment("ACTIVE", tdV42, 0, "FAILED")),
+		},
+		"describe-task-definition " + tdV42: {taskDefinitionFixture(tdV42, v2Image)},
+		"describe-task-definition " + tdV41: {taskDefinitionFixture(tdV41, v1Image)},
+	}}
+	clock, _ := fakeClock()
+	err := ecsdeploy.Wait(waitRequest(), fake.run, clock, func(string) {})
+	var rollout *ecsdeploy.RolloutError
+	require.ErrorAs(t, err, &rollout)
+	require.Equal(t, tdV42, rollout.TaskDefinition)
+
+	// Already rolled back on the first look: found by its image.
+	fake = &fakeAWS{responses: map[string][]string{
+		"describe-services":                 {serviceFixture(deployment("PRIMARY", tdV41, 2, "COMPLETED"))},
+		"list-task-definitions":             {`{"taskDefinitionArns": ["` + tdV42 + `", "` + tdV41 + `"]}`},
+		"describe-task-definition " + tdV42: {taskDefinitionFixture(tdV42, v2Image)},
+		"describe-task-definition " + tdV41: {taskDefinitionFixture(tdV41, v1Image)},
+	}}
+	err = ecsdeploy.Wait(waitRequest(), fake.run, clock, func(string) {})
+	require.ErrorAs(t, err, &rollout)
+	require.Equal(t, tdV42, rollout.TaskDefinition)
+
+	// A timeout isn't a failed rollout: it may still finish.
+	fake = &fakeAWS{responses: map[string][]string{
+		"describe-services":                 {serviceFixture(deployment("PRIMARY", tdV42, 1, "IN_PROGRESS"))},
+		"describe-task-definition " + tdV42: {taskDefinitionFixture(tdV42, v2Image)},
+	}}
+	err = ecsdeploy.Wait(waitRequest(), fake.run, clock, func(string) {})
+	require.Error(t, err)
+	require.False(t, errors.As(err, &rollout))
+}
+
+func TestParseRevision(t *testing.T) {
+	t.Parallel()
+
+	rev, err := ecsdeploy.ParseRevision(taskDefinitionFixture(tdV41, v1Image))
+	require.NoError(t, err)
+	require.Equal(t, 41, rev.Number)
+	require.Equal(t, []string{v1Image}, rev.Images)
+	require.False(t, rev.Failed)
+	require.Equal(t, v1Image, rev.Image("", "api"))
+
+	failed := strings.Replace(taskDefinitionFixture(tdV41, v1Image), `"tags": [`, `"tags": [{"key": "pilum:rollout", "value": "failed"},`, 1)
+	rev, err = ecsdeploy.ParseRevision(failed)
+	require.NoError(t, err)
+	require.True(t, rev.Failed)
+
+	arns, err := ecsdeploy.ParseRevisionList(`{"taskDefinitionArns": ["`+tdV42+`", "arn:aws:ecs:us-east-1:123456789012:task-definition/api-worker:3"]}`, "api")
+	require.NoError(t, err)
+	require.Equal(t, []string{tdV42}, arns)
 }

@@ -154,3 +154,26 @@ func GenerateECSLogsCommand(svc serviceinfo.ServiceInfo, follow bool) []string {
 	}
 	return cmd
 }
+
+// FailedRolloutTag marks a task definition revision whose rollout failed,
+// so `pilum rollback` never picks it.
+const FailedRolloutTag = "pilum:rollout"
+
+// FailedRolloutValue is FailedRolloutTag's value on a failed revision.
+const FailedRolloutValue = "failed"
+
+// ListTaskDefinitionsCommand lists a family's active revisions, newest
+// first. --family-prefix also matches longer family names (api matches
+// api-worker), so callers filter on the exact family.
+func ListTaskDefinitionsCommand(target Target, family string) []string {
+	cmd := []string{"aws", "ecs", "list-task-definitions", "--family-prefix", family,
+		"--status", "ACTIVE", "--sort", "DESC", "--max-items", "100", "--output", "json"}
+	return append(cmd, target.Flags()...)
+}
+
+// TagFailedRolloutCommand marks a revision as one whose rollout failed.
+func TagFailedRolloutCommand(target Target, taskDefinition string) []string {
+	cmd := []string{"aws", "ecs", "tag-resource", "--resource-arn", taskDefinition,
+		"--tags", "key=" + FailedRolloutTag + ",value=" + FailedRolloutValue}
+	return append(cmd, target.Flags()...)
+}

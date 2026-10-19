@@ -197,10 +197,11 @@ pilum rollback api --yes              # No prompt (required in CI)
 - **Cloud Run services** move 100% of traffic to the previous healthy revision. Nothing is rebuilt, and that revision's full config comes back with it. Running rollback again steps back one more revision.
 - **Cloud Run jobs** point the job at the image of its previous execution (or `--to <tag>`), keeping the job's current config.
 - **Managed instance groups** (`gcp-mig-container`) roll back onto the newest `<template_base>` template older than the current one (or `--to <tag|template>`), with the same surge settings as a deploy, and wait until the group is stable.
-- The previous version is read from GCP, not from local history, so it works from any machine, including CI.
+- **ECS services** (`aws-ecs`) point the service back at the newest task definition revision before the current one, and wait for the rollout. That revision's whole config comes back with it. Revisions whose rollout failed are skipped: when a deploy fails or the circuit breaker rolls it back, Pilum tags the revision `pilum:rollout=failed` (it needs `ecs:TagResource`). `--to` takes a revision number (`41`), `family:revision`, an ARN, or an image tag.
+- The previous version is read from the cloud provider, not from local history, so it works from any machine, including CI.
 - The next `pilum deploy` sends traffic to the new revision again: Cloud Run recipes end with a `route traffic to latest` step. This also resets any traffic split set up by hand.
 
-Other providers are not supported yet.
+Other providers are not supported yet. The next `pilum deploy` to an ECS service copies the revision it runs, so it builds on what you rolled back to.
 
 ## Managed Instance Groups
 

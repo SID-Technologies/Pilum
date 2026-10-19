@@ -3,6 +3,7 @@ package cmd
 import (
 	"time"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	"github.com/sid-technologies/pilum/lib/ecsdeploy"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/orchestrator/workers"
@@ -78,7 +79,12 @@ func ECSWaitCmd() *cobra.Command {
 			clock := ecsdeploy.Clock{Now: time.Now, Sleep: time.Sleep}
 			progress := func(status string) { output.Info("%s", status) }
 
-			err := ecsdeploy.Wait(req, awsRunner(req.Service, timeout), clock, progress)
+			run := awsRunner(req.Service, timeout)
+			err := ecsdeploy.Wait(req, run, clock, progress)
+			var rollout *ecsdeploy.RolloutError
+			if errors.As(err, &rollout) && rollout.TaskDefinition != "" {
+				markFailed(req, rollout.TaskDefinition, run)
+			}
 			if err != nil {
 				return err
 			}
@@ -95,6 +101,17 @@ func ECSWaitCmd() *cobra.Command {
 	cmd.Flags().IntVar(&timeout, "timeout", 60, "Timeout per aws command in seconds")
 
 	return cmd
+}
+
+// markFailed tags a revision whose rollout failed, so `pilum rollback`
+// doesn't pick it. Best effort: the deploy has failed either way.
+func markFailed(req ecsdeploy.WaitRequest, taskDefinition string, run func([]string) (string, error)) {
+	_, err := run(aws.TagFailedRolloutCommand(req.Target, taskDefinition))
+	if err != nil {
+		output.Warning("couldn't mark %s as failed (pilum rollback may pick it): %v", ecsdeploy.Family(taskDefinition), err)
+		return
+	}
+	output.Info("Marked %s as failed; pilum rollback skips it", ecsdeploy.Family(taskDefinition))
 }
 
 func addAWSTargetFlags(cmd *cobra.Command, region, profile *string) {
