@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	"github.com/sid-technologies/pilum/lib/errors"
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
@@ -126,7 +127,11 @@ func CheckCmd() *cobra.Command {
 					continue
 				}
 
-				if err := recipe.ValidateService(&service); err != nil {
+				err := recipe.ValidateService(&service)
+				if err == nil {
+					err = aws.ValidateLambda(service)
+				}
+				if err != nil {
 					allValid = false
 					validationErr := exitcodes.WithCode(exitcodes.Config,
 						errors.Wrap(err, "error checking service %s", service.Name))

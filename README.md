@@ -134,7 +134,9 @@ Each recipe defines:
 | `gcp-cloud-run` | `gcp` | Deploy to Google Cloud Run |
 | `gcp-cloud-run-job` | `gcp` | Deploy batch jobs to Google Cloud Run Jobs |
 | `gcp-mig-container` | `gcp` | Roll a new container image onto an existing managed instance group (COS + startup script) |
-| `aws-lambda` | `aws` | Deploy to AWS Lambda |
+| `aws-lambda` | `aws` | Deploy a zip to an existing Lambda function, publish a version and move its alias |
+| `aws-lambda-image` | `aws` | Deploy a container image to an existing Lambda function, publish a version and move its alias |
+| `aws-lambda-sam` | `aws` | Deploy a SAM application (`sam build` + `sam deploy`); named `aws-lambda` before v0.12 |
 | `aws-ecs` | `aws` | Roll a new image onto an existing Amazon ECS service (Fargate or EC2) |
 | `aws-ecr-image` | `aws` | Build a Docker image and publish it to Amazon ECR (no deploy) |
 | `azure-container-apps` | `azure` | Deploy to Azure Container Apps |
@@ -198,6 +200,7 @@ pilum rollback api --yes              # No prompt (required in CI)
 - **Cloud Run jobs** point the job at the image of its previous execution (or `--to <tag>`), keeping the job's current config.
 - **Managed instance groups** (`gcp-mig-container`) roll back onto the newest `<template_base>` template older than the current one (or `--to <tag|template>`), with the same surge settings as a deploy, and wait until the group is stable.
 - **ECS services** (`aws-ecs`) point the service back at the newest task definition revision before the current one, and wait for the rollout. That revision's whole config comes back with it. Revisions whose rollout failed are skipped: when a deploy fails or the circuit breaker rolls it back, Pilum tags the revision `pilum:rollout=failed` (it needs `ecs:TagResource`). `--to` takes a revision number (`41`), `family:revision`, an ARN, or an image tag.
+- **Lambda functions** (`aws-lambda`, `aws-lambda-image`) move the alias (`live`) back to the previous published version. Instant, nothing rebuilt. `--to` takes a version number or the tag it was deployed with.
 - The previous version is read from the cloud provider, not from local history, so it works from any machine, including CI.
 - The next `pilum deploy` sends traffic to the new revision again: Cloud Run recipes end with a `route traffic to latest` step. This also resets any traffic split set up by hand.
 
@@ -343,6 +346,37 @@ Each deploy copies the task definition the service runs now, changes the image a
 If Terraform manages the task definition too, give it `lifecycle { ignore_changes = [task_definition] }` on the service, so the next `terraform apply` doesn't roll back what Pilum deployed.
 
 `pilum status` shows the revision and running tasks; `pilum logs` tails `ecs.log_group` (default `/ecs/<service>`).
+
+### Lambda
+
+`aws-lambda` (zip) and `aws-lambda-image` (container image) deploy to an existing function. Terraform owns the function, its role and its triggers; Pilum updates the code and what `pilum.yaml` sets, publishes a version, and moves an alias to it:
+
+```yaml
+name: thumbnails
+provider: aws
+type: aws-lambda          # or aws-lambda-image, with template: and aws.account_id
+region: us-east-1
+build:
+  cmd: GOOS=linux GOARCH=arm64 go build -o dist/bootstrap .
+lambda:
+  # function: thumbnails  # default: name
+  # alias: live           # default
+  artifact: dist          # aws-lambda: a directory (zipped) or a .zip
+  runtime: provided.al2023
+  handler: bootstrap
+  architecture: arm64     # aws-lambda-image builds linux/arm64 too
+  memory: 512
+  timeout: 30
+  # s3_bucket: my-artifacts  # needed for zips over 50 MB
+env_vars:
+  LOG_LEVEL: info         # when set, replaces the function's environment
+```
+
+**Point triggers at `<function>:live`**, not the bare function name. Then a deploy switches every caller to the new version in one step, and `pilum rollback` moves the alias back instantly. Callers of the bare name run `$LATEST`, which a deploy updates and a rollback doesn't touch. On the first deploy Pilum creates the alias; if Terraform manages it, ignore changes to its `function_version`.
+
+Each step waits for Lambda to finish the update before the next starts, and a failed update fails the deploy before the alias moves. Zips are built deterministically, so an unchanged build publishes no new version. Images are built with `--provenance=false`, since Lambda rejects the image index BuildKit makes for provenance attestations. Lambda has no secret references like ECS, so `secrets:` is refused: read them at run time.
+
+`aws-lambda` used to be the SAM recipe. A service with a `template.yaml` next to it gets a pointer to `type: aws-lambda-sam`.
 
 ## Deployment Locks
 
@@ -668,7 +702,8 @@ my-project/
 ├── _templates/                # Dockerfile templates
 ├── recipes/                  # Recipe definitions (YAML)
 │   ├── gcp-cloud-run-recipe.yaml
-│   └── aws-lambda-recipe.yaml
+│   ├── aws-lambda-recipe.yaml
+│   └── ...
 ├── schemas/                   # JSON Schema for editor support
 │   └── pilum.yaml.schema.json
 ├── services/

@@ -3,6 +3,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
@@ -19,7 +20,13 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) []string {
 
 // GenerateLogsCommand generates an AWS CLI command to tail Lambda logs.
 func GenerateLogsCommand(svc serviceinfo.ServiceInfo, follow bool) []string {
-	logGroup := fmt.Sprintf("/aws/lambda/%s", svc.Name)
+	function := ParseLambdaConfig(svc).Function
+	// An ARN's function name is the segment after "function:".
+	_, name, found := strings.Cut(function, ":function:")
+	if found {
+		function, _, _ = strings.Cut(name, ":")
+	}
+	logGroup := fmt.Sprintf("/aws/lambda/%s", function)
 	cmd := []string{
 		"aws", "logs", "tail", logGroup,
 	}

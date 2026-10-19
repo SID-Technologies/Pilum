@@ -1,7 +1,9 @@
 package schemas_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -370,4 +372,56 @@ func TestSchemaTypeExamplesCoverRecipes(t *testing.T) {
 		require.NoError(t, yaml.Unmarshal(data, &rcp))
 		require.Contains(t, examples, rcp.Name, "%s: add %q to type examples", f.Name(), rcp.Name)
 	}
+}
+
+// Duplicate keys are valid JSON, and the last one silently wins.
+func TestSchemaHasNoDuplicateKeys(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile(schemaPath)
+	require.NoError(t, err)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	require.NoError(t, checkObject(dec, "$"))
+}
+
+// checkObject walks the next JSON value, failing on an object that repeats a key.
+func checkObject(dec *json.Decoder, path string) error {
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := tok.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delim {
+	case '{':
+		seen := map[string]bool{}
+		for dec.More() {
+			keyTok, keyErr := dec.Token()
+			if keyErr != nil {
+				return keyErr
+			}
+			key, _ := keyTok.(string)
+			if seen[key] {
+				return fmt.Errorf("%s: duplicate key %q", path, key)
+			}
+			seen[key] = true
+			err = checkObject(dec, path+"."+key)
+			if err != nil {
+				return err
+			}
+		}
+	case '[':
+		for i := 0; dec.More(); i++ {
+			err = checkObject(dec, fmt.Sprintf("%s[%d]", path, i))
+			if err != nil {
+				return err
+			}
+		}
+	default:
+		return nil
+	}
+	_, err = dec.Token() // closing delimiter
+	return err
 }

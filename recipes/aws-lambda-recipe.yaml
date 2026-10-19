@@ -1,49 +1,86 @@
-# Prereqs: aws CLI (authenticated) + sam CLI installed.
+# Ship a new version of an existing Lambda function from a zip. Pilum
+# doesn't create the function, its role or its triggers; it updates the
+# code and the settings pilum.yaml sets, publishes a version, and moves an
+# alias (live) to it. Point triggers at <function>:live so a deploy, and a
+# rollback, is one alias move.
 name: aws-lambda
-description: Deploy to AWS Lambda
+description: Deploy a zip to an existing AWS Lambda function, publish a version and move its alias
 provider: aws
 service: lambda
 
 required_fields:
   - name: region
-    description: AWS region to deploy to
+    description: AWS region of the function
     type: string
-    default: us-east-1
 
-  - name: project
-    description: Project name
+  - name: name
+    description: Pilum service name (also the function name unless lambda.function is set)
     type: string
-    default: my-project
+
+optional_fields:
+  - name: lambda.function
+    description: Function name or ARN. Defaults to the service name.
+    type: string
+
+  - name: lambda.alias
+    description: Alias each deploy moves to the new version, and rollback moves back
+    type: string
+    default: live
+
+  - name: lambda.artifact
+    description: What to deploy, relative to the service directory - a directory (zipped) or a .zip. For Go, build bootstrap into it.
+    type: string
+    default: dist
+
+  - name: lambda.s3_bucket
+    description: Upload the zip through this bucket. Required for zips over 50 MB.
+    type: string
+
+  - name: lambda.runtime
+    description: Runtime (provided.al2023, nodejs22.x, python3.13...). Unset keeps the function's.
+    type: string
+
+  - name: lambda.handler
+    description: Handler (index.handler; bootstrap for provided runtimes). Unset keeps the function's.
+    type: string
+
+  - name: lambda.architecture
+    description: x86_64 or arm64. Unset keeps the function's.
+    type: string
+
+  - name: lambda.memory
+    description: Memory in MB. Unset keeps the function's.
+    type: int
+
+  - name: lambda.timeout
+    description: Function timeout in seconds. Unset keeps the function's.
+    type: int
+
+  - name: lambda.wait_timeout
+    description: Seconds to wait for each function update before failing the deploy
+    type: int
+    default: "300"
+
+  - name: env_vars
+    description: Function env vars. When set, they replace the function's environment; unset keeps it.
+    type: map
+
+  - name: aws.profile
+    description: AWS CLI profile for every aws command. Unset uses the CLI's default credentials.
+    type: string
 
 steps:
-  - name: build
-    command: ["sam", "build"]
+  - name: build binary
     execution_mode: service_dir
     timeout: 300
     tags:
       - build
 
-  # `sam deploy` packages and uploads artifacts itself (--resolve-s3 creates/
-  # reuses SAM's managed bucket), so there is no separate package/push step.
-  # --capabilities CAPABILITY_IAM: SAM templates almost always create the
-  #   function's execution role; without it the deploy is rejected.
-  # --no-fail-on-empty-changeset: redeploying an unchanged service is a
-  #   success, not an error (keeps retries and repeat runs green).
-  - name: deploy
-    command: [
-      "sam", "deploy",
-      "--stack-name", "${name}",
-      "--region", "${region}",
-      "--resolve-s3",
-      "--capabilities", "CAPABILITY_IAM",
-      "--no-confirm-changeset",
-      "--no-fail-on-empty-changeset",
-      "--no-progressbar",
-      "--tags", "pilum:service=${name}", "pilum:version=${tag}",
-    ]
-    execution_mode: service_dir
-    timeout: 300
-    retries: 1
+  # Zips lambda.artifact, uploads it, publishes a version and moves the
+  # alias. Safe to retry: an unchanged zip publishes no new version.
+  - name: deploy to lambda
+    execution_mode: root
+    timeout: 900
+    default_retries: 1
     tags:
-      - push
       - deploy

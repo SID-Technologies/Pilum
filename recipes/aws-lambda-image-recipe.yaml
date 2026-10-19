@@ -1,0 +1,116 @@
+# Ship a new container image to an existing Lambda function (package type
+# Image). Pilum builds and pushes the image to ECR, updates the function,
+# publishes a version and moves an alias (live) to it. It doesn't create
+# the function, its role, its triggers or the ECR repository policy that
+# lets Lambda pull.
+name: aws-lambda-image
+description: Deploy a container image to an existing AWS Lambda function, publish a version and move its alias
+provider: aws
+service: lambda-image
+
+required_fields:
+  - name: region
+    description: AWS region of the function and its ECR registry
+    type: string
+
+  - name: name
+    description: Pilum service name (also the function name unless lambda.function is set)
+    type: string
+
+  - name: aws.account
+    description: 12-digit AWS account ID that owns the ECR registry, as aws.account_id (quoted)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory), FROM a Lambda base image or with a runtime interface client
+    type: string
+
+optional_fields:
+  - name: lambda.function
+    description: Function name or ARN. Defaults to the service name.
+    type: string
+
+  - name: lambda.alias
+    description: Alias each deploy moves to the new version, and rollback moves back
+    type: string
+    default: live
+
+  - name: lambda.architecture
+    description: x86_64 or arm64; arm64 also builds the image for linux/arm64. Unset keeps the function's.
+    type: string
+
+  - name: lambda.memory
+    description: Memory in MB. Unset keeps the function's.
+    type: int
+
+  - name: lambda.timeout
+    description: Function timeout in seconds. Unset keeps the function's.
+    type: int
+
+  - name: lambda.wait_timeout
+    description: Seconds to wait for each function update before failing the deploy
+    type: int
+    default: "300"
+
+  - name: env_vars
+    description: Function env vars. When set, they replace the function's environment; unset keeps it.
+    type: map
+
+  - name: aws.profile
+    description: AWS CLI profile for every aws command. Unset uses the CLI's default credentials.
+    type: string
+
+  - name: aws.create_repository
+    description: Create the ECR repository (scan on push) if it doesn't exist. Lambda still needs a repository policy to pull.
+    type: bool
+    default: "false"
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # Only with build.docker_cache: the cache lives in ECR.
+  - name: login for build cache
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - build
+
+  # Built with --provenance=false: Lambda rejects the image index buildx
+  # makes for provenance attestations.
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: login to registry
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: create registry repository
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push
+
+  - name: deploy to lambda
+    execution_mode: root
+    timeout: 900
+    default_retries: 1
+    tags:
+      - deploy

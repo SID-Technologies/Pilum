@@ -17,6 +17,9 @@ const cacheTag = "buildcache"
 func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, templatePath string) []string {
 	platform := service.BuildConfig.Platform
 	if platform == "" {
+		platform = aws.LambdaPlatform(service)
+	}
+	if platform == "" {
 		platform = DefaultPlatform
 	}
 
@@ -41,6 +44,12 @@ func GenerateDockerBuildCommand(service service.ServiceInfo, imageName, template
 		}
 	}
 	cmd = append(cmd, "--platform", platform, "-t", imageName)
+
+	// Lambda only takes a single-platform image manifest, and BuildKit's
+	// provenance attestation turns the image into an index.
+	if aws.IsLambdaImage(service) {
+		cmd = append(cmd, "--provenance=false")
+	}
 
 	// Also tag :latest locally when the primary tag is versioned.
 	// Push only publishes the explicit tag the remote :latest pointer still moves exclusively via CI.

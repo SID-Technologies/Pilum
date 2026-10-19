@@ -34,6 +34,8 @@ const (
 	// KindECS points an ECS service back at an earlier task definition
 	// revision, which brings back that revision's whole config.
 	KindECS Kind = "ecs"
+	// KindLambda moves a Lambda function's alias back to an earlier version.
+	KindLambda Kind = "lambda"
 )
 
 // KindFor returns how svc is rolled back, or false if its target is unsupported.
@@ -48,6 +50,8 @@ func KindFor(svc serviceinfo.ServiceInfo) (Kind, bool) {
 		return KindMIG, true
 	case "aws-ecs":
 		return KindECS, true
+	case "aws-lambda", "aws-lambda-image":
+		return KindLambda, true
 	}
 	return "", false
 }
@@ -90,6 +94,8 @@ func NewPlan(svc serviceinfo.ServiceInfo, to string, run Runner) (Plan, error) {
 		err = planMIG(&plan, svc, to, run)
 	case KindECS:
 		err = planECS(&plan, svc, to, run)
+	case KindLambda:
+		err = planLambda(&plan, svc, to, run)
 	default:
 		err = planService(&plan, svc, to, run)
 	}

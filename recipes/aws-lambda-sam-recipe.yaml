@@ -1,0 +1,52 @@
+# Deploy a SAM application: `sam build` + `sam deploy` of the service's
+# template.yaml. Prereqs: aws CLI (authenticated) + sam CLI installed.
+# Was named aws-lambda before v0.12; aws-lambda now deploys to an existing
+# function without SAM.
+name: aws-lambda-sam
+description: Deploy a SAM application (sam build + sam deploy of template.yaml)
+provider: aws
+service: lambda-sam
+
+required_fields:
+  - name: region
+    description: AWS region to deploy to
+    type: string
+    default: us-east-1
+
+  - name: project
+    description: Project name
+    type: string
+    default: my-project
+
+steps:
+  - name: build
+    command: ["sam", "build"]
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # `sam deploy` packages and uploads artifacts itself (--resolve-s3 creates/
+  # reuses SAM's managed bucket), so there is no separate package/push step.
+  # --capabilities CAPABILITY_IAM: SAM templates almost always create the
+  #   function's execution role; without it the deploy is rejected.
+  # --no-fail-on-empty-changeset: redeploying an unchanged service is a
+  #   success, not an error (keeps retries and repeat runs green).
+  - name: deploy
+    command: [
+      "sam", "deploy",
+      "--stack-name", "${name}",
+      "--region", "${region}",
+      "--resolve-s3",
+      "--capabilities", "CAPABILITY_IAM",
+      "--no-confirm-changeset",
+      "--no-fail-on-empty-changeset",
+      "--no-progressbar",
+      "--tags", "pilum:service=${name}", "pilum:version=${tag}",
+    ]
+    execution_mode: service_dir
+    timeout: 300
+    retries: 1
+    tags:
+      - push
+      - deploy

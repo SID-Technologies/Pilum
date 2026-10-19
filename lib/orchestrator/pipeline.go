@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/ingredients/gcp"
 	"github.com/sid-technologies/pilum/lib/errors"
@@ -198,6 +199,11 @@ func (p *Pipeline) validateServices() error {
 		}
 
 		err = p.validateMIGTemplateName(svc, rec)
+		if err != nil {
+			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
+		}
+
+		err = aws.ValidateLambda(svc)
 		if err != nil {
 			return errors.Wrap(err, "service '%s' validation failed", svc.Name)
 		}

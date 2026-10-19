@@ -24,6 +24,8 @@
         "gcp-cloud-run-from-image",
         "gcp-mig-container",
         "aws-lambda",
+        "aws-lambda-image",
+        "aws-lambda-sam",
         "aws-ecr-image",
         "aws-ecs",
         "azure-container-apps",
@@ -566,25 +568,37 @@
     },
     "lambda": {
       "type": "object",
-      "description": "AWS Lambda function configuration",
+      "description": "Existing AWS Lambda function to deploy to (aws-lambda, aws-lambda-image). Unset settings keep the function's. The SAM recipe (aws-lambda-sam) reads its template.yaml instead and ignores these.",
       "properties": {
-        "memory": {
-          "type": "integer",
-          "description": "Not read by Pilum: set MemorySize in your SAM template",
-          "default": 128
-        },
-        "timeout": {
-          "type": "integer",
-          "description": "Not read by Pilum: set Timeout in your SAM template",
-          "default": 30
-        },
-        "runtime": {
+        "function": { "type": "string", "description": "Function name or ARN. Defaults to the service name." },
+        "alias": {
           "type": "string",
-          "description": "Not read by Pilum: set Runtime in your SAM template",
-          "default": "provided.al2023"
+          "description": "Alias each deploy moves to the new version and rollback moves back. Point triggers at <function>:<alias>.",
+          "default": "live"
+        },
+        "artifact": {
+          "type": "string",
+          "description": "aws-lambda: what to deploy, relative to the service directory - a directory (zipped) or a .zip",
+          "default": "dist"
+        },
+        "s3_bucket": { "type": "string", "description": "aws-lambda: upload the zip through this bucket. Required for zips over 50 MB." },
+        "runtime": { "type": "string", "description": "aws-lambda: runtime, e.g. provided.al2023, nodejs22.x, python3.13" },
+        "handler": { "type": "string", "description": "aws-lambda: handler, e.g. index.handler (bootstrap for provided runtimes)" },
+        "architecture": {
+          "type": "string",
+          "enum": ["x86_64", "arm64"],
+          "description": "Instruction set. arm64 also builds an aws-lambda-image for linux/arm64."
+        },
+        "memory": { "type": "integer", "minimum": 128, "description": "Memory in MB" },
+        "timeout": { "type": "integer", "minimum": 1, "description": "Function timeout in seconds" },
+        "wait_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Seconds to wait for each function update before failing the deploy",
+          "default": 300
         },
         "env_vars": {
-          "description": "Lambda env vars, merged with top-level env_vars (top-level wins)",
+          "description": "Function env vars, merged with top-level env_vars (top-level wins). When set, they replace the function's environment.",
           "$ref": "#/$defs/string_map"
         }
       },
