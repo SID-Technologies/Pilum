@@ -25,6 +25,7 @@
         "gcp-mig-container",
         "aws-lambda",
         "aws-ecr-image",
+        "aws-ecs",
         "azure-container-apps",
         "cloudflare-pages",
         "homebrew",
@@ -130,6 +131,9 @@
     "aws": {
       "$ref": "#/$defs/aws"
     },
+    "ecs": {
+      "$ref": "#/$defs/ecs"
+    },
     "health_check": {
       "type": "object",
       "description": "Container health check for pilum compose (curl against localhost:8080)",
@@ -171,7 +175,8 @@
           "npm": { "$ref": "#/$defs/npm" },
           "cloudflare": { "$ref": "#/$defs/cloudflare" },
           "mig": { "$ref": "#/$defs/mig" },
-          "aws": { "$ref": "#/$defs/aws" }
+          "aws": { "$ref": "#/$defs/aws" },
+          "ecs": { "$ref": "#/$defs/ecs" }
         },
         "additionalProperties": true
       }
@@ -529,6 +534,33 @@
           "description": "Create the ECR repository (scan on push) before the first push if it doesn't exist. Leave unset when Terraform owns the repositories.",
           "default": false
         }
+      },
+      "additionalProperties": false
+    },
+    "ecs": {
+      "type": "object",
+      "description": "Amazon ECS service (aws-ecs). Pilum deploys to an existing service; it doesn't create one.",
+      "properties": {
+        "cluster": { "type": "string", "description": "ECS cluster name or ARN" },
+        "service": { "type": "string", "description": "ECS service name. Defaults to the service name." },
+        "container": {
+          "type": "string",
+          "description": "Container that runs the new image. Defaults to the task definition's only container, or the one named like the service."
+        },
+        "cpu": { "type": ["string", "integer"], "description": "Task CPU units (256, 512, 1024...). Unset keeps the task definition's." },
+        "memory": { "type": ["string", "integer"], "description": "Task memory in MiB (512, 1024...). Unset keeps the task definition's." },
+        "desired_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Task count to set on deploy. Unset leaves it alone; leave it unset when autoscaling owns it."
+        },
+        "wait_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Seconds to wait for the rollout before failing the deploy",
+          "default": 600
+        },
+        "log_group": { "type": "string", "description": "CloudWatch log group for pilum logs. Defaults to /ecs/<service>." }
       },
       "additionalProperties": false
     },

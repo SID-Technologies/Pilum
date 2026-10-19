@@ -1,0 +1,136 @@
+# Roll a new image onto an existing Amazon ECS service (Fargate or EC2).
+# Pilum doesn't create the cluster, service, load balancer or IAM roles; it
+# ships new versions. Each deploy copies the task definition the service
+# runs now, changes the image (and only what pilum.yaml sets), registers it
+# as the next revision and points the service at it.
+name: aws-ecs
+description: Roll a new image onto an existing Amazon ECS service (Fargate or EC2)
+provider: aws
+service: ecs
+
+required_fields:
+  - name: region
+    description: AWS region of the cluster and the ECR registry
+    type: string
+
+  - name: name
+    description: Pilum service name (also the ECS service name unless ecs.service is set)
+    type: string
+
+  - name: aws.account
+    description: 12-digit AWS account ID that owns the ECR registry, as aws.account_id (quoted)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
+  - name: ecs.cluster
+    description: ECS cluster name or ARN
+    type: string
+
+optional_fields:
+  - name: ecs.service
+    description: ECS service name. Defaults to the service name.
+    type: string
+
+  - name: ecs.container
+    description: Container that runs the new image. Defaults to the task definition's only container, or the one named like the service.
+    type: string
+
+  - name: ecs.cpu
+    description: Task CPU units (256, 512, 1024...). Unset keeps the task definition's.
+    type: string
+
+  - name: ecs.memory
+    description: Task memory in MiB (512, 1024...). Unset keeps the task definition's.
+    type: string
+
+  - name: ecs.desired_count
+    description: Task count to set on deploy. Unset leaves it alone (leave it unset when autoscaling owns it).
+    type: int
+
+  - name: ecs.wait_timeout
+    description: Seconds to wait for the rollout before failing the deploy
+    type: int
+    default: "600"
+
+  - name: ecs.log_group
+    description: CloudWatch log group for pilum logs
+    type: string
+    default: /ecs/<service>
+
+  - name: env_vars
+    description: Container env vars. When set, they replace the container's environment; unset keeps the task definition's.
+    type: map
+
+  - name: secrets
+    description: NAME to a Secrets Manager secret or SSM parameter (name or ARN). When set, they replace the container's secrets.
+    type: map
+
+  - name: aws.profile
+    description: AWS CLI profile for every aws command. Unset uses the CLI's default credentials.
+    type: string
+
+  - name: aws.create_repository
+    description: Create the ECR repository (scan on push) if it doesn't exist
+    type: bool
+    default: "false"
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # Only with build.docker_cache: the cache lives in ECR.
+  - name: login for build cache
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: login to registry
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: create registry repository
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push
+
+  # Safe to retry: a revision that already matches is reused.
+  - name: deploy to ecs
+    execution_mode: root
+    timeout: 180
+    default_retries: 2
+    tags:
+      - deploy
+
+  # Fails if the rollout fails, is rolled back by the deployment circuit
+  # breaker, or isn't done within ecs.wait_timeout. Keep this step's
+  # timeout above it, or the step is killed first.
+  - name: wait for ecs deployment
+    execution_mode: root
+    timeout: 900
+    tags:
+      - deploy
