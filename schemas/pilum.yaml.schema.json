@@ -16,8 +16,8 @@
     },
     "type": {
       "type": "string",
-      "description": "Recipe type override (e.g., 'gcp-cloud-run', 'aws-lambda'). Usually inferred from provider.",
-      "enum": [
+      "description": "Recipe type override (e.g., 'gcp-cloud-run', 'aws-lambda'). Usually inferred from provider. Custom recipes add their own.",
+      "examples": [
         "gcp-cloud-run",
         "gcp-cloud-run-job",
         "gcp-artifact-registry-image",
@@ -49,8 +49,8 @@
     },
     "provider": {
       "type": "string",
-      "description": "Cloud provider for deployment",
-      "enum": ["gcp", "aws", "azure", "cloudflare", "homebrew", "npm"]
+      "description": "Cloud provider for deployment. Custom recipes add their own.",
+      "examples": ["gcp", "aws", "azure", "cloudflare", "homebrew", "npm"]
     },
     "project": {
       "type": "string",

@@ -118,3 +118,15 @@ func TestSuggestKey(t *testing.T) {
 	require.Equal(t, "did you mean 'secrets'?", schemas.SuggestKey("secret", known))
 	require.Empty(t, schemas.SuggestKey("type", known))
 }
+
+func TestValidateCustomRecipe(t *testing.T) {
+	t.Parallel()
+
+	// A custom recipe names its own provider and type.
+	problems := validate(t, `
+name: api
+provider: fly
+type: fly-machines
+`)
+	require.Empty(t, problems)
+}
