@@ -47,11 +47,17 @@ Managed instance groups (gcp-mig-container): rolls the group onto the
 previous instance template (no surge beyond mig.max_surge, nothing taken
 down early) and waits until it is stable. --to takes a template name or tag.
 
+ECS services (aws-ecs): points the service at the previous task definition
+revision, skipping revisions whose rollout failed, and waits for the
+rollout. That revision's whole config comes back with it. --to takes a
+revision number (41), family:revision, an ARN, or an image tag.
+
 The previous version is read from the cloud provider, so this works from any
 machine, including CI. Asks for confirmation unless --yes is passed.`,
 		Example: `  pilum rollback api                      # Previous revision
   pilum rollback api --to api-00041-xyz   # Specific revision
   pilum rollback nightly-job --to v1.4.2  # Job: image tag
+  pilum rollback ecs-api --to 41          # ECS: task definition revision
   pilum rollback api worker --dry-run     # Show the plan only
   pilum rollback api --yes                # No prompt (required in CI)`,
 		Args: cobra.MinimumNArgs(1),
@@ -70,7 +76,7 @@ machine, including CI. Asks for confirmation unless --yes is passed.`,
 		}),
 	}
 
-	cmd.Flags().String("to", "", "Target revision (services), image tag/reference (jobs) or template name/tag (MIGs); default: previous version")
+	cmd.Flags().String("to", "", "Target revision (services, ECS), image tag/reference (jobs) or template name/tag (MIGs); default: previous version")
 	cmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt (required when not interactive)")
 	cmd.Flags().BoolP("dry-run", "D", false, "Show the rollback plan without changing anything")
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
@@ -119,7 +125,7 @@ func runRollback(args []string) (any, error) {
 	for _, svc := range services {
 		if _, ok := rollback.KindFor(svc); !ok {
 			return nil, exitcodes.WithCode(exitcodes.InvalidArgs,
-				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs, GCP MIGs",
+				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs, GCP MIGs, ECS services",
 					svc.DisplayName(), svc.RecipeKey()))
 		}
 	}

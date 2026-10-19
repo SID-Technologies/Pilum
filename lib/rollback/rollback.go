@@ -31,6 +31,9 @@ const (
 	// template. Templates are immutable, so that version's full config comes
 	// back, not just its image.
 	KindMIG Kind = "mig"
+	// KindECS points an ECS service back at an earlier task definition
+	// revision, which brings back that revision's whole config.
+	KindECS Kind = "ecs"
 )
 
 // KindFor returns how svc is rolled back, or false if its target is unsupported.
@@ -43,6 +46,8 @@ func KindFor(svc serviceinfo.ServiceInfo) (Kind, bool) {
 		return KindJob, true
 	case "gcp-mig-container":
 		return KindMIG, true
+	case "aws-ecs":
+		return KindECS, true
 	}
 	return "", false
 }
@@ -52,8 +57,8 @@ type Plan struct {
 	Service string   `json:"service"`
 	Region  string   `json:"region,omitempty"`
 	Kind    Kind     `json:"kind"`
-	From    string   `json:"from"` // serving revision (service), current image (job) or template (mig)
-	To      string   `json:"to"`   // target revision (service), image (job) or template (mig)
+	From    string   `json:"from"` // serving revision (service), current image (job), template (mig) or task definition (ecs)
+	To      string   `json:"to"`   // target revision (service), image (job), template (mig) or task definition (ecs)
 	ToImage string   `json:"to_image,omitempty"`
 	Command []string `json:"command"`
 
@@ -83,6 +88,8 @@ func NewPlan(svc serviceinfo.ServiceInfo, to string, run Runner) (Plan, error) {
 		err = planJob(&plan, svc, to, run)
 	case KindMIG:
 		err = planMIG(&plan, svc, to, run)
+	case KindECS:
+		err = planECS(&plan, svc, to, run)
 	default:
 		err = planService(&plan, svc, to, run)
 	}

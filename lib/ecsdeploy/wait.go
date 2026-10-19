@@ -108,10 +108,11 @@ type Clock struct {
 // rollout fails or the service turns out to run something else, which is
 // what a deployment circuit breaker rollback looks like. `aws ecs wait
 // services-stable` reports that as success, since the service is stable,
-// just on the old version.
+// just on the old version. Those two failures are a *RolloutError.
 func Wait(req WaitRequest, run Runner, clock Clock, progress func(string)) error {
 	deadline := clock.Now().Add(req.Timeout)
 	images := map[string]bool{}
+	deploying := "" // The revision running req.Image, once seen
 	last := ""
 
 	for {
@@ -129,11 +130,19 @@ func Wait(req WaitRequest, run Runner, clock Clock, progress func(string)) error
 			return err
 		}
 		if !runsImage {
-			return errors.New("service %s is deploying %s, which doesn't run %s; the deployment circuit breaker rolled back, "+
-				"or another deploy replaced this one%s", req.Service, Family(primary.TaskDefinition), req.Image, recentEvents(svc))
+			failed := deploying
+			if failed == "" {
+				failed = findRevisionRunning(req.Target, primary.TaskDefinition, req.Image, run)
+			}
+			return &RolloutError{TaskDefinition: failed, msg: fmt.Sprintf(
+				"service %s is deploying %s, which doesn't run %s; the deployment circuit breaker rolled back, "+
+					"or another deploy replaced this one%s", req.Service, Family(primary.TaskDefinition), req.Image, recentEvents(svc))}
 		}
+		deploying = primary.TaskDefinition
+
 		if primary.RolloutState == "FAILED" {
-			return errors.New("deployment of %s failed: %s%s", Family(primary.TaskDefinition), primary.RolloutStateReason, recentEvents(svc))
+			return &RolloutError{TaskDefinition: deploying, msg: fmt.Sprintf(
+				"deployment of %s failed: %s%s", Family(primary.TaskDefinition), primary.RolloutStateReason, recentEvents(svc))}
 		}
 		if len(svc.Deployments) == 1 && primary.RunningCount == primary.DesiredCount &&
 			(primary.RolloutState == "" || primary.RolloutState == "COMPLETED") {
@@ -154,6 +163,26 @@ func Wait(req WaitRequest, run Runner, clock Clock, progress func(string)) error
 		}
 		clock.Sleep(req.Interval)
 	}
+}
+
+// findRevisionRunning finds the newest revision in current's family that
+// runs image: the one a deploy registered, when the circuit breaker had
+// already rolled it back before Wait first looked. "" if none of the
+// latest few does.
+func findRevisionRunning(target aws.Target, current, image string, run Runner) string {
+	const maxLookback = 5
+	family, _, _ := strings.Cut(Family(current), ":")
+	arns, err := Revisions(target, family, run)
+	if err != nil {
+		return ""
+	}
+	for i := 0; i < len(arns) && i < maxLookback; i++ {
+		rev, descErr := DescribeRevision(target, arns[i], run)
+		if descErr == nil && slices.Contains(rev.Images, image) {
+			return arns[i]
+		}
+	}
+	return ""
 }
 
 // definitionRuns reports whether a task definition has a container running
