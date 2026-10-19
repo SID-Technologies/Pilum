@@ -205,17 +205,9 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		return nil
 	}
 
-	var recipes []recipe.Info
-	if opts.RecipePath != "" {
-		recipes, err = recipe.LoadRecipesFromDirectory(opts.RecipePath)
-		if err != nil {
-			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes from %s", opts.RecipePath))
-		}
-	} else {
-		recipes, err = recipe.LoadEmbeddedRecipes()
-		if err != nil {
-			return exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
-		}
+	recipes, err := loadRecipes(opts.RecipePath)
+	if err != nil {
+		return err
 	}
 
 	if len(recipes) == 0 {
@@ -465,4 +457,20 @@ func parseCommaSeparated(s string) []string {
 		}
 	}
 	return result
+}
+
+// loadRecipes loads the recipes in dir, or the embedded recipes when dir is empty.
+func loadRecipes(dir string) ([]recipe.Info, error) {
+	if dir == "" {
+		recipes, err := recipe.LoadEmbeddedRecipes()
+		if err != nil {
+			return nil, exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
+		}
+		return recipes, nil
+	}
+	recipes, err := recipe.LoadRecipesFromDirectory(dir)
+	if err != nil {
+		return nil, exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes from %s", dir))
+	}
+	return recipes, nil
 }

@@ -42,9 +42,10 @@ func CheckCmd() *cobra.Command {
 			}
 
 			// Load recipes
-			recipes, err := recipe.LoadEmbeddedRecipes()
+			recipePath, _ := cmd.Flags().GetString("recipe-path")
+			recipes, err := loadRecipes(recipePath)
 			if err != nil {
-				return nil, exitcodes.WithCode(exitcodes.Config, errors.Wrap(err, "error loading recipes"))
+				return nil, err
 			}
 
 			if len(recipes) == 0 {
@@ -158,6 +159,7 @@ func CheckCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringP("env", "e", "", "Environment to apply (merges overrides from environments block)")
+	cmd.Flags().String("recipe-path", "", "Load recipes from a directory instead of embedded recipes")
 
 	return cmd
 }
