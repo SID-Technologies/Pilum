@@ -305,3 +305,17 @@ func TestResolveImageNameGCP(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveImageNameAWS(t *testing.T) {
+	t.Parallel()
+
+	svc := *serviceinfo.NewServiceInfo(map[string]any{
+		"name": "api", "provider": "aws", "region": "us-east-1",
+		"aws": map[string]any{"account_id": "012345678901"},
+	}, "services/api")
+	require.Equal(t, "012345678901.dkr.ecr.us-east-1.amazonaws.com/api:v1", build.ResolveImageName(svc, svc.RegistryName, "v1"))
+
+	svc.RegistryName = "123456789012"
+	svc.Config = nil
+	require.Equal(t, "123456789012.dkr.ecr.us-east-1.amazonaws.com/api:v1", build.ResolveImageName(svc, svc.RegistryName, "v1"))
+}

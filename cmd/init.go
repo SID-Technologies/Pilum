@@ -598,6 +598,7 @@ func mustGetwd() string {
 // recipeFieldKeys maps recipe fields that stand for a choice of keys to the
 // key init writes.
 var recipeFieldKeys = map[string]string{
+	"aws.account":        "aws.account_id",
 	"cloudflare.account": "cloudflare.account_id",
 	"mig.location":       "mig.zone",
 }

@@ -2,6 +2,7 @@ package serviceinfo
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -225,7 +226,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		switch serviceType {
 		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp-artifact-registry-image", "gcp-cloud-run-from-image", "gcp-mig-container", "gcp":
 			provider = "gcp"
-		case "aws-lambda", "aws-ecs", "aws":
+		case "aws-lambda", "aws-ecr-image", "aws-ecs", "aws":
 			provider = "aws"
 		case "azure-container-apps", "azure":
 			provider = "azure"
@@ -241,6 +242,10 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 
 	sidecars, sidecarProblems := parseSidecars(config)
 	problems = append(problems, sidecarProblems...)
+
+	if provider == "aws" {
+		problems = append(problems, awsAccountProblems(config)...)
+	}
 
 	return &ServiceInfo{
 		Name:         configutil.GetString(config, "name", ""),
@@ -268,6 +273,28 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 
 		configProblems: problems,
 	}
+}
+
+var awsAccountID = regexp.MustCompile(`^[0-9]{12}$`)
+
+// awsAccountProblems checks the account ID that ECR image names are built
+// from. Unquoted, YAML reads 012345678901 as a number and drops the zero,
+// which would push to someone else's registry name.
+func awsAccountProblems(config map[string]any) []string {
+	var problems []string
+	fields := []struct {
+		name  string
+		value string
+	}{
+		{"aws.account_id", configutil.GetString(configutil.MapFromAny(config["aws"]), "account_id", "")},
+		{"registry_name", configutil.GetString(config, "registry_name", "")},
+	}
+	for _, f := range fields {
+		if f.value != "" && !awsAccountID.MatchString(f.value) {
+			problems = append(problems, fmt.Sprintf("%s: %q is not a 12-digit AWS account ID (quote it so YAML keeps leading zeros)", f.name, f.value))
+		}
+	}
+	return problems
 }
 
 func prefixProblems(field string, problems []string) []string {
