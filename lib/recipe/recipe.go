@@ -2,6 +2,7 @@ package recipe
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/sid-technologies/pilum/lib/configutil"
 	"github.com/sid-technologies/pilum/lib/errors"
@@ -138,6 +139,14 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		"cloudflare.account_id": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "cloudflare", "account_id")
 		},
+		// Not a real key: the account ID is given directly or read from an env var.
+		"cloudflare.account": func(s *serviceinfo.ServiceInfo) string {
+			id := configutil.GetNestedString(s.Config, "cloudflare", "account_id")
+			if id != "" {
+				return id
+			}
+			return configutil.GetNestedString(s.Config, "cloudflare", "account_id_env")
+		},
 		"cloudflare.token_env": func(s *serviceinfo.ServiceInfo) string {
 			return configutil.GetNestedString(s.Config, "cloudflare", "token_env")
 		},
@@ -153,12 +162,11 @@ func getServiceField(svc *serviceinfo.ServiceInfo, fieldName string) string {
 		return getter(svc)
 	}
 
-	// Try to get from the raw config map
+	// Try to get from the raw config map; a dotted name is a nested key.
 	if svc.Config != nil {
-		if val, exists := svc.Config[fieldName]; exists {
-			if str, ok := val.(string); ok {
-				return str
-			}
+		value := configutil.GetNestedString(svc.Config, strings.Split(fieldName, ".")...)
+		if value != "" {
+			return value
 		}
 	}
 

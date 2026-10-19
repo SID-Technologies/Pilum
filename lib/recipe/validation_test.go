@@ -521,3 +521,35 @@ func TestMIGContainerRecipeValidation(t *testing.T) {
 	err = rec.ValidateService(serviceinfo.NewServiceInfo(config, "."))
 	require.ErrorContains(t, err, "mig.location")
 }
+
+func TestRecipeValidateServiceCloudflareAccount(t *testing.T) {
+	t.Parallel()
+
+	recipe := Recipe{
+		Name:           "cloudflare-pages",
+		RequiredFields: []RequiredField{{Name: "cloudflare.account", Description: "Cloudflare account ID"}},
+	}
+	withConfig := func(cf map[string]any) *serviceinfo.ServiceInfo {
+		return &serviceinfo.ServiceInfo{Name: "site", Config: map[string]any{"cloudflare": cf}}
+	}
+
+	require.NoError(t, recipe.ValidateService(withConfig(map[string]any{"account_id": "abc"})))
+	require.NoError(t, recipe.ValidateService(withConfig(map[string]any{"account_id_env": "CF_ACCOUNT_ID"})))
+	require.Error(t, recipe.ValidateService(withConfig(map[string]any{"token_env": "CF_TOKEN"})))
+}
+
+func TestRecipeValidateServiceNestedCustomField(t *testing.T) {
+	t.Parallel()
+
+	// A custom recipe can require a key inside a block.
+	recipe := Recipe{
+		Name:           "custom",
+		RequiredFields: []RequiredField{{Name: "fly.app", Description: "Fly app name"}},
+	}
+
+	present := &serviceinfo.ServiceInfo{Name: "api", Config: map[string]any{"fly": map[string]any{"app": "my-app"}}}
+	require.NoError(t, recipe.ValidateService(present))
+
+	missing := &serviceinfo.ServiceInfo{Name: "api", Config: map[string]any{"fly": map[string]any{}}}
+	require.Error(t, recipe.ValidateService(missing))
+}

@@ -195,6 +195,8 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 		}
 	}
 
+	warnSchemaProblems(services)
+
 	if len(services) == 0 {
 		// If the user explicitly named services but none were found, fail hard.
 		// If no names were given (deploy all), warn and succeed.
@@ -381,6 +383,22 @@ func withJSON(fn func(*cobra.Command, []string) (any, error)) func(*cobra.Comman
 			return err
 		}
 		return err
+	}
+}
+
+// warnSchemaProblems prints where each service's pilum.yaml doesn't match the
+// schema. Deploys don't stop for them; pilum check does.
+func warnSchemaProblems(services []serviceinfo.ServiceInfo) {
+	warned := map[string]bool{}
+	for _, svc := range services {
+		// Multi-region services share one pilum.yaml.
+		if warned[svc.Path] || len(svc.SchemaProblems) == 0 {
+			continue
+		}
+		warned[svc.Path] = true
+		for _, problem := range svc.SchemaProblems {
+			output.Warning("%s: %s (run pilum check)", svc.Name, problem)
+		}
 	}
 }
 

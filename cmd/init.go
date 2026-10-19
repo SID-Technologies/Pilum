@@ -595,8 +595,18 @@ func mustGetwd() string {
 	return dir
 }
 
+// recipeFieldKeys maps recipe fields that stand for a choice of keys to the
+// key init writes.
+var recipeFieldKeys = map[string]string{
+	"cloudflare.account": "cloudflare.account_id",
+	"mig.location":       "mig.zone",
+}
+
 func generateServiceYAML(provider, service string, values, types map[string]string, buildConfig *templates.BuildConfig) string {
 	var sb strings.Builder
+	if types == nil {
+		types = map[string]string{}
+	}
 
 	// Header
 	sb.WriteString("# Service configuration for Pilum\n")
@@ -616,6 +626,12 @@ func generateServiceYAML(provider, service string, values, types map[string]stri
 	for key, value := range values {
 		if key == "name" {
 			continue // Already written
+		}
+
+		realKey, virtual := recipeFieldKeys[key]
+		if virtual {
+			types[realKey] = types[key]
+			key = realKey
 		}
 
 		if strings.Contains(key, ".") {
@@ -664,6 +680,16 @@ func generateServiceYAML(provider, service string, values, types map[string]stri
 			}
 		}
 	}
+
+	// Recipe fields under build (e.g. output_dir) join the block above; a
+	// second build: key would make the file invalid YAML.
+	for key, value := range nested["build"] {
+		if key == "language" || key == "version" || key == "cmd" {
+			continue
+		}
+		fmt.Fprintf(&sb, "  %s: %s\n", key, yamlValue(value, types["build."+key]))
+	}
+	delete(nested, "build")
 
 	// Write nested sections (e.g., cloud_run, homebrew, lambda)
 	for section, fields := range nested {

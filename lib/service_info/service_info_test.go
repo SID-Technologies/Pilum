@@ -640,3 +640,46 @@ func TestFlagArgsUseCargoStyleForRust(t *testing.T) {
 	goFlags := serviceinfo.BuildConfig{Language: "go", Flags: []serviceinfo.BuildFlag{{Name: "ldflags", Values: []string{"-s", "-w"}}}}
 	require.Equal(t, []string{"-ldflags='-s -w'"}, goFlags.FlagArgs())
 }
+
+func TestNewServiceInfoBuildEnvVarsAndFlags(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]any{
+		"name":     "myservice",
+		"provider": "gcp",
+		"build": map[string]any{
+			// Numbers and booleans are read as text, like env_vars elsewhere.
+			"env_vars": map[string]any{"GOAMD64": "v3", "CGO_ENABLED": 0, "DEBUG": false},
+			"flags":    map[string]any{"ldflags": []any{"-s", "-w"}},
+		},
+	}
+
+	svc := serviceinfo.NewServiceInfo(config, "/path")
+
+	require.Equal(t, []serviceinfo.EnvVars{
+		{Name: "CGO_ENABLED", Value: "0"},
+		{Name: "DEBUG", Value: "false"},
+		{Name: "GOAMD64", Value: "v3"},
+	}, svc.BuildConfig.EnvVars)
+	require.NoError(t, svc.Validate())
+}
+
+func TestNewServiceInfoUnreadableBuildConfigFailsValidation(t *testing.T) {
+	t.Parallel()
+
+	config := map[string]any{
+		"name":     "myservice",
+		"provider": "gcp",
+		"build": map[string]any{
+			"env_vars": map[string]any{"LIST": []any{"a"}},
+			"flags":    map[string]any{"ldflags": []any{"-X", 1}, "tags": 5},
+		},
+	}
+
+	err := serviceinfo.NewServiceInfo(config, "/path").Validate()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "build.env_vars: LIST must be a string, number or boolean")
+	require.Contains(t, err.Error(), "build.flags.ldflags: values must be strings; quote 1")
+	require.Contains(t, err.Error(), "build.flags.tags must be a string or a list of strings")
+}
