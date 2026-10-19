@@ -52,6 +52,11 @@ revision, skipping revisions whose rollout failed, and waits for the
 rollout. That revision's whole config comes back with it. --to takes a
 revision number (41), family:revision, an ARN, or an image tag.
 
+Lambda functions (aws-lambda, aws-lambda-image): moves the alias (live by
+default) back to the previous published version. Instant, nothing rebuilt.
+Callers of the bare function name ($LATEST) are not affected. --to takes a
+version number or the tag it was deployed with.
+
 The previous version is read from the cloud provider, so this works from any
 machine, including CI. Asks for confirmation unless --yes is passed.`,
 		Example: `  pilum rollback api                      # Previous revision
@@ -76,7 +81,7 @@ machine, including CI. Asks for confirmation unless --yes is passed.`,
 		}),
 	}
 
-	cmd.Flags().String("to", "", "Target revision (services, ECS), image tag/reference (jobs) or template name/tag (MIGs); default: previous version")
+	cmd.Flags().String("to", "", "Target revision (services, ECS), version or tag (Lambda), image tag/reference (jobs) or template name/tag (MIGs); default: previous version")
 	cmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt (required when not interactive)")
 	cmd.Flags().BoolP("dry-run", "D", false, "Show the rollback plan without changing anything")
 	cmd.Flags().BoolP("force", "f", false, "Force operation (override deployment lock)")
@@ -125,7 +130,7 @@ func runRollback(args []string) (any, error) {
 	for _, svc := range services {
 		if _, ok := rollback.KindFor(svc); !ok {
 			return nil, exitcodes.WithCode(exitcodes.InvalidArgs,
-				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs, GCP MIGs, ECS services",
+				errors.New("rollback is not supported for %s (recipe %s); supported: Cloud Run services and jobs, GCP MIGs, ECS services, Lambda functions",
 					svc.DisplayName(), svc.RecipeKey()))
 		}
 	}

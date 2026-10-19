@@ -265,7 +265,7 @@ func TestParseAWSStatusResponse(t *testing.T) {
 
 	svc := serviceinfo.ServiceInfo{
 		Name:     "my-function",
-		Type:     "aws-lambda",
+		Type:     "aws-lambda-sam",
 		Provider: "aws",
 		Region:   "us-east-1",
 	}
@@ -392,4 +392,23 @@ func TestECSStatus(t *testing.T) {
 	require.Equal(t, "Failed", query.ParseStatusResponse(described(0, `{"status": "PRIMARY", "rolloutState": "FAILED"}`), svc).Status)
 	require.Equal(t, "NotReady", query.ParseStatusResponse(described(1, done), svc).Status)
 	require.Equal(t, "Unknown", query.ParseStatusResponse(`{"services": [], "failures": [{"reason": "MISSING"}]}`, svc).Status)
+}
+
+func TestLambdaStatus(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{Name: "fn", Provider: "aws", Type: "aws-lambda-image", Region: "us-east-1"}
+
+	cmd, err := query.GenerateStatusCommand(svc)
+	require.NoError(t, err)
+	require.Equal(t, []string{"aws", "lambda", "get-function-configuration", "--function-name", "fn", "--output", "json",
+		"--qualifier", "live", "--region", "us-east-1"}, cmd)
+
+	status := query.ParseStatusResponse(`{"Version": "12", "State": "Active", "LastModified": "2026-10-19T10:00:00.000+0000",
+	  "ImageUri": "123456789012.dkr.ecr.us-east-1.amazonaws.com/fn:v3"}`, svc)
+	require.Equal(t, "Active", status.Status)
+	require.Equal(t, "live → version 12", status.Revision)
+	require.Equal(t, "123456789012.dkr.ecr.us-east-1.amazonaws.com/fn:v3", status.Image)
+
+	require.Equal(t, "Unknown", query.ParseStatusResponse(`{}`, svc).Status)
 }

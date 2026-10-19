@@ -76,7 +76,8 @@ func TestKindFor(t *testing.T) {
 		{"gcp-cloud-run", KindService, true},
 		{"gcp-cloud-run-from-image", KindService, true},
 		{"gcp-cloud-run-job", KindJob, true},
-		{"aws-lambda", "", false},
+		{"aws-lambda", KindLambda, true},
+		{"aws-lambda-sam", "", false},
 		{"azure-container-apps", "", false},
 	}
 	for _, tt := range tests {
@@ -235,7 +236,7 @@ func TestNewPlanJob(t *testing.T) {
 func TestNewPlanUnsupported(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPlan(serviceinfo.ServiceInfo{Name: "fn", Provider: "aws", Type: "aws-lambda"}, "", fakeRunner(nil))
+	_, err := NewPlan(serviceinfo.ServiceInfo{Name: "fn", Provider: "aws", Type: "aws-lambda-sam"}, "", fakeRunner(nil))
 	require.ErrorContains(t, err, "not supported")
 }
 

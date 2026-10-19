@@ -283,3 +283,20 @@ func TestGenerateDockerBuildCommandECRCache(t *testing.T) {
 	require.Contains(t, cmd, "type=registry,ref=123456789012.dkr.ecr.us-east-1.amazonaws.com/api:buildcache,"+
 		"mode=max,ignore-error=true,image-manifest=true,oci-mediatypes=true")
 }
+
+func TestGenerateDockerBuildCommandLambdaImage(t *testing.T) {
+	t.Parallel()
+
+	svc := *serviceinfo.NewServiceInfo(map[string]any{
+		"name": "fn", "provider": "aws", "type": "aws-lambda-image", "lambda": map[string]any{"architecture": "arm64"},
+	}, "fn")
+	cmd := docker.GenerateDockerBuildCommand(svc, "123456789012.dkr.ecr.us-east-1.amazonaws.com/fn:v1", "Dockerfile")
+	require.Contains(t, cmd, "--provenance=false")
+	require.Equal(t, "linux/arm64", cmd[3])
+
+	// build.platform still wins, and other services keep provenance.
+	svc.BuildConfig.Platform = "linux/amd64"
+	require.Equal(t, "linux/amd64", docker.GenerateDockerBuildCommand(svc, "fn:v1", "Dockerfile")[3])
+	svc.Type = "aws-ecs"
+	require.NotContains(t, docker.GenerateDockerBuildCommand(svc, "fn:v1", "Dockerfile"), "--provenance=false")
+}

@@ -226,7 +226,7 @@ func NewServiceInfo(config map[string]any, path string) *ServiceInfo {
 		switch serviceType {
 		case "gcp-cloud-run", "gcp-cloud-run-job", "gcp-artifact-registry-image", "gcp-cloud-run-from-image", "gcp-mig-container", "gcp":
 			provider = "gcp"
-		case "aws-lambda", "aws-ecr-image", "aws-ecs", "aws":
+		case "aws-lambda", "aws-lambda-image", "aws-lambda-sam", "aws-ecr-image", "aws-ecs", "aws":
 			provider = "aws"
 		case "azure-container-apps", "azure":
 			provider = "azure"

@@ -275,6 +275,13 @@ func registerAWSHandlers(reg *CommandRegistry) {
 		return append([]string{pilumExecutable()}, aws.GenerateECSDeployArgs(ctx.Service, ctx.ImageName)...)
 	})
 
+	// aws-lambda and aws-lambda-image: update the function, publish a
+	// version, move the alias. A pilum subcommand, because each update has
+	// to finish before the next starts.
+	reg.Register("deploy to lambda", "aws", func(ctx StepContext) any {
+		return append([]string{pilumExecutable()}, aws.GenerateLambdaDeployArgs(ctx.Service, ctx.ImageName, ctx.Tag)...)
+	})
+
 	// aws-ecs: block until the service runs the new image.
 	reg.Register("wait for ecs deployment", "aws", func(ctx StepContext) any {
 		return append([]string{pilumExecutable()}, aws.GenerateECSWaitArgs(ctx.Service, ctx.ImageName)...)

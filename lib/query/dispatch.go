@@ -25,7 +25,9 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) ([]string, error) {
 		return gcp.GenerateMIGDescribeCommand(svc), nil
 	case "azure-container-apps":
 		return azure.GenerateStatusCommand(svc), nil
-	case "aws-lambda":
+	case "aws-lambda", "aws-lambda-image":
+		return aws.GenerateLambdaStatusCommand(svc), nil
+	case "aws-lambda-sam":
 		return aws.GenerateStatusCommand(svc), nil
 	case "aws-ecs":
 		return aws.GenerateECSStatusCommand(svc), nil
@@ -60,7 +62,7 @@ func GenerateLogsCommand(svc serviceinfo.ServiceInfo, lines int, follow bool) ([
 		return nil, errors.New("logs are not supported for gcp-mig-container yet; use Cloud Logging for the MIG's instances")
 	case "azure-container-apps":
 		return azure.GenerateLogsCommand(svc, follow), nil
-	case "aws-lambda":
+	case "aws-lambda", "aws-lambda-image", "aws-lambda-sam":
 		return aws.GenerateLogsCommand(svc, follow), nil
 	case "aws-ecs":
 		return aws.GenerateECSLogsCommand(svc, follow), nil
@@ -90,7 +92,9 @@ func ParseStatusResponse(jsonOutput string, svc serviceinfo.ServiceInfo) Service
 		return parseMIGStatus(jsonOutput, svc)
 	case "azure-container-apps":
 		return parseAzureStatus(jsonOutput, svc)
-	case "aws-lambda":
+	case "aws-lambda", "aws-lambda-image":
+		return parseLambdaStatus(jsonOutput, svc)
+	case "aws-lambda-sam":
 		return parseAWSStatus(jsonOutput, svc)
 	case "aws-ecs":
 		return parseECSStatus(jsonOutput, svc)
@@ -287,6 +291,34 @@ func parseAWSStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatu
 		}
 	}
 
+	return status
+}
+
+// parseLambdaStatus reads get-function-configuration for the alias: the
+// version it serves and that version's state.
+func parseLambdaStatus(jsonOutput string, svc serviceinfo.ServiceInfo) ServiceStatus {
+	status := ServiceStatus{
+		Name:     svc.DisplayName(),
+		Provider: svc.Provider,
+		Region:   svc.Region,
+		Status:   "Unknown",
+	}
+
+	var fn struct {
+		Version      string `json:"Version"`
+		State        string `json:"State"`
+		LastModified string `json:"LastModified"`
+		ImageURI     string `json:"ImageUri"`
+	}
+	err := json.Unmarshal([]byte(jsonOutput), &fn)
+	if err != nil || fn.State == "" {
+		return status
+	}
+	cfg := aws.ParseLambdaConfig(svc)
+	status.Status = fn.State
+	status.Updated = fn.LastModified
+	status.Image = fn.ImageURI
+	status.Revision = fmt.Sprintf("%s → version %s", cfg.Alias, fn.Version)
 	return status
 }
 
