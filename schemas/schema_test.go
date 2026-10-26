@@ -7,7 +7,10 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/sid-technologies/pilum/recipes"
+
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 const schemaPath = "pilum.yaml.schema.json"
@@ -53,11 +56,13 @@ func TestSchemaProviderEnum(t *testing.T) {
 
 	props := schema["properties"].(map[string]any)
 	provider := props["provider"].(map[string]any)
-	enum := provider["enum"].([]any)
+	// Examples, not an enum: custom recipes bring their own providers.
+	require.NotContains(t, provider, "enum")
+	examples := provider["examples"].([]any)
 
 	expectedProviders := []string{"gcp", "aws", "azure", "cloudflare", "homebrew", "npm"}
 	for _, p := range expectedProviders {
-		require.Contains(t, enum, p, "provider enum should include %s", p)
+		require.Contains(t, examples, p, "provider examples should include %s", p)
 	}
 }
 
@@ -259,7 +264,7 @@ func TestSchemaMIGContainer(t *testing.T) {
 	schema := loadSchema(t)
 	props := schema["properties"].(map[string]any)
 
-	typeEnum := props["type"].(map[string]any)["enum"].([]any)
+	typeEnum := props["type"].(map[string]any)["examples"].([]any)
 	require.Contains(t, typeEnum, "gcp-mig-container")
 	require.Equal(t, "#/$defs/mig", props["mig"].(map[string]any)["$ref"])
 
@@ -344,5 +349,25 @@ func TestSchemaTargetBlocksAcceptEnvVars(t *testing.T) {
 	for _, def := range []string{"cloud_run", "container_app", "lambda", "mig"} {
 		props := defs[def].(map[string]any)["properties"].(map[string]any)
 		require.Contains(t, props, "env_vars", def)
+	}
+}
+
+// Every built-in recipe shows up in editor autocomplete for type.
+func TestSchemaTypeExamplesCoverRecipes(t *testing.T) {
+	t.Parallel()
+
+	props := loadSchema(t)["properties"].(map[string]any)
+	examples := props["type"].(map[string]any)["examples"].([]any)
+
+	files, err := recipes.FS.ReadDir(".")
+	require.NoError(t, err)
+	for _, f := range files {
+		data, readErr := recipes.FS.ReadFile(f.Name())
+		require.NoError(t, readErr)
+		var rcp struct {
+			Name string `yaml:"name"`
+		}
+		require.NoError(t, yaml.Unmarshal(data, &rcp))
+		require.Contains(t, examples, rcp.Name, "%s: add %q to type examples", f.Name(), rcp.Name)
 	}
 }
