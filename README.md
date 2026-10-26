@@ -456,6 +456,23 @@ build:
 
 A service's own `build.docker_cache` in `pilum.yaml`, `true` or `false`, wins over the project default.
 
+## Telemetry
+
+Pilum can share anonymous build telemetry so we can see which recipes, steps and versions fail more often. It is **off unless you turn it on**. The first time you run Pilum in a terminal it asks once (pressing Enter means no); it never asks in CI.
+
+What's sent, once per `deploy`, `build`, `publish`, `push` or `rollback`: the Pilum version, OS and architecture, the command, whether it ran in CI, success or failure, the exit category, duration, service count, built-in recipe names with counts, and a few yes/no flags. For each failed step: the recipe, the step name and an error category (auth, permission, quota, timeout and so on) worked out on your machine.
+
+What's never sent: service names, project IDs, regions, image names, tags, git SHAs, repo names, paths, environment variables, error messages, or the names of custom recipes and steps.
+
+```bash
+pilum telemetry status     # on or off, and what decided it
+pilum telemetry enable
+pilum telemetry disable    # also deletes the install ID
+pilum telemetry last       # the exact payload last sent
+```
+
+`DO_NOT_TRACK=1` always turns it off. `PILUM_TELEMETRY=1` or `0` overrides the saved setting for one shell, and `telemetry: true` on the GitHub Action opts a workflow in. Events go to `https://t.pilum.dev`, whose code is in [Pilum-Metrics-Worker](https://github.com/SID-Technologies/Pilum-Metrics-Worker), and on to PostHog as anonymous events. Sending gives up after one second and never changes a command's result. Full details: [pilum.dev/docs/reference/telemetry](https://pilum.dev/docs/reference/telemetry/).
+
 ## Editor Support
 
 Pilum provides a JSON Schema for `pilum.yaml` that enables autocompletion, validation, and inline documentation in supported editors. `pilum check` validates against the same schema, built into the binary.

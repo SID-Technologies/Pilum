@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/path"
 	"github.com/sid-technologies/pilum/lib/rollback"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/telemetry"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -87,6 +89,7 @@ func runRollback(args []string) (any, error) {
 	timeout := viper.GetInt("timeout")
 	debug := viper.GetBool("debug")
 	output.SetDebug(debug)
+	telemetry.Begin("rollback", map[string]bool{"dry_run": dryRun, "force": viper.GetBool("force")})
 
 	var names []string
 	for _, arg := range args {
@@ -108,6 +111,7 @@ func runRollback(args []string) (any, error) {
 	if len(services) == 0 {
 		return nil, exitcodes.WithCode(exitcodes.NoServices, errors.New("no services found matching: %s", strings.Join(names, ", ")))
 	}
+	recipeOf := telemetryServices(services, false)
 
 	// Revision names are per service and per region, so an explicit target
 	// only makes sense for a single instance.
@@ -158,6 +162,14 @@ func runRollback(args []string) (any, error) {
 	start := time.Now()
 	results := executeRollbacks(plans, timeout, debug)
 	recordRollbackHistory(results, time.Since(start))
+	for _, r := range results {
+		d, _ := time.ParseDuration(r.Duration)
+		var stepErr error
+		if r.Error != "" {
+			stepErr = stderrors.New(r.Error) // classified locally, never sent
+		}
+		telemetry.AddSteps(telemetry.Step{Recipe: recipeOf[r.Service], Name: "rollback", Success: r.Success, Duration: d, Err: stepErr})
+	}
 
 	var failed []string
 	for _, r := range results {
