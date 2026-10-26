@@ -173,6 +173,9 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 		// Monitor command execution
 		done := make(chan error, 1)
 		go func() {
+			// Wait closes the pipes, so the readers must drain them first or
+			// the end of the output is lost.
+			wg.Wait()
 			done <- cmd.Wait()
 		}()
 
@@ -186,9 +189,6 @@ func CommandWorker(taskInfo *TaskInfo) (bool, error) {
 
 			return false, errors.New("command timed out after %ds", taskInfo.Timeout)
 		case err := <-done:
-			// Wait for output goroutines to finish draining pipes
-			wg.Wait()
-
 			// Command completed
 			if err == nil {
 				return true, nil
