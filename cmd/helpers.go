@@ -20,6 +20,7 @@ import (
 	"github.com/sid-technologies/pilum/lib/path"
 	"github.com/sid-technologies/pilum/lib/recipe"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
+	"github.com/sid-technologies/pilum/lib/telemetry"
 	"github.com/sid-technologies/pilum/lib/types"
 	"github.com/sid-technologies/pilum/lib/webhook"
 
@@ -156,6 +157,13 @@ func addCommandFlags(cmd *cobra.Command, includeDryRun bool) {
 // The noServicesMsg is shown as a warning if no services are found.
 func runPipeline(cmdName string, args []string, opts deploymentOptions, noServicesMsg string) error {
 	output.SetDebug(opts.Debug)
+	telemetry.Begin(cmdName, map[string]bool{
+		"dry_run":      opts.DryRun,
+		"only_changed": opts.OnlyChanged,
+		"no_deps":      opts.NoDeps,
+		"no_warm":      opts.NoWarm,
+		"force":        opts.Force,
+	})
 
 	// Normalize service names: support both space-separated and comma-separated inputs.
 	// "service-a,service-b" → ["service-a", "service-b"]
@@ -196,6 +204,7 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	}
 
 	warnSchemaProblems(services)
+	recipeOf := telemetryServices(services, opts.RecipePath != "")
 
 	if len(services) == 0 {
 		// If the user explicitly named services but none were found, fail hard.
@@ -264,6 +273,11 @@ func runPipeline(cmdName string, args []string, opts deploymentOptions, noServic
 	startTime := time.Now()
 	runErr := pipeline.Run()
 	duration := time.Since(startTime).Round(time.Second)
+	for _, r := range pipeline.Results() {
+		telemetry.AddSteps(telemetry.Step{
+			Recipe: recipeOf[r.ServiceName], Name: r.StepName, Success: r.Success, Duration: r.Duration, Err: r.Error,
+		})
+	}
 
 	// Post final GitHub status
 	if ghEnv != nil {
@@ -339,6 +353,20 @@ func acquireLock(projectRoot, cmdName string, services []serviceinfo.ServiceInfo
 		close(sigCh)
 		lock.Release(projectRoot)
 	}, nil
+}
+
+// telemetryServices records each service's recipe for telemetry and returns
+// a display-name-to-recipe map for labeling step results. Only recipe names
+// are recorded; telemetry turns any that aren't built in into "custom".
+func telemetryServices(services []serviceinfo.ServiceInfo, customRecipes bool) map[string]string {
+	recipes := make([]string, len(services))
+	recipeOf := make(map[string]string, len(services))
+	for i := range services {
+		recipes[i] = services[i].RecipeKey()
+		recipeOf[services[i].DisplayName()] = recipes[i]
+	}
+	telemetry.SetServices(recipes, customRecipes)
+	return recipeOf
 }
 
 // recordHistory saves a pipeline run to the history file.

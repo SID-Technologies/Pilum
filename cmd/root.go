@@ -7,6 +7,7 @@ import (
 
 	"github.com/sid-technologies/pilum/lib/exitcodes"
 	"github.com/sid-technologies/pilum/lib/output"
+	"github.com/sid-technologies/pilum/lib/telemetry"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -59,7 +60,11 @@ Pipeline commands:
 }
 
 func Execute() {
+	askTelemetryOnFirstRun()
 	err := rootCmd.Execute()
+	// Opt-in only; sends nothing unless the user turned telemetry on, and
+	// gives up after a second so it never delays or changes the exit.
+	telemetry.Flush(version, err)
 	if err != nil {
 		output.Error("%s", err.Error())
 		//nolint: revive // standard practice to use os.Exit in main package

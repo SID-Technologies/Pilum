@@ -36,6 +36,7 @@ pilum dry-run [services]       # Preview what would execute (alias: dr)
 pilum status [services]        # Show status of deployed services (alias: st)
 pilum logs <service>           # Show logs for a deployed service (alias: log)
 pilum history                  # Show deployment history (alias: hist)
+pilum telemetry status         # Opt-in telemetry: status, enable, disable, last
 pilum delete-builds [services] # Clean dist/ directories (alias: clean)
 
 # Common Flags

@@ -1,0 +1,81 @@
+{
+  "$comment": "Pilum telemetry schema v1. The only events and values t.pilum.dev forwards. The Pilum CLI's tests check their constants against a copy of this file (lib/telemetry/testdata/v1.json), so change both together.",
+  "schema": 1,
+  "limits": {
+    "max_body_bytes": 32768,
+    "max_events": 50,
+    "services": 1000,
+    "waves": 1000,
+    "duration_ms": 86400000
+  },
+  "enums": {
+    "command": ["deploy", "build", "publish", "push", "rollback", "delete"],
+    "exit_class": ["ok", "config", "no_services", "deploy", "io", "invalid_args", "lock", "general"],
+    "ci_provider": ["github_actions", "gitlab", "buildkite", "circleci", "jenkins", "other", "none"],
+    "error_class": ["auth", "permission", "quota", "timeout", "not_found", "build_failed", "network", "unknown"],
+    "os": ["linux", "darwin", "windows", "freebsd"],
+    "arch": ["amd64", "arm64", "386", "arm"]
+  },
+  "flags": ["dry_run", "only_changed", "no_deps", "no_warm", "force"],
+  "recipes": {
+    "aws-lambda": ["build", "deploy"],
+    "azure-container-apps": ["build binary", "build docker image", "publish to registry", "deploy to container app"],
+    "cloudflare-pages": ["install dependencies", "build site", "deploy to pages"],
+    "gcp-artifact-registry-image": ["build binary", "build docker image", "publish to registry"],
+    "gcp-cloud-run-from-image": ["deploy from image", "route traffic to latest"],
+    "gcp-cloud-run-job": ["build binary", "build docker image", "publish to registry", "deploy job", "execute job"],
+    "gcp-cloud-run": [
+      "build binary",
+      "build docker image",
+      "publish to registry",
+      "deploy to cloud run",
+      "route traffic to latest"
+    ],
+    "gcp-mig-container": [
+      "build binary",
+      "build docker image",
+      "publish to registry",
+      "create instance template",
+      "start rolling update",
+      "wait for stable"
+    ],
+    "homebrew": ["build binaries", "create archives", "generate checksums", "update formula", "push to tap"],
+    "npm": [
+      "install dependencies",
+      "snapshot package manifest",
+      "set version",
+      "build package",
+      "resolve workspace dependencies",
+      "publish package",
+      "restore package manifest"
+    ]
+  },
+  "events": {
+    "pilum_run": {
+      "version": "version",
+      "os": "enum:os",
+      "arch": "enum:arch",
+      "command": "enum:command",
+      "ci": "bool",
+      "ci_provider": "enum:ci_provider",
+      "success": "bool",
+      "exit_class": "enum:exit_class",
+      "duration_ms": "int:duration_ms",
+      "services": "int:services",
+      "recipes": "recipe_counts",
+      "waves": "int:waves",
+      "flags": "flags"
+    },
+    "pilum_step_failed": {
+      "version": "version",
+      "os": "enum:os",
+      "arch": "enum:arch",
+      "ci": "bool",
+      "ci_provider": "enum:ci_provider",
+      "recipe": "recipe",
+      "step": "step",
+      "error_class": "enum:error_class",
+      "duration_ms": "int:duration_ms"
+    }
+  }
+}
