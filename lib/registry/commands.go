@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	"github.com/sid-technologies/pilum/ingredients/azure"
 	"github.com/sid-technologies/pilum/ingredients/build"
 	"github.com/sid-technologies/pilum/ingredients/cloudflare"
@@ -27,6 +28,7 @@ func RegisterDefaultHandlers(reg *CommandRegistry) {
 	registerHomebrewHandlers(reg)
 	registerNpmHandlers(reg)
 	registerCloudflareHandlers(reg)
+	registerAWSHandlers(reg)
 }
 
 func registerGCPCloudRunFromImageHandlers(reg *CommandRegistry) {
@@ -240,6 +242,41 @@ func registerCloudflareHandlers(reg *CommandRegistry) {
 	reg.Register("deploy to pages", "cloudflare", func(ctx StepContext) any {
 		return cloudflare.GenerateDeployCommand(ctx.Service, ctx.Tag)
 	})
+}
+
+// registerAWSHandlers registers the steps every AWS image recipe shares.
+// Build/push steps are handled by generic handlers registered in
+// registerGCPCloudRunHandlers.
+func registerAWSHandlers(reg *CommandRegistry) {
+	// Before docker build: with docker_cache on, the build reads and writes
+	// its layer cache in ECR, so it needs a login too. Without it, nothing,
+	// so a local `pilum build` doesn't need AWS credentials.
+	reg.Register("login for build cache", "aws", func(ctx StepContext) any {
+		if !ctx.Service.BuildConfig.DockerCache {
+			return nil
+		}
+		return shellOrNil(aws.GenerateECRLoginCommand(ctx.Service, ctx.ImageName))
+	})
+
+	// Before push: docker can't push to ECR without a fresh login (tokens
+	// last 12 hours).
+	reg.Register("login to registry", "aws", func(ctx StepContext) any {
+		return shellOrNil(aws.GenerateECRLoginCommand(ctx.Service, ctx.ImageName))
+	})
+
+	// Before push, when aws.create_repository is set.
+	reg.Register("create registry repository", "aws", func(ctx StepContext) any {
+		return shellOrNil(aws.GenerateCreateRepositoryCommand(ctx.Service, ctx.ImageName))
+	})
+}
+
+// shellOrNil turns an empty shell command into "no command", which skips
+// the step.
+func shellOrNil(cmd string) any {
+	if cmd == "" {
+		return nil
+	}
+	return cmd
 }
 
 // validatePathContainment ensures the resolved path stays within the base directory.

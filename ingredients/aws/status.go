@@ -14,10 +14,7 @@ func GenerateStatusCommand(svc serviceinfo.ServiceInfo) []string {
 		"--function-name", svc.Name,
 		"--output", "json",
 	}
-	if svc.Region != "" {
-		cmd = append(cmd, "--region", svc.Region)
-	}
-	return cmd
+	return withTarget(cmd, svc)
 }
 
 // GenerateLogsCommand generates an AWS CLI command to tail Lambda logs.
@@ -26,9 +23,7 @@ func GenerateLogsCommand(svc serviceinfo.ServiceInfo, follow bool) []string {
 	cmd := []string{
 		"aws", "logs", "tail", logGroup,
 	}
-	if svc.Region != "" {
-		cmd = append(cmd, "--region", svc.Region)
-	}
+	cmd = withTarget(cmd, svc)
 	if follow {
 		cmd = append(cmd, "--follow")
 	}

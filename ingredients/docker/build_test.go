@@ -273,3 +273,13 @@ func TestGenerateDockerBuildCommandRegistryCache(t *testing.T) {
 	cmd = docker.GenerateDockerBuildCommand(svc, "localhost:5000/svc", "Dockerfile")
 	require.Contains(t, cmd, "type=registry,ref=localhost:5000/svc:buildcache")
 }
+
+func TestGenerateDockerBuildCommandECRCache(t *testing.T) {
+	t.Parallel()
+
+	svc := serviceinfo.ServiceInfo{Name: "api", BuildConfig: serviceinfo.BuildConfig{DockerCache: true}}
+	cmd := docker.GenerateDockerBuildCommand(svc, "123456789012.dkr.ecr.us-east-1.amazonaws.com/api:v1", "Dockerfile")
+
+	require.Contains(t, cmd, "type=registry,ref=123456789012.dkr.ecr.us-east-1.amazonaws.com/api:buildcache,"+
+		"mode=max,ignore-error=true,image-manifest=true,oci-mediatypes=true")
+}

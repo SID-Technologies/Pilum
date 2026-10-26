@@ -553,3 +553,21 @@ func TestRecipeValidateServiceNestedCustomField(t *testing.T) {
 	missing := &serviceinfo.ServiceInfo{Name: "api", Config: map[string]any{"fly": map[string]any{}}}
 	require.Error(t, recipe.ValidateService(missing))
 }
+
+func TestRecipeValidateServiceAWSAccount(t *testing.T) {
+	t.Parallel()
+
+	recipe := Recipe{
+		Name:           "aws-ecr-image",
+		RequiredFields: []RequiredField{{Name: "aws.account", Description: "AWS account ID"}},
+	}
+
+	withID := &serviceinfo.ServiceInfo{Name: "api", Config: map[string]any{"aws": map[string]any{"account_id": "123456789012"}}}
+	require.NoError(t, recipe.ValidateService(withID))
+
+	// Configs from before the aws: block keep the account in registry_name.
+	legacy := &serviceinfo.ServiceInfo{Name: "api", RegistryName: "123456789012"}
+	require.NoError(t, recipe.ValidateService(legacy))
+
+	require.Error(t, recipe.ValidateService(&serviceinfo.ServiceInfo{Name: "api"}))
+}

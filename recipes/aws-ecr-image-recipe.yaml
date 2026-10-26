@@ -1,0 +1,82 @@
+# Build + publish a Docker image to Amazon ECR. No deploy step.
+name: aws-ecr-image
+description: Build a Docker image and publish it to Amazon ECR (no deploy)
+provider: aws
+service: ecr-image
+
+required_fields:
+  - name: region
+    description: AWS region of the ECR registry
+    type: string
+
+  - name: name
+    description: Pilum service name
+    type: string
+
+  - name: aws.account
+    description: 12-digit AWS account ID that owns the registry, as aws.account_id (quoted)
+    type: string
+
+  - name: template
+    description: Dockerfile template name (path relative to _templates directory)
+    type: string
+
+optional_fields:
+  - name: image_name
+    description: ECR repository name. Defaults to the service name.
+    type: string
+
+  - name: version
+    description: Image tag (e.g., v0.1.0). Defaults to "latest"; --tag overrides it.
+    type: string
+    default: latest
+
+  - name: aws.profile
+    description: AWS CLI profile for every aws command. Unset uses the CLI's default credentials.
+    type: string
+
+  - name: aws.create_repository
+    description: Create the ECR repository (scan on push) if it doesn't exist
+    type: bool
+    default: "false"
+
+steps:
+  - name: build binary
+    execution_mode: service_dir
+    timeout: 300
+    tags:
+      - build
+
+  # Only with build.docker_cache: the cache lives in ECR.
+  - name: login for build cache
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - build
+
+  - name: build docker image
+    execution_mode: root
+    timeout: 300
+    tags:
+      - build
+
+  - name: login to registry
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: create registry repository
+    execution_mode: root
+    timeout: 60
+    default_retries: 2
+    tags:
+      - push
+
+  - name: publish to registry
+    execution_mode: root
+    timeout: 120
+    tags:
+      - push

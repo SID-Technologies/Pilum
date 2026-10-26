@@ -24,6 +24,7 @@
         "gcp-cloud-run-from-image",
         "gcp-mig-container",
         "aws-lambda",
+        "aws-ecr-image",
         "azure-container-apps",
         "cloudflare-pages",
         "homebrew",
@@ -73,7 +74,7 @@
     },
     "registry_name": {
       "type": "string",
-      "description": "Docker registry prefix (e.g., 'gcr.io/my-project', 'my-registry.azurecr.io')"
+      "description": "Registry for the provider: the Artifact Registry repository (GCP), the ACR name (Azure), or the account ID (AWS; prefer aws.account_id)"
     },
     "license": {
       "type": "string",
@@ -126,6 +127,9 @@
     "mig": {
       "$ref": "#/$defs/mig"
     },
+    "aws": {
+      "$ref": "#/$defs/aws"
+    },
     "health_check": {
       "type": "object",
       "description": "Container health check for pilum compose (curl against localhost:8080)",
@@ -166,7 +170,8 @@
           "homebrew": { "$ref": "#/$defs/homebrew" },
           "npm": { "$ref": "#/$defs/npm" },
           "cloudflare": { "$ref": "#/$defs/cloudflare" },
-          "mig": { "$ref": "#/$defs/mig" }
+          "mig": { "$ref": "#/$defs/mig" },
+          "aws": { "$ref": "#/$defs/aws" }
         },
         "additionalProperties": true
       }
@@ -502,6 +507,27 @@
           "description": "Which outbound traffic goes through vpc_connector. Only used with vpc_connector.",
           "enum": ["all-traffic", "private-ranges-only"],
           "default": "all-traffic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "aws": {
+      "type": "object",
+      "description": "Settings shared by every AWS recipe",
+      "properties": {
+        "account_id": {
+          "type": "string",
+          "description": "12-digit AWS account ID that owns the ECR registry. Quote it: unquoted, YAML drops leading zeros. Falls back to registry_name.",
+          "pattern": "^[0-9]{12}$"
+        },
+        "profile": {
+          "type": "string",
+          "description": "AWS CLI profile passed as --profile to every aws command. Unset uses the CLI's default credentials (env vars, AWS_PROFILE, an instance or OIDC role)."
+        },
+        "create_repository": {
+          "type": "boolean",
+          "description": "Create the ECR repository (scan on push) before the first push if it doesn't exist. Leave unset when Terraform owns the repositories.",
+          "default": false
         }
       },
       "additionalProperties": false

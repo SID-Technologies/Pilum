@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sid-technologies/pilum/ingredients/aws"
 	serviceinfo "github.com/sid-technologies/pilum/lib/service_info"
 )
 
@@ -100,9 +101,9 @@ func generateProviderImageName(service serviceinfo.ServiceInfo, imageBase string
 				service.Region, service.Project, registryName, imageBase)
 		}
 	case "aws":
-		if service.RegistryName != "" && service.Region != "" {
-			return fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/%s",
-				service.RegistryName, service.Region, imageBase)
+		host := aws.RegistryHost(service)
+		if host != "" {
+			return host + "/" + imageBase
 		}
 	case "azure":
 		if service.RegistryName != "" {
